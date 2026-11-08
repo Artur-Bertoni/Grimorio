@@ -38,11 +38,6 @@ spring:
   mvc:
     problemdetails:
       enabled: false
-  web:
-    resources:
-      cache:
-        cachecontrol:
-          max-age: 1h
 
 hexatombe:
   midia-dir: ${MIDIA_DIR:./dados/midia}
