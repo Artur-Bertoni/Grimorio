@@ -1,6 +1,11 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>Mesa Hexatombe</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0708'/%3E%3Cpath d='M16 4l10 6v12l-10 6-10-6V10z' fill='none' stroke='%23b3122a' stroke-width='2.5'/%3E%3Cpath d='M12 12l8 8M20 12l-8 8' stroke='%23c9a227' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/fontes.css">
 <style>
 /* Layout: barra fixa de ritual no topo, trilho lateral de contexto, canvas de territorios ao centro */
@@ -409,6 +414,8 @@ body.edit .addrow.edonly{display:flex!important}
 </style>
 <div id="editbanner" class="editbanner" hidden>Modo edição ativo — clique em qualquer texto para alterar. As mudanças salvam sozinhas.</div>
 
+</head>
+<body>
 <header class="top">
   <div class="topin">
     <div class="brand">
@@ -642,7 +649,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
-function norm(s){return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
+function norm(s){return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
 function toast(m){var t=el("div",{"class":"toast",text:m});document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 function fmt(s){if(!isFinite(s))return "0:00";var m=Math.floor(s/60),x=Math.floor(s%60);return m+":"+(x<10?"0":"")+x;}
 function catColor(c){var f=(D.trilhaCategorias||[]).filter(function(x){return x.id===c;})[0];return f?f.cor:"#7d6e6b";}
@@ -1958,9 +1965,11 @@ function abrirArquivos(back){
       +'<div id="afDocs"><p class="muted sm">carregando…</p></div>'
       +'<div class="addrow" style="margin-top:10px">'
         +'<button class="btn" id="afPastaPdf">Enviar a pasta Sistema</button>'
-        +'<button class="btn sec" id="afUmPdf">Enviar um PDF</button></div>'
+        +'<button class="btn sec" id="afUmPdf">Enviar um PDF</button>'
+        +'<button class="btn sec" id="afScan">Reescanear o volume</button></div>'
       +'<p class="sm muted">O servidor lê o texto de cada página e joga na busca. '
-      +'Nos dois livros públicos a busca já vem pronta, então pode subir só o PDF.</p></div>'
+      +'Livro Básico e Sobrevivendo ao Horror já vêm indexados, então neles o PDF entra na hora. '
+      +'<b>Reescanear</b> é para arquivos que você colocou no volume por fora, pelo CLI do Railway.</p></div>'
     +'<div class="fld"><span class="flb">Trilha sonora</span>'
       +'<div id="afAud"><p class="muted sm">carregando…</p></div>'
       +'<div class="addrow" style="margin-top:10px">'
@@ -2036,6 +2045,15 @@ function abrirArquivos(back){
     fd.append("arquivo",f);
     return upload("/api/admin/midia/audio",fd,onp);
   }
+  $("#afScan",ov).onclick=function(){
+    var b=$("#afScan",ov); b.disabled=true; b.textContent="Procurando…";
+    api("/api/admin/midia/reescanear",{method:"POST"}).then(function(r){
+      b.disabled=false; b.textContent="Reescanear o volume";
+      recarregaCatalogo(); recarregaIndice(); lista();
+      var n=(r.pdfs||0)+(r.audios||0);
+      toast(n?((r.pdfs||0)+" PDFs e "+(r.audios||0)+" faixas registrados"):"Nada novo no volume");
+    }).catch(function(e){ b.disabled=false; b.textContent="Reescanear o volume";
+      toast((e&&e.message)||"não deu"); }); };
   $("#afPastaPdf",ov).onclick=function(){ escolherArquivos(true).then(function(fs){
     fila(fs.filter(function(f){return /\.pdf$/i.test(f.name);}),enviaPdf); }); };
   $("#afUmPdf",ov).onclick=function(){ escolherArquivos(false,".pdf").then(function(fs){
@@ -2589,3 +2607,5 @@ window.addEventListener("resize",function(){
 boot();
 })();
 </script>
+</body>
+</html>
