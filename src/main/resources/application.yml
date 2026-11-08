@@ -1,0 +1,56 @@
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/javascript,text/html,text/css,text/plain
+    min-response-size: 2048
+  servlet:
+    session:
+      timeout: 30d
+      cookie:
+        name: HEXASESSAO
+        same-site: lax
+        http-only: true
+  tomcat:
+    max-swallow-size: -1
+    max-http-form-post-size: 10MB
+  error:
+    whitelabel:
+      enabled: false
+
+spring:
+  application:
+    name: hexatombe-mesa
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 20
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 400MB
+      max-request-size: 420MB
+      file-size-threshold: 2MB
+  mvc:
+    problemdetails:
+      enabled: false
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 1h
+
+hexatombe:
+  midia-dir: ${MIDIA_DIR:./dados/midia}
+  mestre-login: ${MESTRE_LOGIN:mestre}
+  mestre-senha: ${MESTRE_SENHA:}
+
+logging:
+  level:
+    root: INFO
+    br.com.hexatombe: INFO
+    org.hibernate.SQL: WARN
