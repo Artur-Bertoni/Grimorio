@@ -29,25 +29,26 @@ mestre traz o seu, pelo painel ou por um pacote de campanha.
    sozinho: a documentação diz que um Dockerfile na raiz sempre vence o builder padrão.
 3. No mesmo projeto: **New** → **Database** → **Add PostgreSQL**. Deixe o serviço
    com o nome `Postgres`.
-4. No serviço da aplicação, aba **Variables**:
+4. No serviço da aplicação, aba **Variables**, só duas:
 
    | variável | valor |
    |---|---|
    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-   | `ADMIN_LOGIN` | o login do administrador (padrão `admin`) |
-   | `ADMIN_SENHA` | a senha dele |
    | `PORT` | `8080` |
 
 5. **Settings → Volumes**: crie um volume montado em **`/data`**. É onde ficam
    PDFs, áudio, imagens e os índices de busca, separados por campanha.
 6. **Settings → Networking → Generate Domain**.
 
-No primeiro boot o app cria a conta de administrador e escreve a senha no log se
-`ADMIN_SENHA` estiver vazia.
+Não existe login de bootstrap nem variável de senha. Abra o site, clique em
+**Criar uma conta** e pronto: a primeira conta da instância vira a
+administradora.
 
 ## Primeiros passos dentro do app
 
-1. Entre com a conta de administrador e crie sua campanha.
+1. Crie sua conta e, na tela inicial, crie a campanha (ou entre numa existente
+   colando a chave de convite que quem mestra te passou). Se tiver um pacote
+   `.zip` de campanha, escolha o arquivo antes de clicar em Criar: ele entra junto.
 2. Menu **···** → **Arquivos**: envie os PDFs dos livros (marque quais os jogadores
    podem ver), a trilha sonora e as imagens.
 3. Menu **···** → **Quem está na mesa**: gere um link de convite por jogador. Quem
@@ -96,8 +97,6 @@ Build do jar: `mvn -DskipTests package` → `target/grimorio.jar`.
 | `DATABASE_URL` | — | Postgres. Ausente = H2 em arquivo |
 | `JDBC_URL`, `JDBC_USER`, `JDBC_SENHA` | — | alternativa ao `DATABASE_URL` |
 | `MIDIA_DIR` | `/data/midia` no Docker, `./dados/midia` fora | PDFs, áudio, imagens e índices |
-| `ADMIN_LOGIN` | `admin` | conta criada no primeiro boot |
-| `ADMIN_SENHA` | aleatória | senha do primeiro boot |
 | `PORT` | `8080` | o Railway injeta sozinho |
 | `DB_POOL` | `5` | conexões do pool |
 
