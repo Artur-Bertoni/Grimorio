@@ -8,7 +8,7 @@ server:
     session:
       timeout: 30d
       cookie:
-        name: HEXASESSAO
+        name: GRIMORIO
         same-site: lax
         http-only: true
   tomcat:
@@ -20,7 +20,7 @@ server:
 
 spring:
   application:
-    name: hexatombe-mesa
+    name: grimorio
   jpa:
     hibernate:
       ddl-auto: update
@@ -39,13 +39,13 @@ spring:
     problemdetails:
       enabled: false
 
-hexatombe:
+grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}
-  mestre-login: ${MESTRE_LOGIN:mestre}
-  mestre-senha: ${MESTRE_SENHA:}
+  admin-login: ${ADMIN_LOGIN:${MESTRE_LOGIN:admin}}
+  admin-senha: ${ADMIN_SENHA:${MESTRE_SENHA:}}
 
 logging:
   level:
     root: INFO
-    br.com.hexatombe: INFO
+    br.com.grimorio: INFO
     org.hibernate.SQL: WARN

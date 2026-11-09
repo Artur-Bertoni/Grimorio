@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Mesa Hexatombe</title>
+<title>Grimório</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0708'/%3E%3Cpath d='M16 4l10 6v12l-10 6-10-6V10z' fill='none' stroke='%23b3122a' stroke-width='2.5'/%3E%3Cpath d='M12 12l8 8M20 12l-8 8' stroke='%23c9a227' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/fontes.css">
 <style>
@@ -14,7 +14,7 @@
   --line:#322328; --line2:#48313a;
   --fg:#ece4d9; --fg2:#b7a9a2; --fg3:#7d6e6b;
   --blood:#b3122a; --blood2:#e23048; --blood-dim:#5e0f1c;
-  --gold:#c9a227; --gold2:#e8c45a;
+  --gold:#c9a227; --gold2:#e8c45a; --sobre-gold:#140e02;
   --ok:#7ba36f; --warn:#d08a2c;
   --t-abertura:#8e7cc3; --t-despertares:#c2458a; --t-saopaulo:#c9a227; --t-galpao:#c0392b; --t-gancho:#4a8fa8;
   --disp:"Cinzel", Georgia, serif;
@@ -47,7 +47,7 @@ input,textarea,select{font:inherit;color:inherit}
 /* ---------- TOPO ---------- */
 header.top{
   position:sticky;top:env(safe-area-inset-top,0px);z-index:50;
-  background:linear-gradient(#0d090a,#0b0809 70%,#09060700);
+  background:linear-gradient(var(--bg2),var(--bg) 70%,transparent);
   border-bottom:1px solid var(--line);
   backdrop-filter:blur(6px);
 }
@@ -311,7 +311,8 @@ ul.fl li.q{list-style:none}
 .rit{display:grid;grid-template-columns:auto 1fr;gap:11px;padding:9px 10px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;text-align:left;width:100%}
 .rit:hover,.rit.sel{background:var(--bg3);border-color:var(--line2)}
 .rsrc{font-family:var(--ui);font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);
-  border:1px solid var(--line2);border-radius:3px;padding:2px 7px;height:fit-content;white-space:nowrap}
+  border:1px solid var(--line2);border-radius:3px;padding:2px 7px;height:fit-content;
+  white-space:normal;max-width:8.5rem;line-height:1.3;text-align:center}
 .rsrc.camp{color:var(--blood2);border-color:var(--blood-dim)}
 .rti{font-family:var(--disp);font-size:.93rem;letter-spacing:.02em;display:block}
 .rsub{font-family:var(--ui);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);margin-top:1px;display:block}
@@ -355,7 +356,7 @@ ul.fl li.q{list-style:none}
 .libbox p{margin:0 0 11px;color:var(--fg2);font-size:.92rem}
 .btn{font-family:var(--ui);font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--gold);
   color:var(--gold);border-radius:var(--r);padding:9px 16px;background:rgba(201,162,39,.07)}
-.btn:hover{background:var(--gold);color:#140e02}
+.btn:hover{background:var(--gold);color:var(--sobre-gold)}
 .btn.sec{border-color:var(--line2);color:var(--fg2);background:var(--bg2)}
 .btn.sec:hover{background:var(--bg4);color:var(--fg)}
 .btn.dang{border-color:var(--blood);color:var(--blood2);background:rgba(179,18,42,.07)}
@@ -420,11 +421,11 @@ body.edit .addrow.edonly{display:flex!important}
   <div class="topin">
     <div class="brand">
       <svg class="sigil" viewBox="0 0 26 29" fill="none" aria-hidden="true">
-        <path d="M13 1.2 24.3 7.6v12.8L13 27.8 1.7 20.4V7.6z" stroke="#b3122a" stroke-width="1.3"/>
-        <path d="M13 5.4 20.7 9.8v8.8L13 23.6 5.3 18.6V9.8z" stroke="#c9a227" stroke-width=".8" opacity=".55"/>
-        <path d="M9.6 10.6l6.8 7.8M16.4 10.6l-6.8 7.8" stroke="#ece4d9" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M13 1.2 24.3 7.6v12.8L13 27.8 1.7 20.4V7.6z" stroke="var(--blood)" stroke-width="1.3"/>
+        <path d="M13 5.4 20.7 9.8v8.8L13 23.6 5.3 18.6V9.8z" stroke="var(--gold)" stroke-width=".8" opacity=".55"/>
+        <path d="M9.6 10.6l6.8 7.8M16.4 10.6l-6.8 7.8" stroke="var(--fg)" stroke-width="1.4" stroke-linecap="round"/>
       </svg>
-      <div><b>HEXATOMBE</b><span>Mesa do Mestre</span></div>
+      <div><b id="brandNome">GRIMÓRIO</b><span id="brandSub">Mesa do Mestre</span></div>
     </div>
     <nav class="tabs" id="tabs" aria-label="Seções"></nav>
     <div class="nowbar" id="nowbar" hidden aria-label="Trilha tocando">
@@ -447,7 +448,7 @@ body.edit .addrow.edonly{display:flex!important}
 <div id="layer"></div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="publico.js"></script>
+
 <style>
 /* quadro em tela cheia, trilho sobreposto */
 body.board{overflow:hidden}
@@ -509,9 +510,9 @@ body.edit .blktools{display:inline-flex}
 .libdot svg{width:11px;height:11px;opacity:.35}
 .libdot:hover{border-color:var(--gold);color:var(--gold)}
 .libdot:hover svg{opacity:.8}
-.libdot.on{background:var(--gold);border-color:var(--gold);color:#140e02}
+.libdot.on{background:var(--gold);border-color:var(--gold);color:var(--sobre-gold)}
 .libdot.on svg{opacity:1}
-.btn.libbtn.on{border-color:var(--gold);background:var(--gold);color:#140e02}
+.btn.libbtn.on{border-color:var(--gold);background:var(--gold);color:var(--sobre-gold)}
 .grph button{flex:0 0 auto}
 .sheet.pgsheet{max-width:min(960px,100%)}
 .pgtxt{font-size:1rem;line-height:1.7;color:var(--fg2);max-width:84ch}
@@ -632,13 +633,32 @@ body.jogador .nowbar,body.jogador .editbanner{display:none!important}
 <script>
 (function(){
 "use strict";
-var PUB=window.HEXA_PUBLICO||{};
-var VAZIO={versao:2,campanha:null,sessoes:[],trilhaCategorias:PUB.trilhaCategorias||[],galeria:[]};
-var BASE=window.HEXA_DADOS||null;
+var VAZIO={versao:2,campanha:null,sessoes:[],trilhaCategorias:[],galeria:[]};
+var BASE=window.GRIMORIO_DADOS||null;
 var D=BASE?JSON.parse(JSON.stringify(BASE)):JSON.parse(JSON.stringify(VAZIO));
 var S={view:"mesa",sessao:0,vmode:"canvas",edit:false,rail:true,msec:"resumos"};
 var saveT=null,USER=null,MYID=null,GM=false,PRONTO=false;
 var VGUIA=-1,VMESA=-1,IACFG=false,sondaT=null;
+var CID=null,CAMPANHAS=[],MIDIABASE="",ADMIN=false,PAPEL="JOGADOR",EU=null;
+
+/* Dados de referência da campanha: o mestre lê do guia, o jogador da mesa. */
+function PUBD(){ if(GM&&D&&D.campanha)return D.campanha; return MESA||{}; }
+function cAPI(p){ return "/api/c/"+CID+p; }
+/* Caminho de imagem do guia vira URL da mídia da campanha. */
+function IMG(p){ var x=String(p==null?"":p); if(!x)return "";
+  if(/^(https?:|data:|blob:|\/)/i.test(x))return x;
+  return MIDIABASE+x.replace(/^\.?\//,""); }
+function parametro(n){ try{ return new URLSearchParams(location.search).get(n)||""; }catch(e){ return ""; } }
+function limparUrl(){ try{ history.replaceState({},"",location.pathname); }catch(e){} }
+
+/* ---------- VOCABULÁRIO ---------- */
+var VOCAB_PADRAO={campanha:"Campanha",sessao:"Sessão",sessoes:"Sessões",cena:"Cena",cenas:"Cenas",
+ territorio:"Território",territorios:"Territórios",evidencia:"Evidência",evidencias:"Evidências",
+ npc:"NPC",npcs:"NPCs",local:"Local",locais:"Locais",mestre:"Mestre",jogador:"Jogador",
+ jogadores:"Jogadores",trilha:"Trilha",mesa:"Mesa",quadro:"Quadro",roteiro:"Roteiro",
+ metodo:"Método",referencia:"Consulta rápida",ficha:"Ficha",fichas:"Fichas"};
+function V(k){ var v=PUBD().vocab||{}; return v[k]||VOCAB_PADRAO[k]||k; }
+function Vm(k){ var t=V(k); return t?t.charAt(0).toUpperCase()+t.slice(1):t; }
 var MESA={resumos:[],ev:[],npcs:[],locais:[],at:0},mesaT=null;
 
 function el(t,a){var e=document.createElement(t);if(a)for(var k in a){
@@ -658,9 +678,26 @@ function terr(s,id){var f=(s.territorios||[]).filter(function(t){return t.id===i
   return f||{id:id,nome:"SEM TERRITÓRIO",cor:"#7d6e6b"};}
 function uid(p){return (p||"x")+Date.now().toString(36)+Math.floor(Math.random()*999).toString(36);}
 
-function cacheGM(j){ try{localStorage.setItem("hexa_gm",j);}catch(e){} }
-function lerCache(){ try{ var c=localStorage.getItem("hexa_gm"); if(!c)return false;
-  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length){ D=v; return true; } }catch(e){} return false; }
+/* Nome dos livros por extenso em qualquer lugar da tela. A sigla continua
+   sendo a chave interna (upload, indice, data-doc); so a exibicao muda. */
+var NOMES_DOC={LB:"Livro Básico",SH:"Sobrevivendo ao Horror",
+  AS01:"Arquivos Secretos 01",AS02:"Arquivos Secretos 02",AS03:"Arquivos Secretos 03",
+  AS04:"Arquivos Secretos 04",AS05:"Arquivos Secretos 05",AS06:"Arquivos Secretos 06",
+  AS07:"Arquivos Secretos 07"};
+function nomeDoc(ab){ var a=String(ab==null?"":ab).toUpperCase().trim(); if(!a)return "";
+  if(typeof LIB!=="undefined"&&LIB.docs&&LIB.docs[a]&&LIB.docs[a].nome)return LIB.docs[a].nome;
+  var ds=(typeof IDX!=="undefined"&&IDX&&IDX.docs)||[];
+  for(var i=0;i<ds.length;i++){
+    if(String(ds[i].abrev||"").toUpperCase()===a||String(ds[i].id||"").toUpperCase()===a)
+      return ds[i].nome||a; }
+  return NOMES_DOC[a]||ab; }
+function refDoc(ab,p){ var n=nomeDoc(ab); return p?(n+" p."+p):n; }
+function refLivro(txt){ var m=String(txt==null?"":txt).match(/^\s*([A-Za-z]{1,4}\d{0,2})\s*[Pp]\.?\s*(\d+)/);
+  return m?refDoc(m[1],m[2]):nomeDoc(txt); }
+
+function cacheGM(j){ try{localStorage.setItem("grim_gm_"+CID,j);}catch(e){} }
+function lerCache(){ try{ var c=localStorage.getItem("grim_gm_"+CID); if(!c)return false;
+  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length){ D=v; normalizaCampanha(); return true; } }catch(e){} return false; }
 function cookie(n){ var m=document.cookie.match(new RegExp("(^|; )"+n+"=([^;]*)")); return m?decodeURIComponent(m[2]):""; }
 function api(url,opt){
   opt=opt||{}; opt.credentials="same-origin"; opt.headers=opt.headers||{};
@@ -678,13 +715,13 @@ function api(url,opt){
       return b; }); });
 }
 function save(){ if(!GM)return;
-  if(!D.campanha||!D.sessoes.length){ toast("Não vou salvar: o guia não está carregado"); return; }
+  if(!CID||!D.campanha){ toast("Não vou salvar: o guia não está carregado"); return; }
   var j=JSON.stringify(D); cacheGM(j);
   clearTimeout(saveT);
-  saveT=setTimeout(function(){ gravaDoc("/api/guia",j,"guia"); },700); }
+  saveT=setTimeout(function(){ gravaDoc("/guia",j,"guia"); },700); }
 function gravaDoc(url,j,qual){
   function tenta(v,repetir){
-    return api(url,{method:"PUT",body:{json:j,versao:v}}).then(function(r){
+    return api(cAPI(url),{method:"PUT",body:{json:j,versao:v}}).then(function(r){
       if(qual==="guia")VGUIA=r.versao; else VMESA=r.versao; })
      .catch(function(e){
        if(e.status===409&&e.corpo&&repetir){
@@ -695,11 +732,17 @@ function gravaDoc(url,j,qual){
   }
   return tenta(qual==="guia"?VGUIA:VMESA,true);
 }
-function salvarMesa(){ if(!GM)return; MESA.at=Date.now(); clearTimeout(mesaT);
-  mesaT=setTimeout(function(){ gravaDoc("/api/mesa",JSON.stringify(MESA),"mesa"); },500); }
+function salvarMesa(){ if(!GM)return;
+  if(D&&D.campanha){ MESA.titulo=D.campanha.titulo||""; MESA.sistema=D.campanha.sistema||"";
+    MESA.vocab=D.campanha.vocab||{}; MESA.referencia=D.campanha.referencia||[];
+    MESA.sinonimos=D.campanha.sinonimos||{}; MESA.canonicas=D.campanha.canonicas||{}; }
+  MESA.at=Date.now(); clearTimeout(mesaT);
+  mesaT=setTimeout(function(){ gravaDoc("/mesa",JSON.stringify(MESA),"mesa"); },500); }
 function aplicaMesa(m){ if(!m||!m.json)return; try{ var v=JSON.parse(m.json);
   if(v&&typeof v==="object"){ MESA={resumos:v.resumos||[],ev:v.ev||[],npcs:v.npcs||[],locais:v.locais||[],
-    iaNome:v.iaNome||"",iaArt:v.iaArt||"ao",at:v.at||0}; } }catch(e){} }
+    iaNome:v.iaNome||"",iaArt:v.iaArt||"ao",tema:v.tema||"",titulo:v.titulo||"",
+    sistema:v.sistema||"",vocab:v.vocab||{},referencia:v.referencia||[],
+    sinonimos:v.sinonimos||{},canonicas:v.canonicas||{},at:v.at||0}; } }catch(e){} }
 function iaNome(){ return String(MESA.iaNome||"").trim()||"Claude"; }
 function iaArt(){ var a=String(MESA.iaArt||"ao").trim(); return (a==="à"||a==="a")?a:"ao"; }
 function iaPergunta(){ return "Perguntar "+iaArt()+" "+iaNome(); }
@@ -710,31 +753,156 @@ function refreshMesa(){ if(!PRONTO||S.view!=="mesa")return;
     var b=$("#mbody"); if(!b)return;
     try{ b.innerHTML=mesaSec(); hydrateMesa(); }catch(e){} },300); }
 function sondaMesa(){ clearInterval(sondaT);
-  sondaT=setInterval(function(){ if(document.hidden)return;
-    api("/api/mesa/versao").then(function(r){
+  sondaT=setInterval(function(){ if(document.hidden||!CID)return;
+    api(cAPI("/mesa/versao")).then(function(r){
       if(!r||r.versao===VMESA)return;
-      return api("/api/mesa").then(function(m){ VMESA=m.versao; aplicaMesa(m); refreshMesa(); });
+      return api(cAPI("/mesa")).then(function(m){ VMESA=m.versao; aplicaMesa(m);
+        aplicarTema(temaAtivo()); pintarMarca(); refreshMesa(); });
     }).catch(function(){}); },6000); }
+
 function boot(){
-  try{ $("#view").innerHTML='<p class="empty" style="padding:72px 0">Carregando a campanha…</p>'; }catch(e){}
-  function fim(){ if(PRONTO)return; PRONTO=true;
-    if(GM&&S.view==="mesa")S.view="home";
-    render(); sondaMesa(); if(GM)carregaCatalogo(); }
-  setTimeout(fim,20000);
+  try{ aplicarTema(temaAtivo()); }catch(e){}
+  try{ $("#view").innerHTML='<p class="empty" style="padding:72px 0">Carregando…</p>'; }catch(e){}
   api("/api/sessao").then(function(s){
-    USER=s||{}; MYID=String((s&&s.id)||""); GM=!!(s&&s.mestre); IACFG=!!(s&&s.iaConfigurada);
-    var ps=[ api("/api/mesa").then(function(m){ VMESA=m.versao; aplicaMesa(m); }).catch(function(){}) ];
-    if(GM) ps.push( api("/api/guia").then(function(g){ VGUIA=g.versao;
-        try{ var v=JSON.parse(g.json||"{}");
-          if(v&&v.sessoes&&v.sessoes.length){ D=v; cacheGM(g.json); }
-          else if(lerCache()){ BOOTERR=""; }
-          else BOOTERR="o guia no servidor está vazio"; }
-        catch(e){ BOOTERR="JSON inválido no guia: "+((e&&e.message)||e); if(lerCache())BOOTERR=""; } })
-      .catch(function(e){ BOOTERR="não consegui ler o guia: "+((e&&e.message)||e);
-        if(lerCache())BOOTERR=""; }) );
-    return Promise.all(ps);
-  }).then(fim).catch(function(e){
-    BOOTERR=(e&&e.message)||"sem sessão"; fim(); });
+    EU=s; ADMIN=!!s.admin; IACFG=!!s.iaConfigurada; MYID=String(s.id||"");
+    CAMPANHAS=s.campanhas||[];
+    var cv=parametro("convite");
+    if(!cv)return null;
+    return api("/api/convites/"+encodeURIComponent(cv),{method:"POST"})
+      .then(function(c){ limparUrl(); toast("Você entrou em "+c.nome);
+        try{ localStorage.setItem("grim_cid",String(c.id)); }catch(e){}
+        return api("/api/sessao").then(function(s2){ EU=s2; CAMPANHAS=s2.campanhas||[]; }); })
+      .catch(function(e){ limparUrl(); toast((e&&e.message)||"convite inválido"); });
+  }).then(function(){ escolherCampanha(); })
+   .catch(function(e){ try{console.error("boot falhou:",e);}catch(_){}
+     BOOTERR=(e&&(e.stack||e.message))||"sem sessão"; PRONTO=true; render(); });
+}
+
+function escolherCampanha(){
+  if(!CAMPANHAS.length){ PRONTO=true; S.view="semcampanha"; render(); return; }
+  var alvo=null;
+  try{ var g=localStorage.getItem("grim_cid");
+    if(g)alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(g);})[0]||null; }catch(e){}
+  if(!alvo&&CAMPANHAS.length===1)alvo=CAMPANHAS[0];
+  if(!alvo){ PRONTO=true; S.view="escolher"; render(); return; }
+  entrarNaCampanha(alvo.id);
+}
+
+function entrarNaCampanha(cid){
+  var c=CAMPANHAS.filter(function(x){return String(x.id)===String(cid);})[0];
+  if(!c){ toast("Campanha não encontrada"); return; }
+  CID=c.id; PAPEL=c.papel; GM=(c.papel==="MESTRE"); MIDIABASE="/midia/c"+CID+"/";
+  try{ localStorage.setItem("grim_cid",String(CID)); }catch(e){}
+  PRONTO=false; BOOTERR=""; VGUIA=-1; VMESA=-1;
+  D=JSON.parse(JSON.stringify(VAZIO));
+  MESA={resumos:[],ev:[],npcs:[],locais:[],at:0};
+  IDX=null; IDXp=null; CATp=null; PDFC={}; LIB={ok:false,faixas:{},docs:{}};
+  try{ invalidaIndice(); }catch(e){}
+  S.view=GM?"home":"mesa"; S.sessao=0; S.edit=false;
+  try{ $("#view").innerHTML='<p class="empty" style="padding:72px 0">Carregando '+esc(c.nome)+'…</p>'; }catch(e){}
+
+  var ps=[ api(cAPI("/mesa")).then(function(m){ VMESA=m.versao; aplicaMesa(m); }).catch(function(){}) ];
+  if(GM) ps.push( api(cAPI("/guia")).then(function(g){ VGUIA=g.versao;
+      try{ var v=JSON.parse(g.json||"{}");
+        if(v&&v.campanha)D=v;
+        else { D=JSON.parse(JSON.stringify(VAZIO)); D.campanha={titulo:c.nome,sistema:c.sistema||""}; }
+      }catch(e){ BOOTERR="JSON inválido no guia: "+((e&&e.message)||e); } })
+    .catch(function(e){ BOOTERR="não consegui ler o guia: "+((e&&e.message)||e); }) );
+
+  Promise.all(ps).then(function(){
+    if(GM&&!D.campanha)D.campanha={titulo:c.nome,sistema:c.sistema||""};
+    normalizaCampanha();
+    PRONTO=true; aplicarTema(temaAtivo()); pintarMarca();
+    render(); sondaMesa(); if(GM)carregaCatalogo();
+  });
+}
+
+/* ---------- TEMAS ---------- */
+var TEMAS={
+ sangue:{nome:"Sangue",esquema:"dark",v:{
+  "bg":"#0a0708","bg2":"#130d0f","bg3":"#1c1416","bg4":"#241a1d",
+  "line":"#322328","line2":"#48313a","fg":"#ece4d9","fg2":"#b7a9a2","fg3":"#7d6e6b",
+  "blood":"#b3122a","blood2":"#e23048","blood-dim":"#5e0f1c",
+  "gold":"#c9a227","gold2":"#e8c45a","sobre-gold":"#140e02","ok":"#7ba36f","warn":"#d08a2c"}},
+ abismo:{nome:"Abismo",esquema:"dark",v:{
+  "bg":"#060a0d","bg2":"#0d141a","bg3":"#141e26","bg4":"#1b2832",
+  "line":"#223039","line2":"#334a59","fg":"#e2ebf1","fg2":"#a6b8c4","fg3":"#6f8492",
+  "blood":"#1f6f8b","blood2":"#3fa5c6","blood-dim":"#113f52",
+  "gold":"#c9a227","gold2":"#e8c45a","sobre-gold":"#071216","ok":"#5fae92","warn":"#d08a2c"}},
+ floresta:{nome:"Floresta",esquema:"dark",v:{
+  "bg":"#070a08","bg2":"#0f150f","bg3":"#172017","bg4":"#1f2b1f",
+  "line":"#243325","line2":"#364b37","fg":"#e6ece1","fg2":"#aebaa6","fg3":"#75836e",
+  "blood":"#2f6b45","blood2":"#55a271","blood-dim":"#1a3d27",
+  "gold":"#c0a13a","gold2":"#ddc268","sobre-gold":"#0b1409","ok":"#7ba36f","warn":"#cf9032"}},
+ cinza:{nome:"Aço",esquema:"dark",v:{
+  "bg":"#0c0e10","bg2":"#14171a","bg3":"#1c2126","bg4":"#252b31",
+  "line":"#2b3238","line2":"#3e4852","fg":"#e8ecef","fg2":"#adb6bd","fg3":"#76808a",
+  "blood":"#3a6ea5","blood2":"#5e95cd","blood-dim":"#1f3f61",
+  "gold":"#b9c0c7","gold2":"#dde3e8","sobre-gold":"#0c0e10","ok":"#5fa97f","warn":"#d49a3c"}},
+ neon:{nome:"Neon",esquema:"dark",v:{
+  "bg":"#07060e","bg2":"#0e0b19","bg3":"#161124","bg4":"#1e1830",
+  "line":"#271f3d","line2":"#3b2f5c","fg":"#eae6fb","fg2":"#b3a9d2","fg3":"#7a709b",
+  "blood":"#b4249b","blood2":"#ef4fd2","blood-dim":"#5e1151",
+  "gold":"#27cdbf","gold2":"#5ff0e2","sobre-gold":"#06121a","ok":"#44d18a","warn":"#e0a53a"}},
+ pergaminho:{nome:"Pergaminho",esquema:"light",v:{
+  "bg":"#f2e8d6","bg2":"#eaddc6","bg3":"#e0d0b4","bg4":"#d5c2a1",
+  "line":"#cbb795","line2":"#b09c78","fg":"#2a2218","fg2":"#4e4234","fg3":"#776a56",
+  "blood":"#8c2f1f","blood2":"#ad4231","blood-dim":"#d9b9ab",
+  "gold":"#8a6a18","gold2":"#6d5412","sobre-gold":"#f6efe0","ok":"#406b3c","warn":"#8a5a12"}}
+};
+function temaPessoal(){ try{ return localStorage.getItem("grim_tema")||""; }catch(e){ return ""; } }
+function temaAtivo(){ var p=temaPessoal(); if(p&&TEMAS[p])return p;
+  var m=MESA&&MESA.tema; return (m&&TEMAS[m])?m:"sangue"; }
+function aplicarTema(id){
+  var t=TEMAS[id]||TEMAS.sangue, r=document.documentElement;
+  for(var k in t.v) r.style.setProperty("--"+k,t.v[k]);
+  r.style.setProperty("color-scheme",t.esquema);
+  var mt=document.querySelector('meta[name="color-scheme"]'); if(mt)mt.setAttribute("content",t.esquema);
+}
+/* Campos que nasceram com nome de campanha viram genericos. Roda no cliente
+   tambem, entao o app se conserta mesmo sem a migracao do servidor. */
+function normalizaCampanha(){
+  var c=D&&D.campanha; if(!c)return;
+  if(c.conceitoTexto==null&&c.hexatombeTexto!=null){ c.conceitoTexto=c.hexatombeTexto; delete c.hexatombeTexto; }
+  if(c.regrasDeOuro==null&&c.hexatombeRegras!=null){ c.regrasDeOuro=c.hexatombeRegras; delete c.hexatombeRegras; }
+  if(typeof c.conceitoTexto!=="string")c.conceitoTexto="";
+  if(typeof c.metodoNota!=="string")c.metodoNota="";
+  if(!Array.isArray(c.regrasDeOuro))c.regrasDeOuro=[];
+  if(!c.conceitoTitulo)c.conceitoTitulo="O conceito";
+  if(!c.regrasDeOuroTitulo)c.regrasDeOuroTitulo="Regras de ouro";
+  if(!Array.isArray(c.metodo))c.metodo=[];
+  if(!Array.isArray(c.corpos))c.corpos=[];
+  if(!Array.isArray(c.episodios))c.episodios=[];
+  if(!Array.isArray(c.indiceAS))c.indiceAS=[];
+  if(!c.preSessao||typeof c.preSessao!=="object")c.preSessao={};
+  if(typeof c.preSessao.titulo!=="string"||!c.preSessao.titulo)c.preSessao.titulo="Antes da primeira "+V("sessao").toLowerCase();
+  ["intro","textoAbertura"].forEach(function(k){ if(typeof c.preSessao[k]!=="string")c.preSessao[k]=""; });
+  ["perguntas","metodo"].forEach(function(k){ if(!Array.isArray(c.preSessao[k]))c.preSessao[k]=[]; });
+  if(!c.adaptacao||typeof c.adaptacao!=="object")c.adaptacao={};
+  if(typeof c.adaptacao.titulo!=="string"||!c.adaptacao.titulo)c.adaptacao.titulo="Adaptações";
+  if(!Array.isArray(c.adaptacao.itens))c.adaptacao.itens=[];
+  if(!c.corposTitulo)c.corposTitulo="Personagens dos jogadores";
+  if(!c.episodiosTitulo)c.episodiosTitulo="Mapa das "+V("sessoes").toLowerCase();
+  if(!c.indiceTitulo)c.indiceTitulo="Índice dos livros";
+  if(!Array.isArray(c.referencia))c.referencia=[];
+  if(!c.sinonimos||typeof c.sinonimos!=="object")c.sinonimos={};
+  if(!c.canonicas||typeof c.canonicas!=="object")c.canonicas={};
+  if(!c.vocab||typeof c.vocab!=="object")c.vocab={};
+  ["titulo","subtitulo","sistema","verdadeIntro","sacrificio"].forEach(function(k){
+    if(typeof c[k]!=="string")c[k]=""; });
+  if(!Array.isArray(D.sessoes))D.sessoes=[];
+  if(!Array.isArray(D.trilhaCategorias))D.trilhaCategorias=[];
+  if(!Array.isArray(D.galeria))D.galeria=[];
+}
+function tituloApp(){
+  if(GM&&D&&D.campanha&&D.campanha.titulo)return D.campanha.titulo;
+  return (MESA&&MESA.titulo)||"Grimório";
+}
+function pintarMarca(){
+  var b=document.getElementById("brandNome"); if(b)b.textContent=tituloApp();
+  var sb=document.getElementById("brandSub");
+  if(sb)sb.textContent=GM?"Mesa do Mestre":"Mesa";
+  try{ document.title=tituloApp(); }catch(e){}
 }
 
 /* ---------- edicao ---------- */
@@ -785,7 +953,7 @@ function blocoHtml(c,b,bi){
   } else if(b.tipo==="quem"){
     h.push('<ul class="fl">'+b.itens.map(function(q2,i){
       return '<li class="q"><div class="quem">'
-        +(q2.img?'<img src="'+esc(q2.img)+'" alt="" data-lb="'+esc(q2.img)+'" loading="lazy">':"")
+        +(q2.img?'<img src="'+esc(IMG(q2.img))+'" alt="" data-lb="'+esc(q2.img)+'" loading="lazy">':"")
         +'<div class="itbody">'+E(q2,"t")
         +((S.edit||q2.motiva)?'<span class="motiva"><b>Motiva:</b> '+E(q2,"motiva")+'</span>':"")
         +'<span class="addrow edonly" style="margin-top:5px">'
@@ -829,7 +997,7 @@ function blocoHtml(c,b,bi){
     h.push(addIt(c.id,bi,"faixa"));
   } else if(b.tipo==="imagens"){
     h.push('<div class="imgrow">'+b.itens.map(function(src,i){
-      return '<span class="itrow"><img src="'+esc(src)+'" alt="" data-lb="'+esc(src)+'" loading="lazy">'+delIt(c.id,bi,i)+'</span>';}).join("")+'</div>');
+      return '<span class="itrow"><img src="'+esc(IMG(src))+'" alt="" data-lb="'+esc(src)+'" loading="lazy">'+delIt(c.id,bi,i)+'</span>';}).join("")+'</div>');
     h.push('<button class="addbtn edonly" data-act="img-add" data-c="'+c.id+'" data-b="'+bi+'">+ imagem</button>');
   }
   h.push('</div>');
@@ -952,7 +1120,7 @@ function cardHtml(s,c){
     +'<div class="ct">'+esc(c.titulo)+'</div>'
     +'<div class="cfoot">'+(tr?'<span class="mini" style="border-color:'+catColor(tr.cat)+';color:'+catColor(tr.cat)+'">'+esc(tr.faixa)+'</span>':"")
     +((te&&te.itens.length)?'<span class="mini">'+te.itens.length+' testes</span>':"")+'</div>'
-    +((ib&&ib.itens.length)?'<div class="thumbs">'+ib.itens.slice(0,4).map(function(i){return '<img src="'+esc(i)+'" alt="" loading="lazy">';}).join("")+'</div>':"")
+    +((ib&&ib.itens.length)?'<div class="thumbs">'+ib.itens.slice(0,4).map(function(i){return '<img src="'+esc(IMG(i))+'" alt="" loading="lazy">';}).join("")+'</div>':"")
     +'</article>';
 }
 var TPOS=[{x:40,y:24},{x:40,y:186},{x:336,y:110},{x:632,y:40},{x:632,y:430}];
@@ -1028,7 +1196,7 @@ function railHtml(s){
     +'</ul><b class="ui sm" style="color:var(--fg3);margin-top:6px;display:block">Mecânicas da sessão</b><ul>'
     +(s.prep.mecanicas||[]).map(function(x,i){return '<li>'+E(s.prep.mecanicas,i)+'</li>';}).join("")+'</ul>'));
   h.push(box("NPCs ("+s.npcs.length+")", s.npcs.map(function(n,i){
-    return '<div class="npcrow" data-act="npc" data-i="'+i+'">'+(n.img?'<img src="'+esc(n.img)+'" alt="" loading="lazy">':"")
+    return '<div class="npcrow" data-act="npc" data-i="'+i+'">'+(n.img?'<img src="'+esc(IMG(n.img))+'" alt="" loading="lazy">':"")
       +'<div style="flex:1;min-width:0"><b>'+esc(n.nome)+'</b><p>'+esc(n.desc)+'</p></div>'
       +libDot("libnpc",i,jaLib("npcs",n.nome))+'</div>';}).join("")));
   h.push(box("Locais","<ul>"+s.locais.map(function(l,i){
@@ -1036,7 +1204,7 @@ function railHtml(s){
       +'<span class="muted sm">'+E(l,"desc")+'</span></span>'+libDot("liblocal",i,jaLib("locais",l.nome))+'</span></li>';}).join("")+"</ul>"));
   h.push(box("Evidências ("+s.handouts.length+")", s.handouts.map(function(ho,i){
     return '<div class="npcrow" data-act="ho" data-i="'+i+'">'
-      +(ho.img?'<img src="'+esc(ho.img)+'" alt="" loading="lazy">':'<div style="width:38px;height:38px;border:1px dashed var(--line2);border-radius:2px;flex:0 0 auto"></div>')
+      +(ho.img?'<img src="'+esc(IMG(ho.img))+'" alt="" loading="lazy">':'<div style="width:38px;height:38px;border:1px dashed var(--line2);border-radius:2px;flex:0 0 auto"></div>')
       +'<div style="flex:1;min-width:0"><b>'+esc(ho.nome)+'</b></div>'
       +libDot("libho",i,jaLib("ev",ho.nome))+'</div>';}).join("")));
   if(s.plantado)h.push(box("O que os handouts plantam",'<p class="muted sm">'+E(s,"plantado")+'</p>'));
@@ -1115,7 +1283,7 @@ function escolher(titulo,ops,cb){
 }
 function galeria(cb){
   var ov=overlay("Escolher imagem",'<div class="gal">'
-    +(D.galeria||[]).map(function(g){return '<img src="'+esc(g)+'" alt="" data-g="'+esc(g)+'" loading="lazy">';}).join("")+'</div>',{wide:true});
+    +(D.galeria||[]).map(function(g){return '<img src="'+esc(IMG(g))+'" alt="" data-g="'+esc(g)+'" loading="lazy">';}).join("")+'</div>',{wide:true});
   $$("[data-g]",ov).forEach(function(x){ x.onclick=function(){ ov.close(); cb(x.getAttribute("data-g")); }; });
 }
 
@@ -1242,33 +1410,88 @@ function hydrateVazio(){
 }
 function recarregarGuia(){
   toast("Buscando o guia…");
-  api("/api/guia").then(function(g){ VGUIA=g.versao;
+  api(cAPI("/guia")).then(function(g){ VGUIA=g.versao;
     var v=JSON.parse(g.json||"{}");
     if(v&&v.sessoes&&v.sessoes.length){ D=v; cacheGM(g.json); BOOTERR=""; render(); toast("Guia carregado"); return; }
     BOOTERR="o guia no servidor está vazio"; render(); toast(BOOTERR);
   }).catch(function(e){ BOOTERR=(e&&e.message)||String(e); render(); toast("Falhou: "+BOOTERR); });
 }
+function cardCampanha(c){
+  return '<button class="ep" data-entrar="'+c.id+'"><div><b>'+esc(c.nome)+'</b>'
+    +'<p class="sm muted">'+esc(c.sistema||"sem sistema definido")+' · '
+    +(c.papel==="MESTRE"?"você mestra":"você joga")+(c.arquivada?" · arquivada":"")+'</p></div>'
+    +'<span class="go">abrir ›</span></button>';
+}
+function formNovaCampanha(){
+  return '<div class="fld"><span class="flb">Criar campanha</span>'
+    +'<div class="addrow"><input class="inp" id="ncNome" placeholder="nome da campanha">'
+    +'<input class="inp" id="ncSis" placeholder="sistema (opcional)">'
+    +'<button class="btn" id="ncGo">Criar</button></div></div>';
+}
+function viewSemCampanha(){
+  return '<p class="eyebrow">Grimório</p><h1 class="page">Comece pela sua campanha</h1>'
+    +'<p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou peça um convite a quem mestra.</p>'
+    +'<div class="sec-wrap">'+formNovaCampanha()+'</div>';
+}
+function viewEscolher(){
+  return '<p class="eyebrow">Grimório</p><h1 class="page">Suas campanhas</h1>'
+    +'<div class="sec-wrap"><div class="eps">'
+    +CAMPANHAS.map(cardCampanha).join("")+'</div></div>'
+    +'<div class="sec-wrap">'+formNovaCampanha()+'</div>';
+}
+function hydrateCampanhas(v){
+  $$("[data-entrar]",v).forEach(function(b){ b.onclick=function(){
+    entrarNaCampanha(b.getAttribute("data-entrar")); }; });
+  var go=$("#ncGo",v);
+  if(go)go.onclick=function(){
+    var nome=($("#ncNome",v)||{}).value||"", sis=($("#ncSis",v)||{}).value||"";
+    go.disabled=true;
+    api("/api/campanhas",{method:"POST",body:{nome:nome,sistema:sis}})
+      .then(function(r){ return api("/api/sessao").then(function(s2){
+          CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
+      .catch(function(e){ go.disabled=false; toast((e&&e.message)||"não deu"); }); };
+}
+function trocarCampanha(){
+  api("/api/sessao").then(function(s2){ EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
+    CID=null; GM=false; PRONTO=true; S.view=CAMPANHAS.length?"escolher":"semcampanha";
+    try{ localStorage.removeItem("grim_cid"); }catch(e){}
+    render(); }).catch(function(){ toast("não consegui listar suas campanhas"); });
+}
 function viewHome(){
   var c=D.campanha,h=[];
   if(!c)return viewVazio();
-  h.push('<p class="eyebrow">'+esc(c.sistema)+'</p><h1 class="page">'+esc(c.titulo)+'</h1>');
+  h.push('<p class="eyebrow">'+E(c,"sistema")+'</p><h1 class="page">'+E(c,"titulo")+'</h1>');
+  var vazia=!c.corpos.length&&!c.episodios.length&&!D.sessoes.length&&!c.conceitoTexto;
+  if(vazia&&!S.edit)
+    h.push('<div class="sec-wrap"><h2 class="sec">Primeiros passos</h2>'
+      +'<p class="lead">Esta '+esc(V("campanha").toLowerCase())+' está em branco. Ligue o <b>modo edição</b> '
+      +'no topo (ou aperte <span class="kbd">E</span>) e os campos ficam escrivíveis direto na página.</p>'
+      +'<ul class="fl"><li>Comece pelo título, o sistema e o conceito.</li>'
+      +'<li>Crie a primeira '+esc(V("sessao").toLowerCase())+' pelo menu <b>'+esc(Vm("sessoes"))+'</b> no topo.</li>'
+      +'<li>Em <b>···</b> você ajusta o vocabulário, a '+esc(Vm("referencia").toLowerCase())
+      +', os temas e convida a mesa.</li>'
+      +'<li>Já tem uma '+esc(V("campanha").toLowerCase())+' pronta num pacote? <b>···</b> › Ajustes › Importar pacote.</li>'
+      +'</ul></div>');
   h.push('<p class="lead" style="margin-top:8px">'+E(c,"verdadeIntro")+'</p>');
 
-  h.push('<div class="sec-wrap"><h2 class="sec">Os cinco receptáculos</h2><div class="grid pcs">');
+  if(c.corpos.length||S.edit){
+  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"corposTitulo")+'</h2><div class="grid pcs">');
   c.corpos.forEach(function(p,i){
-    h.push('<article class="pc"><div class="por"><img src="'+p.pc+'" alt="'+esc(p.assassino)+'" loading="lazy">'
+    h.push('<article class="pc"><div class="por"><img src="'+esc(IMG(p.pc))+'" alt="'+esc(p.assassino)+'" loading="lazy">'
       +'<img class="mk" src="'+p.mask+'" alt="" loading="lazy"></div><div class="bd">'
       +'<b>'+E(p,"assassino")+'</b><span class="alc">'+esc(p.alcunha)+'</span>'
       +'<span class="sm" style="color:var(--fg2)">Agente: '+(p.agente?E(p,"agente"):'<span class="muted">'+esc(p.agenteNota||"a definir")+'</span>')+'</span>'
       +'<span class="termos">'+E(p,"termos")+'</span>'
       +'<div class="row"><span class="chip">'+esc(p.dificuldade)+'</span>'
-      +'<button class="chip g btn" data-doc="'+esc(p.as)+'">'+esc(p.as)+'</button>'
+      +'<button class="chip g btn" data-doc="'+esc(p.as)+'">'+esc(refLivro(p.as))+'</button>'
       +'<button class="chip btn" data-fichas="'+i+'">fichas</button></div></div></article>');
   });
   h.push('</div><p class="sm muted" style="margin:0">'+E(c,"sacrificio")+'</p></div>');
+  }
 
   var ps=c.preSessao;
-  h.push('<div class="sec-wrap"><h2 class="sec">'+esc(ps.titulo)+'</h2>'
+  if(ps.intro||ps.textoAbertura||(ps.perguntas||[]).length||S.edit)
+  h.push('<div class="sec-wrap"><h2 class="sec">'+E(ps,"titulo")+'</h2>'
     +'<p class="lead">'+E(ps,"intro")+'</p>'
     +'<div class="leitura" style="margin-top:4px">'+E(ps,"textoAbertura")+'</div>'
     +'<div class="fld" style="margin-top:12px"><span class="flb">As seis perguntas, uma por estigma</span><ul class="fl">'
@@ -1277,10 +1500,12 @@ function viewHome(){
     +ps.metodo.map(function(x,i){return '<li>'+E(ps.metodo,i)+'</li>';}).join("")+'</ul></div></div>');
 
   var ad=c.adaptacao;
-  h.push('<div class="sec-wrap"><h2 class="sec">'+esc(ad.titulo)+'</h2><div class="grid met">'
+  if((ad.itens||[]).length||S.edit)
+  h.push('<div class="sec-wrap"><h2 class="sec">'+E(ad,"titulo")+'</h2><div class="grid met">'
     +ad.itens.map(function(x,i){return '<div class="c"><p>'+E(ad.itens,i)+'</p></div>';}).join("")+'</div></div>');
 
-  h.push('<div class="sec-wrap"><h2 class="sec">Mapa das 10 sessões</h2><div class="eps">');
+  if(c.episodios.length||S.edit){
+  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"episodiosTitulo")+'</h2><div class="eps">');
   c.episodios.forEach(function(e2){
     var ses=D.sessoes.filter(function(x){return x.numero===e2.n;})[0];
     var feita=!!(ses&&(ses.status==="jogada"||ses.status==="encerrada"));
@@ -1288,11 +1513,14 @@ function viewHome(){
       +'<p>'+E(e2,"resumo")+'</p></div><span class="go">'+(ses?(feita?"encerrada ›":"abrir ›"):"criar +")+'</span></button>');
   });
   h.push('</div></div>');
+  }
 
-  h.push('<div class="sec-wrap"><h2 class="sec">O Hexatombe</h2><p class="lead">'+E(c,"hexatombeTexto")+'</p>'
-    +'<ul class="fl" style="margin-top:4px">'+c.hexatombeRegras.map(function(r,i){return '<li>'+E(c.hexatombeRegras,i)+'</li>';}).join("")+'</ul></div>');
+  if(c.conceitoTexto||(c.regrasDeOuro&&c.regrasDeOuro.length)||S.edit)
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"conceitoTitulo")+'</h2><p class="lead">'+E(c,"conceitoTexto")+'</p>'
+      +'<ul class="fl" style="margin-top:4px">'+(c.regrasDeOuro||[]).map(function(r,i){return '<li>'+E(c.regrasDeOuro,i)+'</li>';}).join("")+'</ul></div>');
 
-  h.push('<div class="sec-wrap"><h2 class="sec">Índice dos Arquivos Secretos</h2>'
+  if((c.indiceAS||[]).length||S.edit)
+  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"indiceTitulo")+'</h2>'
     +'<p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p><div class="grid idx">');
   (c.indiceAS||[]).forEach(function(d){
     var u=['<div class="doc"><b>'+esc(d.nome)+'</b><ul>'];
@@ -1311,11 +1539,13 @@ function viewHome(){
 function viewMetodo(){
   if(!D.campanha)return viewVazio();
   var h=['<p class="eyebrow">Como conduzir</p><h1 class="page">Método de mesa</h1>'];
-  h.push('<p class="lead" style="margin-top:8px">Tirado do episódio extra Revelando Hexatombe. O quadro do mestre original é um roteiro por episódio espalhado num canvas, navegado por zoom, que abre em ramos de possibilidades. O modo de falha dele foi confesso: preparar muito e não achar na hora. Por isso aqui tudo é buscável e os beats forçados ficam sempre à vista.</p>');
+  if(D.campanha.metodoNota||S.edit)
+    h.push('<p class="lead" style="margin-top:8px">'+E(D.campanha,"metodoNota")+'</p>');
   h.push('<div class="sec-wrap"><div class="grid met">'
     +D.campanha.metodo.map(function(m,i){return '<div class="c"><b>'+E(m,"t")+'</b><p>'+E(m,"d")+'</p></div>';}).join("")+'</div></div>');
-  h.push('<div class="sec-wrap"><h2 class="sec">Regras de ouro do Hexatombe</h2><ul class="fl">'
-    +D.campanha.hexatombeRegras.map(function(r,i){return '<li>'+E(D.campanha.hexatombeRegras,i)+'</li>';}).join("")+'</ul></div>');
+  if((D.campanha.regrasDeOuro&&D.campanha.regrasDeOuro.length)||S.edit)
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(D.campanha,"regrasDeOuroTitulo")+'</h2><ul class="fl">'
+      +(D.campanha.regrasDeOuro||[]).map(function(r,i){return '<li>'+E(D.campanha.regrasDeOuro,i)+'</li>';}).join("")+'</ul></div>');
   return h.join("");
 }
 function hydrateHome(){
@@ -1347,7 +1577,7 @@ function overlay(title,body,o){ o=o||{};
 function projetar(src,cap){
   var p=el("div",{"class":"proj"});
   var ho=GM?hoPorImg(src):null;
-  p.innerHTML='<img src="'+esc(src)+'" alt="">'+(cap?'<div class="cap">'+esc(cap)+'</div>':"")
+  p.innerHTML='<img src="'+esc(IMG(src))+'" alt="">'+(cap?'<div class="cap">'+esc(cap)+'</div>':"")
     +'<div class="projbar">'+(ho?libBtnHtml("projLib"):"")+'<button class="btn sec" data-close>Fechar</button></div>';
   if(ho)libWire(p,"projLib","ev",function(){return evDe(ho);});
   function close(){p.remove();document.removeEventListener("keydown",k);}
@@ -1358,7 +1588,7 @@ function projetar(src,cap){
 }
 function abrirNpc(n,back){ if(!n)return;
   var ov=overlay(n.nome,'<div style="display:flex;gap:16px;flex-wrap:wrap">'
-    +(n.img?'<img src="'+esc(n.img)+'" alt="" style="width:190px;border:1px solid var(--line2);border-radius:3px">':"")
+    +(n.img?'<img src="'+esc(IMG(n.img))+'" alt="" style="width:190px;border:1px solid var(--line2);border-radius:3px">':"")
     +'<div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:12px">'
     +'<p class="lead">'+E(n,"desc")+'</p>'
     +((n.segredo||S.edit)?'<div class="segredo"><span class="lb">Só o mestre</span>'+E(n,"segredo")+'</div>':"")
@@ -1370,7 +1600,7 @@ function abrirNpc(n,back){ if(!n)return;
 }
 function abrirHandout(h,back){ if(!h)return;
   var ov=overlay(h.nome,'<div style="display:flex;gap:16px;flex-wrap:wrap">'
-    +(h.img?'<img src="'+esc(h.img)+'" alt="" style="max-width:360px;border:1px solid var(--line2);border-radius:3px">':"")
+    +(h.img?'<img src="'+esc(IMG(h.img))+'" alt="" style="max-width:360px;border:1px solid var(--line2);border-radius:3px">':"")
     +'<div style="flex:1;min-width:230px;display:flex;flex-direction:column;gap:12px">'
     +'<div class="fld"><span class="flb">Texto exato</span><p class="lead sm">'+E(h,"texto")+'</p></div>'
     +'<div class="addrow">'
@@ -1381,7 +1611,7 @@ function abrirHandout(h,back){ if(!h)return;
 }
 function abrirFichas(i){ var p=D.campanha.corpos[i]; if(!p)return;
   var ov=overlay("Fichas · "+p.assassino,'<div class="imgrow" style="gap:10px">'
-    +p.fichas.map(function(f){return '<img src="'+f+'" alt="" style="width:150px;height:auto" data-f="'+f+'" loading="lazy">';}).join("")
+    +p.fichas.map(function(f){return '<img src="'+esc(IMG(f))+'" alt="" style="width:150px;height:auto" data-f="'+esc(f)+'" loading="lazy">';}).join("")
     +'</div><p class="sm muted" style="margin-top:10px">Clique para abrir em tela cheia.</p>',{wide:true});
   $$("[data-f]",ov).forEach(function(n){n.onclick=function(){projetar(n.getAttribute("data-f"),p.assassino);};});
 }
@@ -1391,7 +1621,7 @@ var LIB={ok:false,faixas:{},docs:{}};
 function keyF(n){return norm(n).replace(/\.mp3$/,"").replace(/[^a-z0-9]+/g," ").trim();}
 var CATp=null;
 function carregaCatalogo(){ if(CATp)return CATp;
-  CATp=api("/api/midia").then(function(c){
+  CATp=api(cAPI("/midia")).then(function(c){
     c=c||{}; LIB.faixas={}; LIB.docs={};
     (c.faixas||[]).forEach(function(f){
       LIB.faixas[keyF(f.nome)]={id:f.id,nome:f.nome,cat:f.cat||"Sem categoria",url:f.url,tamanho:f.tamanho}; });
@@ -1496,12 +1726,12 @@ async function abrirPdf(ab,page,back){
   ab=String(ab||"").toUpperCase();
   await carregaCatalogo();
   if(!LIB.docs[ab]){ var o0=overlay("Abrir documento",
-      '<div class="libbox"><p>O PDF de <b>'+esc(ab)+'</b> ainda não está no servidor.</p>'
+      '<div class="libbox"><p>O PDF de <b>'+esc(nomeDoc(ab))+'</b> ainda não está no servidor.</p>'
       +(GM?'<button class="btn" id="lc2">Enviar arquivos</button>'
           :'<p class="sm muted">Fala com o mestre para ele subir esse livro.</p>')+'</div>',{back:back});
     var b0=$("#lc2",o0); if(b0)b0.onclick=function(){ o0.close(); abrirArquivos(); }; return; }
   if(!window.pdfjsLib){ toast("Visor de PDF indisponível"); return; }
-  var ov=overlay(ab,'<div class="pdfwrap"><div class="pdfbar">'
+  var ov=overlay(nomeDoc(ab),'<div class="pdfwrap"><div class="pdfbar">'
     +'<span class="pnum">Página <input id="pNum" type="number" min="1" value="'+(page||1)+'"> de <b id="pTot">?</b></span>'
     +'<button class="btn sec" id="pOut">−</button><button class="btn sec" id="pIn">+</button>'
     +'<button class="btn sec" id="pFs">Tela cheia</button>'
@@ -1570,7 +1800,7 @@ async function abrirPdf(ab,page,back){
 /* ---------- BUSCA ---------- */
 var IDX=null,IDXp=null,BUSCA={q:"",aba:"campanha",fdoc:"todos",fcat:"tudo"};
 function carregaIndice(){ if(IDX)return Promise.resolve(IDX); if(IDXp)return IDXp;
-  IDXp=api("/api/indice").then(function(j){
+  IDXp=api(cAPI("/indice")).then(function(j){
     j=j||{}; IDX={docs:(j.docs||[]).slice(),pages:(j.pages||[]).slice()};
     invalidaIndice(); return IDX;})
     .catch(function(){IDX={docs:[],pages:[]};return IDX;}); return IDXp; }
@@ -1660,7 +1890,7 @@ function buscaDocs(q,fd,fc){
   var cat=CATS.filter(function(c){return c.id===fc;})[0], ab={};
   IDX.docs.forEach(function(d){ab[d.id]=d.abrev;});
 
-  var SIN=(PUB.sinonimos||{});
+  var SIN=(PUBD().sinonimos||{});
   function mapaDe(t,peso){
     var m={},w,key;
     if(N.tok[t])N.tok[t].forEach(function(i){ m[i]=peso; });
@@ -1722,7 +1952,7 @@ function buscaDocs(q,fd,fc){
   });
   out.sort(function(a,b){return b.sc-a.sc;});
 
-  var CAN=(PUB.canonicas||{}), fix=CAN[k];
+  var CAN=(PUBD().canonicas||{}), fix=CAN[k];
   if(fix&&fix.length){
     var pin=[],vistos={};
     fix.forEach(function(e){
@@ -1766,7 +1996,7 @@ function abrirPagina(ab,num,q,back){
   var corpo=String(pg.t||"").replace(/­/g,"").split(/\n{2,}/).map(function(b){
     return '<p>'+(q?marca(b.replace(/\s*\n\s*/g," "),q):esc(b.replace(/\s*\n\s*/g," ")))+'</p>'; }).join("");
   var head='<button class="ibtn" id="pgPrev" title="Página anterior">&#8249;</button>'
-    +'<span class="sm muted" style="white-space:nowrap">'+esc(String(ab).toUpperCase())+' p.'+num+'</span>'
+    +'<span class="sm muted">'+esc(refDoc(ab,num))+'</span>'
     +'<button class="ibtn" id="pgNext" title="Próxima página">&#8250;</button>';
   var ov=overlay(pg.s||"Página "+num,
     '<div class="pgtxt">'+corpo+'</div>'
@@ -1794,9 +2024,12 @@ function perguntarClaude(q,trechos,back){
   var ov=overlay(iaNome()+" · "+q,
     '<div id="aiTxt" class="pgtxt"><p class="muted">Lendo os livros e pensando…</p></div>',
     {wide:true,back:back});
-  var corpo={pergunta:q,trechos:(trechos||[]).slice(0,12).map(function(x){
-    return {livro:x.ab,pagina:x.p,secao:x.s||"",texto:String(x.t||"").slice(0,6000)}; })};
-  api("/api/ia",{method:"POST",body:corpo}).then(function(r){
+  var corpo={pergunta:q,
+    sistema:(GM&&D&&D.campanha&&D.campanha.sistema)||MESA.sistema||"",
+    campanha:tituloApp(),
+    trechos:(trechos||[]).slice(0,12).map(function(x){
+      return {livro:nomeDoc(x.ab),pagina:x.p,secao:x.s||"",texto:String(x.t||"").slice(0,6000)}; })};
+  api(cAPI("/ia"),{method:"POST",body:corpo}).then(function(r){
     var m=$("#aiTxt",ov); if(!m)return;
     m.innerHTML=paraHtml(r&&r.texto)
       +'<p class="sm muted" style="margin-top:16px">Resposta montada por '+esc(iaNome())
@@ -1807,8 +2040,8 @@ function perguntarClaude(q,trechos,back){
     var m=$("#aiTxt",ov); if(!m)return;
     var msg=(e&&e.message)||"Não deu certo";
     m.innerHTML='<p class="empty">'+esc(msg)+'</p>'
-      +(GM?'<div style="text-align:center;margin-top:12px"><button class="btn sec" id="aiCfg">Configurar a chave da API</button></div>':'');
-    var b=$("#aiCfg",ov); if(b)b.onclick=function(){ ov.close(); abrirConfigIA(); };
+      +(ADMIN?'<div style="text-align:center;margin-top:12px"><button class="btn sec" id="aiCfg">Configurar a chave da API</button></div>':'');
+    var b=$("#aiCfg",ov); if(b)b.onclick=function(){ ov.close(); abrirAdmin(); };
   });
 }
 
@@ -1842,7 +2075,7 @@ function abrirBusca(){
     if(!ds.length){f.innerHTML="";return;}
     f.innerHTML='<div class="fchips"><span class="flbl">Livros</span>'
       +'<button class="fchip" data-fd="todos" aria-pressed="'+(BUSCA.fdoc==="todos")+'">todos</button>'
-      +ds.map(function(d){return '<button class="fchip" data-fd="'+d.id+'" aria-pressed="'+(BUSCA.fdoc===d.id)+'">'+esc(d.abrev)+'</button>';}).join("")
+      +ds.map(function(d){return '<button class="fchip" data-fd="'+d.id+'" aria-pressed="'+(BUSCA.fdoc===d.id)+'">'+esc(d.nome||d.abrev)+'</button>';}).join("")
       +'</div><div class="fchips"><span class="flbl">Assunto</span>'
       +CATS.map(function(c){return '<button class="fchip" data-fc="'+c.id+'" aria-pressed="'+(BUSCA.fcat===c.id)+'">'+esc(c.nome)+'</button>';}).join("")+'</div>';
     $$("[data-fd]",f).forEach(function(b){b.onclick=function(){BUSCA.fdoc=b.getAttribute("data-fd");filtros();run();};});
@@ -1873,7 +2106,7 @@ function abrirBusca(){
     var achouAlgo=false;
 
     var rg=[];
-    (PUB.regras||[]).forEach(function(g){ (g.itens||[]).forEach(function(x){
+    (PUBD().referencia||[]).forEach(function(g){ (g.itens||[]).forEach(function(x){
       if(norm(x).indexOf(norm(q))>=0)rg.push({t:g.t,x:x}); }); });
     if(rg.length){ achouAlgo=true;
       var g1=grupo(box,"Consulta rápida");
@@ -1895,7 +2128,7 @@ function abrirBusca(){
         +(BUSCA.fdoc!=="todos"||BUSCA.fcat!=="tudo"?" dentro dos filtros atuais.":".")
         +'</p>'; }
       else {
-        r.forEach(function(x){ item(g3,x.ab+" p"+x.p,x.canon?"canon":"",x.s||"(sem seção)",
+        r.forEach(function(x){ item(g3,refDoc(x.ab,x.p),x.canon?"canon":"",x.s||"(sem seção)",
           x.canon?"página canônica desse termo":"ler a página",x.sn,q,
           function(){ ov.close(); abrirResultado(x.ab,x.p,q,voltarBusca); }); });
       }
@@ -1976,20 +2209,34 @@ function abrirArquivos(back){
         +'<button class="btn" id="afPastaMp3">Enviar a pasta Trilha Sonora</button>'
         +'<button class="btn sec" id="afUmMp3">Enviar faixas soltas</button></div>'
       +'<p class="sm muted">Enviando a pasta, a subpasta de cada arquivo vira a categoria.</p></div>'
+    +'<div class="fld"><span class="flb">Imagens</span>'
+      +'<div id="afImg"><p class="muted sm">carregando…</p></div>'
+      +'<div class="addrow" style="margin-top:10px">'
+        +'<button class="btn" id="afPastaImg">Enviar uma pasta de imagens</button>'
+        +'<button class="btn sec" id="afUmaImg">Enviar imagens soltas</button></div>'
+      +'<p class="sm muted">São as fotos de evidência, retratos e mapas que o guia referencia por '
+      +'<code>img/arquivo.webp</code>. Os jogadores enxergam as que você liberar na '+esc(Vm("mesa"))+'.</p></div>'
     +'<div id="afProg" hidden><div class="prog"><span id="afN">0</span>'
       +'<span class="bar"><i id="afB" style="width:0%"></i></span></div></div>',
     {wide:true,back:back});
 
   function lista(){
-    api("/api/admin/midia").then(function(c){
+    api(cAPI("/midia")).then(function(c){
       var d=$("#afDocs",ov), a=$("#afAud",ov);
       var docs=(c&&c.docs)||[], fx=(c&&c.faixas)||[];
       d.innerHTML=docs.length?docs.map(function(x){
         return '<div class="npcrow" style="justify-content:space-between">'
-          +'<div><b>'+esc(x.abrev)+'</b> <span class="muted">'+esc(x.nome)+'</span>'
+          +'<div><b>'+esc(x.nome)+'</b> <span class="muted sm">chave '+esc(x.abrev)+'</span>'
           +'<p class="muted sm">'+(x.paginas||0)+' páginas · '+mb(x.tamanho)+'</p></div>'
           +'<button class="tbtn d" data-del="'+x.id+'">remover</button></div>'; }).join("")
         :'<p class="empty">Nenhum PDF ainda.</p>';
+      var im=$("#afImg",ov), figs=(c&&c.imagens)||[];
+      if(im)im.innerHTML=figs.length?('<p class="sm muted">'+figs.length+' imagens</p>'
+        +'<div class="thumbs" style="flex-wrap:wrap">'+figs.map(function(x){
+          return '<span class="itrow" title="'+esc(x.nome)+'"><img src="'+esc(x.url)+'" alt="" loading="lazy" '
+            +'style="width:54px;height:54px;object-fit:cover">'
+            +'<button class="tbtn d" data-del="'+x.id+'">x</button></span>'; }).join("")+'</div>')
+        :'<p class="empty">Nenhuma imagem ainda.</p>';
       var porCat={}; fx.forEach(function(f){ (porCat[f.cat||"Sem categoria"]=porCat[f.cat||"Sem categoria"]||[]).push(f); });
       var cats=Object.keys(porCat).sort();
       a.innerHTML=fx.length?('<p class="sm muted">'+fx.length+' faixas</p>'+cats.map(function(c){
@@ -2001,7 +2248,7 @@ function abrirArquivos(back){
         :'<p class="empty">Nenhuma faixa ainda.</p>';
       $$("[data-del]",ov).forEach(function(b){ b.onclick=function(){
         b.disabled=true;
-        api("/api/admin/midia/"+b.getAttribute("data-del"),{method:"DELETE"})
+        api(cAPI("/midia/"+b.getAttribute("data-del")),{method:"DELETE"})
           .then(function(){ recarregaCatalogo(); recarregaIndice(); lista(); })
           .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); }); }; });
     }).catch(function(){ $("#afDocs",ov).innerHTML='<p class="empty">Não consegui listar.</p>'; });
@@ -2034,7 +2281,13 @@ function abrirArquivos(back){
   function enviaPdf(f,onp){
     var m=abrevDe(f.name), fd=new FormData();
     fd.append("abrev",m.ab); fd.append("nome",m.nome); fd.append("arquivo",f);
-    return upload("/api/admin/midia/pdf",fd,onp);
+    return upload(cAPI("/midia/pdf"),fd,onp);
+  }
+  function enviaImg(f,onp){
+    var fd=new FormData();
+    fd.append("nome",f.name.replace(/\.[^.]+$/,""));
+    fd.append("arquivo",f);
+    return upload(cAPI("/midia/img"),fd,onp);
   }
   function enviaMp3(f,onp){
     var rel=f.webkitRelativePath||f.name, p=rel.split("/");
@@ -2043,11 +2296,11 @@ function abrirArquivos(back){
     fd.append("categoria",cat);
     fd.append("nome",f.name.replace(/\.[^.]+$/,""));
     fd.append("arquivo",f);
-    return upload("/api/admin/midia/audio",fd,onp);
+    return upload(cAPI("/midia/audio"),fd,onp);
   }
   $("#afScan",ov).onclick=function(){
     var b=$("#afScan",ov); b.disabled=true; b.textContent="Procurando…";
-    api("/api/admin/midia/reescanear",{method:"POST"}).then(function(r){
+    api(cAPI("/midia/reescanear"),{method:"POST"}).then(function(r){
       b.disabled=false; b.textContent="Reescanear o volume";
       recarregaCatalogo(); recarregaIndice(); lista();
       var n=(r.pdfs||0)+(r.audios||0);
@@ -2062,121 +2315,343 @@ function abrirArquivos(back){
     fila(fs.filter(function(f){return /\.(mp3|m4a|ogg|wav)$/i.test(f.name);}),enviaMp3); }); };
   $("#afUmMp3",ov).onclick=function(){ escolherArquivos(false,"audio/*").then(function(fs){
     fila(fs.filter(function(f){return /\.(mp3|m4a|ogg|wav)$/i.test(f.name);}),enviaMp3); }); };
+  $("#afPastaImg",ov).onclick=function(){ escolherArquivos(true).then(function(fs){
+    fila(fs.filter(function(f){return /\.(webp|png|jpe?g|gif|avif|svg)$/i.test(f.name);}),enviaImg); }); };
+  $("#afUmaImg",ov).onclick=function(){ escolherArquivos(false,"image/*").then(function(fs){
+    fila(fs.filter(function(f){return /\.(webp|png|jpe?g|gif|avif|svg)$/i.test(f.name);}),enviaImg); }); };
 }
-function abrirUsuarios(back){
+function abrirMembros(back){
   if(!GM){ toast("Só o mestre"); return; }
-  var ov=overlay("Jogadores",
-    '<div id="usList"><p class="muted sm">carregando…</p></div>'
-    +'<div class="fld" style="margin-top:16px"><span class="flb">Criar acesso</span>'
-    +'<div class="addrow"><input class="inp" id="usL" placeholder="login" autocomplete="off">'
-    +'<input class="inp" id="usN" placeholder="nome na mesa" autocomplete="off">'
-    +'<input class="inp" id="usS" type="password" placeholder="senha" autocomplete="new-password">'
-    +'<select id="usP" class="selmini"><option value="JOGADOR">jogador</option><option value="MESTRE">mestre</option></select>'
-    +'<button class="btn" id="usGo">Criar</button></div>'
-    +'<p class="sm muted">O jogador entra em '+esc(location.origin)+' com esse login. '
-    +'Ele vê só a aba Mesa: o que você liberou, as regras públicas e os dois livros básicos na busca.</p></div>',
+  var ov=overlay("Quem está na mesa",
+    '<div id="mbList"><p class="muted sm">carregando…</p></div>'
+    +'<div class="fld" style="margin-top:16px"><span class="flb">Convidar</span>'
+    +'<div class="addrow"><input class="inp" id="cvRot" placeholder="para quem (opcional)">'
+    +'<select id="cvPap" class="selmini"><option value="JOGADOR">jogador</option><option value="MESTRE">mestre</option></select>'
+    +'<input class="inp" id="cvUsos" type="number" min="1" max="50" value="1" style="max-width:90px" title="quantas pessoas podem usar">'
+    +'<input class="inp" id="cvDias" type="number" min="1" max="365" value="30" style="max-width:90px" title="dias de validade">'
+    +'<button class="btn" id="cvGo">Gerar link</button></div>'
+    +'<p class="sm muted">O link leva direto para a campanha. Quem ainda não tem conta cria uma na hora.</p></div>'
+    +'<div id="cvList" style="margin-top:12px"></div>',
     {wide:true,back:back});
+
   function lista(){
-    api("/api/admin/usuarios").then(function(us){
-      $("#usList",ov).innerHTML=(us||[]).map(function(u){
+    api("/api/campanhas/"+CID+"/membros").then(function(ms){
+      $("#mbList",ov).innerHTML=(ms||[]).map(function(m){
         return '<div class="npcrow" style="justify-content:space-between">'
-          +'<div><b>'+esc(u.nome)+'</b> <span class="muted sm">'+esc(u.login)+' · '
-          +(u.papel==="MESTRE"?"mestre":"jogador")+(u.ativo?"":" · desativado")+'</span></div>'
-          +'<div style="display:flex;gap:6px">'
-          +'<button class="tbtn" data-pw="'+u.id+'">trocar senha</button>'
-          +(u.papel==="MESTRE"?"":'<button class="tbtn" data-at="'+u.id+'" data-v="'+(!u.ativo)+'">'
-              +(u.ativo?"desativar":"ativar")+'</button>'
-            +'<button class="tbtn d" data-rm="'+u.id+'">remover</button>')
-          +'</div></div>'; }).join("")||'<p class="empty">Nenhum acesso.</p>';
-      $$("[data-pw]",ov).forEach(function(b){ b.onclick=function(){
-        var s=prompt("Nova senha (mínimo 4):"); if(!s)return;
-        api("/api/admin/usuarios/"+b.getAttribute("data-pw"),{method:"PUT",body:{senha:s}})
-          .then(function(){toast("Senha trocada");}).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
-      $$("[data-at]",ov).forEach(function(b){ b.onclick=function(){
-        api("/api/admin/usuarios/"+b.getAttribute("data-at"),
-            {method:"PUT",body:{ativo:b.getAttribute("data-v")==="true"}})
+          +'<div><b>'+esc(m.nome)+'</b> <span class="muted sm">'+esc(m.login)+' · '
+          +(m.papel==="MESTRE"?"mestre":"jogador")+(m.dono?" · dono":"")+'</span></div>'
+          +(m.dono?'':'<div style="display:flex;gap:6px">'
+             +'<button class="tbtn" data-pap="'+m.usuarioId+'" data-v="'+(m.papel==="MESTRE"?"JOGADOR":"MESTRE")+'">'
+             +(m.papel==="MESTRE"?"tornar jogador":"tornar mestre")+'</button>'
+             +'<button class="tbtn d" data-rm="'+m.usuarioId+'">tirar</button></div>')
+          +'</div>'; }).join("")||'<p class="empty">Só você por enquanto.</p>';
+      $$("[data-pap]",ov).forEach(function(b){ b.onclick=function(){
+        api("/api/campanhas/"+CID+"/membros/"+b.getAttribute("data-pap"),
+            {method:"PUT",body:{papel:b.getAttribute("data-v")}})
           .then(lista).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
       $$("[data-rm]",ov).forEach(function(b){ b.onclick=function(){
-        if(!confirm("Remover esse acesso?"))return;
-        api("/api/admin/usuarios/"+b.getAttribute("data-rm"),{method:"DELETE"})
+        if(!confirm("Tirar essa pessoa da campanha?"))return;
+        api("/api/campanhas/"+CID+"/membros/"+b.getAttribute("data-rm"),{method:"DELETE"})
           .then(lista).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
-    }).catch(function(){ $("#usList",ov).innerHTML='<p class="empty">Não consegui listar.</p>'; });
+    }).catch(function(){ $("#mbList",ov).innerHTML='<p class="empty">Não consegui listar.</p>'; });
   }
-  lista();
-  $("#usGo",ov).onclick=function(){
-    api("/api/admin/usuarios",{method:"POST",body:{
-      login:$("#usL",ov).value,nome:$("#usN",ov).value,
-      senha:$("#usS",ov).value,papel:$("#usP",ov).value}})
-     .then(function(){ $("#usL",ov).value="";$("#usN",ov).value="";$("#usS",ov).value="";
-       lista(); toast("Acesso criado"); })
-     .catch(function(e){ toast((e&&e.message)||"não deu"); });
-  };
+  function convites(){
+    api("/api/campanhas/"+CID+"/convites").then(function(cs){
+      $("#cvList",ov).innerHTML=(cs||[]).length?('<span class="flb">Links ativos</span>'+(cs||[]).map(function(c){
+        var url=location.origin+"/?convite="+encodeURIComponent(c.token);
+        return '<div class="npcrow" style="justify-content:space-between">'
+          +'<div style="min-width:0"><b>'+esc(c.rotulo||"convite")+'</b> '
+          +'<span class="muted sm">'+(c.papel==="MESTRE"?"mestre":"jogador")+' · '
+          +c.usos+'/'+c.usosMax+(c.valido?'':' · expirado')+'</span>'
+          +'<p class="sm muted" style="overflow-wrap:anywhere">'+esc(url)+'</p></div>'
+          +'<div style="display:flex;gap:6px"><button class="tbtn" data-cp="'+esc(url)+'">copiar</button>'
+          +'<button class="tbtn d" data-cvdel="'+c.id+'">apagar</button></div></div>'; }).join("")):"";
+      $$("[data-cp]",ov).forEach(function(b){ b.onclick=function(){
+        try{ navigator.clipboard.writeText(b.getAttribute("data-cp")).then(function(){toast("Link copiado");},function(){}); }catch(e){} }; });
+      $$("[data-cvdel]",ov).forEach(function(b){ b.onclick=function(){
+        api("/api/campanhas/"+CID+"/convites/"+b.getAttribute("data-cvdel"),{method:"DELETE"})
+          .then(convites).catch(function(){toast("não deu");}); }; });
+    }).catch(function(){});
+  }
+  lista(); convites();
+  $("#cvGo",ov).onclick=function(){
+    api("/api/campanhas/"+CID+"/convites",{method:"POST",body:{
+      papel:$("#cvPap",ov).value, rotulo:$("#cvRot",ov).value,
+      usos:+$("#cvUsos",ov).value||1, dias:+$("#cvDias",ov).value||null}})
+     .then(function(){ $("#cvRot",ov).value=""; convites(); toast("Link gerado"); })
+     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
 }
-function abrirConfigIA(back){
+
+function abrirCampanha(back){
   if(!GM){ toast("Só o mestre"); return; }
-  var ov=overlay("Chave da IA",
-    '<p class="lead">A chave fica no banco do servidor e nunca sai para o navegador dos jogadores. '
-    +'Pegue em console.anthropic.com.</p>'
-    +'<div class="fld"><span class="flb">Chave da API</span>'
+  var c=(CAMPANHAS.filter(function(x){return String(x.id)===String(CID);})[0])||{};
+  var ov=overlay("Ajustes da campanha",
+    '<div class="fld"><span class="flb">Identificação</span>'
+    +'<div class="addrow"><input class="inp" id="caNome" placeholder="nome" value="'+esc(c.nome||"")+'">'
+    +'<input class="inp" id="caSis" placeholder="sistema de regras" value="'+esc(c.sistema||"")+'">'
+    +'<button class="btn" id="caGo">Salvar</button></div>'
+    +'<p class="sm muted">O sistema entra no contexto que a IA recebe.</p></div>'
+    +'<div class="fld"><span class="flb">Pacote da campanha</span>'
+    +'<div class="addrow"><a class="btn sec" id="caExp" href="#">Exportar pacote</a>'
+    +'<button class="btn sec" id="caImp">Importar pacote</button>'
+    +'<label class="sm muted" style="display:flex;align-items:center;gap:6px">'
+    +'<input type="checkbox" id="caSub"> substituir guia e mesa</label></div>'
+    +'<p class="sm muted">O pacote leva guia, mesa, índices de busca e imagens. '
+    +'PDFs e trilha ficam de fora: são grandes e cada mestre tem os seus. '
+    +'Sem marcar a caixa, a importação só traz índices e imagens.</p></div>'
+    +'<div class="fld"><span class="flb">Zona de risco</span>'
+    +'<div class="addrow"><button class="btn dang" id="caDel">Apagar esta campanha</button></div>'
+    +'<p class="sm muted">Apaga guia, mesa, recados, anotações e toda a mídia. Não dá para desfazer.</p></div>',
+    {wide:true,back:back});
+
+  $("#caGo",ov).onclick=function(){
+    api("/api/campanhas/"+CID,{method:"PUT",body:{
+      nome:$("#caNome",ov).value, sistema:$("#caSis",ov).value}})
+     .then(function(){ if(D.campanha){ D.campanha.sistema=$("#caSis",ov).value; }
+       toast("Salvo"); return api("/api/sessao"); })
+     .then(function(s2){ CAMPANHAS=s2.campanhas||[]; pintarMarca(); })
+     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+
+  var ex=$("#caExp",ov);
+  ex.href="/api/c/"+CID+"/pacote?imagens=true";
+  ex.setAttribute("download","");
+
+  $("#caImp",ov).onclick=function(){
+    escolherArquivos(false,".zip").then(function(fs){
+      if(!fs.length)return;
+      var fd=new FormData(); fd.append("arquivo",fs[0]);
+      fd.append("substituir",$("#caSub",ov).checked?"true":"false");
+      toast("Enviando o pacote…");
+      upload("/api/c/"+CID+"/pacote",fd,null)
+        .then(function(r){ toast((r.indices||0)+" índices e "+(r.imagens||0)+" imagens importados");
+          recarregaCatalogo(); recarregaIndice();
+          if(r.guia){ ov.close(); entrarNaCampanha(CID); } })
+        .catch(function(e){ toast((e&&e.message)||"não deu"); }); }); };
+
+  $("#caDel",ov).onclick=function(){
+    if(!confirm("Apagar a campanha inteira? Isso não volta."))return;
+    if(!confirm("Confirma mesmo? Guia, mesa, mídia e anotações somem."))return;
+    api("/api/campanhas/"+CID,{method:"DELETE"})
+      .then(function(){ ov.close(); trocarCampanha(); })
+      .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+}
+
+function abrirVocabulario(back){
+  if(!GM){ toast("Só o mestre"); return; }
+  var chaves=Object.keys(VOCAB_PADRAO);
+  var ov=overlay("Como sua mesa chama as coisas",
+    '<p class="lead">Troque os nomes para o vocabulário do seu sistema. Vazio volta ao padrão.</p>'
+    +'<div class="grid met">'+chaves.map(function(k){
+       return '<div class="c"><b class="sm muted">'+esc(VOCAB_PADRAO[k])+'</b>'
+         +'<input class="inp" data-voc="'+esc(k)+'" placeholder="'+esc(VOCAB_PADRAO[k])+'" value="'
+         +esc((PUBD().vocab||{})[k]||"")+'"></div>'; }).join("")+'</div>'
+    +'<div class="addrow" style="margin-top:14px"><button class="btn" id="vcGo">Salvar</button></div>',
+    {wide:true,back:back});
+  $("#vcGo",ov).onclick=function(){
+    var v={};
+    $$("[data-voc]",ov).forEach(function(i){ var t=(i.value||"").trim();
+      if(t)v[i.getAttribute("data-voc")]=t; });
+    D.campanha.vocab=v; save(); salvarMesa(); ov.close(); render(); toast("Vocabulário salvo"); };
+}
+
+function abrirReferencia(back){
+  if(!GM){ toast("Só o mestre"); return; }
+  var ref=JSON.parse(JSON.stringify(PUBD().referencia||[]));
+  function corpo(){
+    return ref.map(function(g,i){
+      return '<div class="fld"><span class="flb">Grupo '+(i+1)+'</span>'
+        +'<div class="addrow"><input class="inp" data-rt="'+i+'" placeholder="título do grupo" value="'+esc(g.t||"")+'">'
+        +'<button class="tbtn d" data-rdel="'+i+'">remover</button></div>'
+        +'<textarea class="inp" data-ri="'+i+'" rows="5" style="width:100%;margin-top:6px" '
+        +'placeholder="uma linha por item">'+esc((g.itens||[]).join("\n"))+'</textarea></div>'; }).join("")
+      +'<div class="addrow"><button class="btn sec" id="rfAdd">Adicionar grupo</button>'
+      +'<button class="btn" id="rfGo">Salvar</button></div>';
+  }
+  var ov=overlay(Vm("referencia"),
+    '<p class="lead">O resumo de regras que fica na aba '+esc(Vm("mesa"))
+    +', visível para os jogadores. Nada aqui vem pronto: é a sua mesa que escreve.</p>'
+    +'<div id="rfBody">'+corpo()+'</div>',{wide:true,back:back});
+  function colher(){
+    $$("[data-rt]",ov).forEach(function(i){ ref[+i.getAttribute("data-rt")].t=i.value; });
+    $$("[data-ri]",ov).forEach(function(t){
+      ref[+t.getAttribute("data-ri")].itens=(t.value||"").split("\n")
+        .map(function(x){return x.trim();}).filter(Boolean); });
+  }
+  function ligar(){
+    $("#rfAdd",ov).onclick=function(){ colher(); ref.push({t:"Novo grupo",itens:[]});
+      $("#rfBody",ov).innerHTML=corpo(); ligar(); };
+    $("#rfGo",ov).onclick=function(){ colher();
+      D.campanha.referencia=ref.filter(function(g){return (g.t||"").trim()||(g.itens||[]).length;});
+      save(); salvarMesa(); ov.close(); render(); toast("Consulta rápida salva"); };
+    $$("[data-rdel]",ov).forEach(function(b){ b.onclick=function(){ colher();
+      ref.splice(+b.getAttribute("data-rdel"),1); $("#rfBody",ov).innerHTML=corpo(); ligar(); }; });
+  }
+  ligar();
+}
+
+function abrirAdmin(back){
+  if(!ADMIN){ toast("Só o administrador da instância"); return; }
+  var ov=overlay("Administração da instância",
+    '<div class="fld"><span class="flb">Chave da IA</span>'
     +'<div class="addrow"><input class="inp" id="iaK" type="password" placeholder="sk-ant-..." autocomplete="off">'
+    +'<input class="inp" id="iaM" placeholder="claude-sonnet-4-5">'
     +'<button class="btn" id="iaKs">Salvar</button></div>'
     +'<p class="sm muted" id="iaKst">…</p></div>'
-    +'<div class="fld"><span class="flb">Modelo</span>'
-    +'<div class="addrow"><input class="inp" id="iaM" placeholder="claude-sonnet-4-5">'
-    +'<button class="btn sec" id="iaMs">Salvar</button></div></div>',
-    {back:back});
+    +'<div class="fld"><span class="flb">Cadastro</span>'
+    +'<label class="sm" style="display:flex;align-items:center;gap:8px">'
+    +'<input type="checkbox" id="adReg"> deixar qualquer pessoa criar conta nesta instância</label>'
+    +'<p class="sm muted">Desligado, só entra quem receber um link de convite.</p></div>'
+    +'<div class="fld"><span class="flb">Contas</span><div id="adUs"><p class="muted sm">carregando…</p></div>'
+    +'<div class="addrow" style="margin-top:8px"><input class="inp" id="auL" placeholder="login">'
+    +'<input class="inp" id="auN" placeholder="nome"><input class="inp" id="auS" type="password" placeholder="senha">'
+    +'<button class="btn sec" id="auGo">Criar</button></div></div>'
+    +'<div class="fld"><span class="flb">Campanhas na instância</span><div id="adCa"></div></div>',
+    {wide:true,back:back});
+
   api("/api/admin/config").then(function(c){
-    $("#iaKst",ov).textContent=c.iaConfigurada?"uma chave já está salva. Digitar outra substitui; vazio apaga."
+    $("#iaKst",ov).textContent=c.iaConfigurada?"uma chave já está salva; digitar outra substitui, vazio apaga."
                                               :"nenhuma chave salva ainda.";
     $("#iaM",ov).value=c.iaModelo||"";
+    $("#adReg",ov).checked=!!c.registroAberto;
   }).catch(function(){});
+
   $("#iaKs",ov).onclick=function(){
-    api("/api/admin/config",{method:"PUT",body:{iaApiKey:$("#iaK",ov).value}})
-      .then(function(){ IACFG=!!$("#iaK",ov).value.trim(); $("#iaK",ov).value="";
-        toast("Chave salva"); ov.close(); }).catch(function(e){toast((e&&e.message)||"não deu");}); };
-  $("#iaMs",ov).onclick=function(){
-    api("/api/admin/config",{method:"PUT",body:{iaModelo:$("#iaM",ov).value}})
-      .then(function(){ toast("Modelo salvo"); }).catch(function(e){toast((e&&e.message)||"não deu");}); };
+    api("/api/admin/config",{method:"PUT",body:{iaApiKey:$("#iaK",ov).value,iaModelo:$("#iaM",ov).value}})
+      .then(function(){ IACFG=!!$("#iaK",ov).value.trim(); $("#iaK",ov).value=""; toast("Salvo"); })
+      .catch(function(e){toast((e&&e.message)||"não deu");}); };
+  $("#adReg",ov).onchange=function(){
+    api("/api/admin/config",{method:"PUT",body:{registroAberto:$("#adReg",ov).checked?"true":"false"}})
+      .then(function(){ toast("Salvo"); }).catch(function(e){toast((e&&e.message)||"não deu");}); };
+
+  function usuarios(){
+    api("/api/admin/usuarios").then(function(us){
+      $("#adUs",ov).innerHTML=(us||[]).map(function(u){
+        return '<div class="npcrow" style="justify-content:space-between">'
+          +'<div><b>'+esc(u.nome)+'</b> <span class="muted sm">'+esc(u.login)+' · '
+          +u.campanhas+' campanha(s)'+(u.admin?" · admin":"")+(u.ativo?"":" · desativado")+'</span></div>'
+          +'<div style="display:flex;gap:6px">'
+          +'<button class="tbtn" data-pw="'+u.id+'">senha</button>'
+          +'<button class="tbtn" data-ad="'+u.id+'" data-v="'+(!u.admin)+'">'+(u.admin?"tirar admin":"tornar admin")+'</button>'
+          +(u.admin?'':'<button class="tbtn d" data-ur="'+u.id+'">remover</button>')
+          +'</div></div>'; }).join("")||'<p class="empty">Nenhuma conta.</p>';
+      $$("[data-pw]",ov).forEach(function(b){ b.onclick=function(){
+        var p=prompt("Nova senha (mínimo 6):"); if(!p)return;
+        api("/api/admin/usuarios/"+b.getAttribute("data-pw"),{method:"PUT",body:{senha:p}})
+          .then(function(){toast("Trocada");}).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+      $$("[data-ad]",ov).forEach(function(b){ b.onclick=function(){
+        api("/api/admin/usuarios/"+b.getAttribute("data-ad"),
+            {method:"PUT",body:{admin:b.getAttribute("data-v")==="true"}})
+          .then(usuarios).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+      $$("[data-ur]",ov).forEach(function(b){ b.onclick=function(){
+        if(!confirm("Remover essa conta?"))return;
+        api("/api/admin/usuarios/"+b.getAttribute("data-ur"),{method:"DELETE"})
+          .then(usuarios).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+    }).catch(function(){ $("#adUs",ov).innerHTML='<p class="empty">Não consegui listar.</p>'; });
+  }
+  usuarios();
+  $("#auGo",ov).onclick=function(){
+    api("/api/admin/usuarios",{method:"POST",body:{
+      login:$("#auL",ov).value,nome:$("#auN",ov).value,senha:$("#auS",ov).value}})
+     .then(function(){ $("#auL",ov).value="";$("#auN",ov).value="";$("#auS",ov).value="";
+       usuarios(); toast("Conta criada"); })
+     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+
+  api("/api/admin/campanhas").then(function(cs){
+    $("#adCa",ov).innerHTML=(cs||[]).map(function(c){
+      return '<div class="npcrow" style="justify-content:space-between"><div><b>'+esc(c.nome)+'</b> '
+        +'<span class="muted sm">'+esc(c.sistema||"sem sistema")+' · '+c.membros+' membro(s)</span></div></div>';
+    }).join("")||'<p class="empty">Nenhuma campanha.</p>';
+  }).catch(function(){});
+}
+
+function temaHtml(){
+  var at=temaAtivo();
+  return '<div class="fld"><span class="flb">Tema de cor</span>'
+    +'<div class="fchips" style="margin:0">'
+    +Object.keys(TEMAS).map(function(k){
+       return '<button class="fchip" data-tema="'+k+'" aria-pressed="'+(at===k)+'">'
+         +esc(TEMAS[k].nome)+'</button>'; }).join("")
+    +'</div><div class="addrow" style="margin-top:8px">'
+    +(GM?'<button class="btn sec" id="temaMesa">Usar este na mesa inteira</button>':'')
+    +'<button class="btn sec" id="temaLimpa">Voltar ao tema da mesa</button></div>'
+    +'<p class="sm muted">A escolha vale só para você neste aparelho'
+    +(GM?', até você mandar aplicar na mesa.':'. O mestre define o tema padrão.')+'</p></div>';
+}
+function temaWire(ov){
+  function marca(){ $$("[data-tema]",ov).forEach(function(x){
+    x.setAttribute("aria-pressed", x.getAttribute("data-tema")===temaAtivo()); }); }
+  $$("[data-tema]",ov).forEach(function(b){ b.onclick=function(){
+    var k=b.getAttribute("data-tema");
+    try{ localStorage.setItem("grim_tema",k); }catch(e){}
+    aplicarTema(k); marca(); }; });
+  var tm=$("#temaMesa",ov); if(tm)tm.onclick=function(){
+    MESA.tema=temaAtivo(); salvarMesa(); toast("Tema aplicado para a mesa inteira"); };
+  var tl=$("#temaLimpa",ov); if(tl)tl.onclick=function(){
+    try{ localStorage.removeItem("grim_tema"); }catch(e){}
+    aplicarTema(temaAtivo()); marca(); toast("Voltou ao tema da mesa"); };
 }
 function sair(){
   api("/api/logout",{method:"POST"}).then(function(){ location.href="login.html"; })
    .catch(function(){ location.href="login.html"; });
 }
 function abrirMenu(){
-  var quem='<p class="sm muted">Você está como <b style="color:var(--gold)">'
-    +esc((USER&&USER.nome)||"?")+'</b> ('+(GM?"mestre":"jogador")+').</p>';
+  var camp=(CAMPANHAS.filter(function(x){return String(x.id)===String(CID);})[0])||{};
+  var quem='<p class="sm muted">Você é <b style="color:var(--gold)">'+esc((EU&&EU.nome)||"?")+'</b>'
+    +(CID?(' em <b style="color:var(--gold)">'+esc(camp.nome||"")+'</b> ('+(GM?V("mestre"):V("jogador"))+')'):'')
+    +(ADMIN?' · administra esta instância':'')+'.</p>';
+  var trocar=(CAMPANHAS.length>1||!CID)
+    ? '<div class="addrow"><button class="btn sec" id="mTroca">Trocar de '+esc(V("campanha").toLowerCase())+'</button></div>' : '';
   var atalhos='<div class="fld"><span class="flb">Atalhos</span><ul class="fl sm">'
     +'<li><span class="kbd">Ctrl</span>+<span class="kbd">F</span> busca</li>'
     +(GM?'<li><span class="kbd">E</span> liga e desliga o modo edição</li>':'')
     +'<li><span class="kbd">Esc</span> fecha janelas</li>'
     +'<li>No visor de PDF: setas e scroll passam página</li></ul></div>';
+  var adminBt=ADMIN?'<button class="btn sec" id="mAdm">Administração</button>':'';
   var sairBt='<div style="margin-top:4px"><button class="btn sec" id="mSair">Sair da conta</button></div>';
 
   if(!GM){
-    var ovj=overlay("Mesa Hexatombe",'<div style="display:flex;flex-direction:column;gap:12px">'
-      +quem+atalhos+sairBt+'</div>');
+    var ovj=overlay(tituloApp(),'<div style="display:flex;flex-direction:column;gap:12px">'
+      +quem+trocar+temaHtml()+atalhos
+      +(CID?'<div class="addrow"><button class="btn sec" id="mSaiCamp">Sair desta '+esc(V("campanha").toLowerCase())+'</button></div>':'')
+      +(adminBt?'<div class="addrow">'+adminBt+'</div>':'')+sairBt+'</div>');
+    temaWire(ovj);
+    var tj=$("#mTroca",ovj); if(tj)tj.onclick=function(){ ovj.close(); trocarCampanha(); };
+    var sj=$("#mSaiCamp",ovj); if(sj)sj.onclick=function(){
+      if(!confirm("Sair desta campanha? Você perde o acesso até receber outro convite."))return;
+      api("/api/campanhas/"+CID+"/sair",{method:"POST"})
+        .then(function(){ ovj.close(); trocarCampanha(); })
+        .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+    var aj=$("#mAdm",ovj); if(aj)aj.onclick=function(){ ovj.close(); abrirAdmin(abrirMenu); };
     $("#mSair",ovj).onclick=sair; return;
   }
 
-  var ov=overlay("Mesa Hexatombe",'<div style="display:flex;flex-direction:column;gap:12px">'
-    +quem
+  var ov=overlay(tituloApp(),'<div style="display:flex;flex-direction:column;gap:12px">'
+    +quem+trocar
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +'<button class="btn" id="mArq">Arquivos (PDFs e trilha)</button>'
-      +'<button class="btn" id="mUsr">Jogadores</button>'
-      +'<button class="btn sec" id="mIA">Chave da IA</button></div>'
+      +'<button class="btn" id="mArq">Arquivos</button>'
+      +'<button class="btn" id="mMemb">Quem está na mesa</button>'
+      +'<button class="btn sec" id="mCamp">Ajustes da '+esc(V("campanha").toLowerCase())+'</button></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button class="btn sec" id="mVoc">Vocabulário</button>'
+      +'<button class="btn sec" id="mRef">'+esc(Vm("referencia"))+'</button>'
+      +adminBt+'</div>'
     +'<div class="fld"><span class="flb">Nome da IA</span>'
       +'<div class="addrow" style="align-items:center">'
       +'<select id="iaA" class="selmini"><option value="ao">ao</option><option value="à">à</option><option value="a">a</option></select>'
       +'<input id="iaN" class="inp" placeholder="Claude" value="'+esc(MESA.iaNome||"")+'">'
       +'<button class="btn sec" id="iaOk">Salvar</button></div>'
       +'<p class="sm muted">Fica assim no botão da busca: <b id="iaPrev" style="color:var(--gold)"></b>. Vazio volta para Claude.</p></div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" id="mE">Exportar tudo (JSON)</button>'
-    +'<button class="btn sec" id="mI">Importar JSON</button></div>'
-    +'<p class="sm muted">As edições ficam no banco do servidor e voltam em qualquer aparelho.</p>'
-    +atalhos+sairBt+'</div>');
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" id="mE">Exportar guia (JSON)</button>'
+    +'<button class="btn sec" id="mI">Importar guia (JSON)</button></div>'
+    +temaHtml()+atalhos+sairBt+'</div>');
+  temaWire(ov);
   $("#mArq",ov).onclick=function(){ ov.close(); abrirArquivos(abrirMenu); };
-  $("#mUsr",ov).onclick=function(){ ov.close(); abrirUsuarios(abrirMenu); };
-  $("#mIA",ov).onclick=function(){ ov.close(); abrirConfigIA(abrirMenu); };
+  $("#mMemb",ov).onclick=function(){ ov.close(); abrirMembros(abrirMenu); };
+  $("#mCamp",ov).onclick=function(){ ov.close(); abrirCampanha(abrirMenu); };
+  $("#mVoc",ov).onclick=function(){ ov.close(); abrirVocabulario(abrirMenu); };
+  $("#mRef",ov).onclick=function(){ ov.close(); abrirReferencia(abrirMenu); };
+  var am=$("#mAdm",ov); if(am)am.onclick=function(){ ov.close(); abrirAdmin(abrirMenu); };
+  var tm=$("#mTroca",ov); if(tm)tm.onclick=function(){ ov.close(); trocarCampanha(); };
   $("#mSair",ov).onclick=sair;
   var iN=$("#iaN",ov), iA=$("#iaA",ov), iP=$("#iaPrev",ov);
   if(iN&&iA){ iA.value=iaArt();
@@ -2185,22 +2660,22 @@ function abrirMenu(){
     $("#iaOk",ov).onclick=function(){ MESA.iaNome=(iN.value||"").trim(); MESA.iaArt=iA.value;
       salvarMesa(); prev(); toast("Nome salvo"); }; }
   $("#mE",ov).onclick=function(){ var txt=JSON.stringify(D,null,2);
-    var o2=overlay("Exportar",'<p class="sm muted">Copie e guarde num arquivo.</p>'
+    var o2=overlay("Exportar guia",'<p class="sm muted">Copie e guarde num arquivo.</p>'
       +'<textarea id="xt" style="width:100%;height:230px;background:var(--bg);color:var(--fg);border:1px solid var(--line2);border-radius:3px;padding:8px;font-family:monospace;font-size:12px"></textarea>',{back:abrirMenu});
     $("#xt",o2).value=txt; $("#xt",o2).select();
     try{navigator.clipboard.writeText(txt).then(function(){toast("Copiado");},function(){});}catch(e){} };
   $("#mI",ov).onclick=function(){
-    var o2=overlay("Importar JSON",'<p class="sm muted">Cole o JSON exportado.</p>'
+    var o2=overlay("Importar guia",'<p class="sm muted">Cole o JSON exportado.</p>'
       +'<textarea id="it" style="width:100%;height:230px;background:var(--bg);color:var(--fg);border:1px solid var(--line2);border-radius:3px;padding:8px;font-family:monospace;font-size:12px"></textarea>'
       +'<div style="margin-top:10px"><button class="btn" id="ik">Importar</button></div>',{back:abrirMenu});
     $("#ik",o2).onclick=function(){ try{ var j=JSON.parse($("#it",o2).value);
-      if(!j.campanha||!j.sessoes)throw 0; D=j; save(); o2.close(); ov.close(); render(); toast("Importado");
+      if(!j.campanha)throw 0; D=j; normalizaCampanha(); save(); o2.close(); ov.close(); render(); toast("Importado");
     }catch(e){toast("JSON inválido");} }; };
 }
 
 /* ---------- AREA DA MESA ---------- */
-var MSECS=[["resumos","Resumos"],["ev","Evidências"],["quem","Quem é quem"],
-  ["regras","Consulta rápida"],["notas","Minhas anotações"],["mural","Mural"]];
+function MSECS(){ return [["resumos","Resumos"],["ev",Vm("evidencias")],["quem","Quem é quem"],
+  ["regras",Vm("referencia")],["notas","Minhas anotações"],["mural","Mural"]]; }
 function libBtnHtml(id){ return '<button class="btn sec libbtn" id="'+id+'"></button>'; }
 function libWire(ov,id,tipo,fab){
   var b=$("#"+id,ov); if(!b)return;
@@ -2226,11 +2701,11 @@ function locDe(l){ return {nome:l.nome,desc:l.desc||""}; }
 
 function viewMesa(){
   var h=[];
-  h.push('<div class="mesahd"><div><span class="eyebrow">Hexatombe · área dos jogadores</span>'
+  h.push('<div class="mesahd"><div><span class="eyebrow">'+esc(tituloApp())+' · área dos jogadores</span>'
     +'<h1 class="page">Mesa</h1></div></div>');
   if(GM)h.push('<div class="gmstrip"><b>Visão do mestre.</b> Isto é exatamente o que os jogadores veem. '
     +'Use <button class="btn sec" id="mLib">Liberar conteúdo</button> para escolher o que aparece aqui.</div>');
-  h.push('<nav class="mesanav">'+MSECS.map(function(x){
+  h.push('<nav class="mesanav">'+MSECS().map(function(x){
     return '<button data-msec="'+x[0]+'" aria-pressed="'+(S.msec===x[0])+'">'+esc(x[1])+'</button>';}).join("")+'</nav>');
   h.push('<div id="mbody" class="mesabody">'+mesaSec()+'</div>');
   return h.join("");
@@ -2254,7 +2729,7 @@ function mesaSec(){
     var e=MESA.ev||[];
     return e.length?'<div class="evgrid">'+e.map(function(x,i){
       return '<figure class="evcard"'+(x.img?' data-mev="'+i+'"':"")+'>'
-        +(x.img?'<img src="'+esc(x.img)+'" alt="" loading="lazy">':'<div class="evno">sem imagem</div>')
+        +(x.img?'<img src="'+esc(IMG(x.img))+'" alt="" loading="lazy">':'<div class="evno">sem imagem</div>')
         +'<figcaption><b>'+esc(x.nome)+'</b>'+(x.texto?'<p>'+esc(x.texto)+'</p>':"")+'</figcaption></figure>';
       }).join("")+'</div>':vazio("Nada encontrado ainda. O que vocês acharem na mesa aparece aqui.");
   }
@@ -2272,11 +2747,16 @@ function mesaSec(){
     return o.join("");
   }
   if(k==="regras"){
-    var r=PUB.regras||[];
-    return '<p class="lead">Resumo das mecânicas para não travar a mesa. Em caso de dúvida, o livro manda.</p>'
+    var r=PUBD().referencia||[];
+    if(!r.length)
+      return '<p class="empty">Nada aqui ainda.'
+        +(GM?' Use <b>'+esc(Vm("referencia"))+'</b> no menu “···” para escrever o resumo de regras da sua mesa.':'')
+        +'</p>';
+    return '<p class="lead">Resumo das mecânicas para não travar a mesa. Em caso de dúvida, o livro manda.'
+      +(GM?' <button class="tbtn" id="refEd">editar</button>':'')+'</p>'
       +'<div class="reggrid">'+r.map(function(g){
       return '<section class="regblk"><h3>'+esc(g.t)+'</h3><ul class="fl">'
-        +g.itens.map(function(x){return '<li>'+esc(x)+'</li>';}).join("")+'</ul></section>';}).join("")+'</div>';
+        +(g.itens||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join("")+'</ul></section>';}).join("")+'</div>';
   }
   if(k==="notas"){
     return '<p class="lead">Só você vê isto. Fica guardado na sua conta, nem o mestre consegue ler.</p>'
@@ -2294,6 +2774,7 @@ function mesaSec(){
 }
 function hydrateMesa(){
   var v=$("#view");
+  ligarRefEditar();
   $$("[data-msec]",v).forEach(function(b){ b.onclick=function(){ S.msec=b.getAttribute("data-msec"); render(); }; });
   $$("[data-mev]",v).forEach(function(f){ f.onclick=function(){
     var x=MESA.ev[+f.getAttribute("data-mev")]; if(x&&x.img)projetar(x.img,x.nome); }; });
@@ -2344,15 +2825,17 @@ function abrirLiberar(){
     salvarMesa(); }; });
 }
 /* notas privadas */
+function ligarRefEditar(){ var b=document.getElementById("refEd");
+  if(b)b.onclick=function(){ abrirReferencia(); }; }
 function carregarNotas(){ var t=$("#mNotas"), st=$("#mNotaSt"), b=$("#mNotaSave"); if(!t)return;
-  try{ t.value=localStorage.getItem("hexa_notas")||""; }catch(e){}
-  api("/api/notas").then(function(r){ if(r&&typeof r.texto==="string")t.value=r.texto;
+  try{ t.value=localStorage.getItem("grim_notas")||""; }catch(e){}
+  api(cAPI("/notas")).then(function(r){ if(r&&typeof r.texto==="string")t.value=r.texto;
     if(st)st.textContent="na sua conta"; })
    .catch(function(){ if(st)st.textContent="guardado só neste navegador"; });
   if(b)b.onclick=function(){
-    try{localStorage.setItem("hexa_notas",t.value);}catch(e){}
+    try{localStorage.setItem("grim_notas",t.value);}catch(e){}
     if(st)st.textContent="salvando…";
-    api("/api/notas",{method:"PUT",body:{texto:t.value}})
+    api(cAPI("/notas"),{method:"PUT",body:{texto:t.value}})
       .then(function(){ if(st)st.textContent="salvo"; })
       .catch(function(){ if(st)st.textContent="não consegui salvar na conta, ficou no navegador"; }); };
 }
@@ -2369,17 +2852,17 @@ function pintarMural(){ var box=$("#mural"); if(!box)return;
       +(meu?'<button class="tbtn d" data-mdel="'+esc(p.id)+'">apagar</button>':"")+'</header>'
       +'<p>'+esc(p.texto||"").split("\n").join("<br>")+'</p></article>'; }).join("");
   $$("[data-mdel]",box).forEach(function(b){ b.onclick=function(){
-    api("/api/mural/"+encodeURIComponent(b.getAttribute("data-mdel")),{method:"DELETE"})
+    api(cAPI("/mural/"+encodeURIComponent(b.getAttribute("data-mdel"))),{method:"DELETE"})
       .then(carregarMural).catch(function(){toast("Não consegui apagar");}); }; });
 }
 function carregarMural(){ var box=$("#mural"); if(!box)return;
   var go=$("#mPostGo"), ta=$("#mPost");
   if(go)go.onclick=function(){ var t=(ta.value||"").trim(); if(!t)return;
     go.disabled=true;
-    api("/api/mural",{method:"POST",body:{texto:t.slice(0,2000)}})
+    api(cAPI("/mural"),{method:"POST",body:{texto:t.slice(0,2000)}})
       .then(function(){ ta.value=""; go.disabled=false; carregarMural(); })
       .catch(function(e){ go.disabled=false; toast((e&&e.message)||"Não consegui postar"); }); };
-  api("/api/mural").then(function(r){ MURAL=Array.isArray(r)?r:[]; pintarMural(); })
+  api(cAPI("/mural")).then(function(r){ MURAL=Array.isArray(r)?r:[]; pintarMural(); })
    .catch(function(){ box.innerHTML='<p class="empty">Não consegui ler o mural.</p>'; });
 }
 
@@ -2524,18 +3007,19 @@ function renderTabs(){
     b.addEventListener("pointerdown",function(e){ if(e.button===0){e.preventDefault();ir();} });
     b.addEventListener("click",function(e){ if(e.detail===0)ir(); });
     t.appendChild(b); }
-  if(!GM){ tab("mesa","Mesa",true); return; }
-  tab("home","Campanha",S.view==="home");
+  if(S.view==="semcampanha"||S.view==="escolher")return;
+  if(!GM){ tab("mesa",Vm("mesa"),true); return; }
+  tab("home",Vm("campanha"),S.view==="home");
   var cur=(S.view==="sessao")?D.sessoes[S.sessao]:null;
   var sb=el("button",{"class":"tab tabsel"});
-  sb.innerHTML=(cur?esc("S"+cur.numero+" · "+cur.titulo):"Sessões")+'<span class="caret">&#9662;</span>';
+  sb.innerHTML=(cur?esc("S"+cur.numero+" · "+cur.titulo):esc(Vm("sessoes")))+'<span class="caret">&#9662;</span>';
   sb.setAttribute("aria-current",S.view==="sessao"?"true":"false");
-  sb.title="Escolher a sessão";
+  sb.title="Escolher a "+V("sessao").toLowerCase();
   sb.addEventListener("pointerdown",function(e){ e.preventDefault(); e.stopPropagation(); abrirMenuSessoes(sb); });
   sb.addEventListener("click",function(e){ if(e.detail===0)abrirMenuSessoes(sb); });
   t.appendChild(sb);
-  tab("metodo","Método",S.view==="metodo");
-  tab("mesa","Mesa",S.view==="mesa");
+  tab("metodo",Vm("metodo"),S.view==="metodo");
+  tab("mesa",Vm("mesa"),S.view==="mesa");
 }
 function render(){
   REG={}; RN=0;
@@ -2545,11 +3029,13 @@ function render(){
   document.body.classList.toggle("board",board);
   v.classList.toggle("board",board);
   document.documentElement.style.setProperty("--hh",($(".top").offsetHeight||56)+"px");
-  if(!GM)S.view="mesa";
-  document.body.classList.toggle("jogador",!GM);
-  var bs=$(".brand span"); if(bs)bs.textContent=GM?"Mesa do Mestre":"Mesa dos Jogadores";
+  if(S.view!=="semcampanha"&&S.view!=="escolher"&&!GM)S.view="mesa";
+  document.body.classList.toggle("jogador",!GM&&!!CID);
+  pintarMarca();
   try{
-    if(S.view==="mesa")v.innerHTML=viewMesa();
+    if(S.view==="semcampanha")v.innerHTML=viewSemCampanha();
+    else if(S.view==="escolher")v.innerHTML=viewEscolher();
+    else if(S.view==="mesa")v.innerHTML=viewMesa();
     else if(S.view==="home")v.innerHTML=viewHome();
     else if(S.view==="metodo")v.innerHTML=viewMetodo();
     else v.innerHTML=viewSessao();
@@ -2560,6 +3046,7 @@ function render(){
     try{toast("Erro ao abrir "+S.view+": "+((err&&err.message)||err));}catch(_){}
   }
   try{ flushEd(v); applyEdit();
+    if(S.view==="semcampanha"||S.view==="escolher"){ hydrateCampanhas(v); }
     if(S.view==="mesa")hydrateMesa();
     if(S.view==="home"){ if(D.campanha)hydrateHome(); else hydrateVazio(); }
     if(S.view==="metodo"&&!D.campanha)hydrateVazio();

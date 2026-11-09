@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>br.com.hexatombe</groupId>
-    <artifactId>mesa</artifactId>
+    <groupId>br.com.grimorio</groupId>
+    <artifactId>grimorio</artifactId>
     <version>1.0.0</version>
-    <name>Hexatombe Mesa</name>
-    <description>Painel de mesa da campanha Hexatombe (Ordem Paranormal RPG)</description>
+    <name>Grimorio</name>
+    <description>Grimorio: painel de mesa para RPG, agnostico de sistema</description>
 
     <properties>
         <java.version>21</java.version>
@@ -71,7 +71,7 @@
     </dependencies>
 
     <build>
-        <finalName>mesa</finalName>
+        <finalName>grimorio</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
