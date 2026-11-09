@@ -1,67 +1,82 @@
-# Hexatombe · Mesa
+# Grimório
 
-Painel de mesa da campanha **Hexatombe** (Ordem Paranormal RPG), com backend em Java.
-Substitui o artifact do Claude: roda em qualquer lugar, sem conectar pasta nenhuma.
+Painel de mesa para RPG, agnóstico de sistema, com backend em Java.
+Cada pessoa sobe a própria instância, cria campanhas e convida a mesa.
 
-Java 21 · Spring Boot 3.3 · PostgreSQL (ou H2 local) · front em HTML/JS puro.
+Java 21 · Spring Boot 3.3 · PostgreSQL (ou H2 local) · front em HTML/JS puro, sem framework.
 
 ## O que ele faz
 
-**Mestre** vê tudo: campanha, sessões, quadro de cenas, roteiro, método, trilha sonora,
-busca nos 923 páginas dos livros (incluindo Arquivos Secretos) e o visor de PDF.
+**Mestre** de uma campanha: guia completo, sessões, quadro de cenas arrastáveis,
+roteiro, método, trilha sonora, busca no texto dos livros que ele subir, visor de
+PDF com Range (abre a página sem baixar o livro inteiro) e um botão de perguntar
+à IA com os trechos dos livros como contexto.
 
-**Jogador** entra com login próprio, pelo celular inclusive, e vê só a aba **Mesa**:
-resumos, evidências, "quem é quem" e locais que o mestre liberou, a consulta rápida
-de regras, as anotações privadas dele e o mural. A busca dele cobre o Livro Básico,
-Sobrevivendo ao Horror e as regras públicas dos Arquivos Secretos. Nunca fichas de
-NPC, monstro ou segredo de mestre.
+**Jogador**: só a aba Mesa, com resumos, evidências, "quem é quem" e locais que o
+mestre liberou, a consulta rápida de regras, anotações privadas e o mural. A busca
+dele cobre só os livros marcados como públicos.
 
-A separação é no servidor, não na tela. O índice de Arquivos Secretos e o documento
-`guia` só saem para quem tem papel MESTRE; os PDFs também.
+O corte é no servidor, não na tela: o índice dos livros privados e a rota do guia
+exigem papel de mestre naquela campanha.
+
+**Nada vem pronto.** O repositório não carrega campanha, livro nem arte. Cada
+mestre traz o seu, pelo painel ou por um pacote de campanha.
 
 ## Subir no Railway
 
 1. Suba este repositório no GitHub.
-2. No Railway: **New Project → Deploy from GitHub repo**. Ele acha o `Dockerfile` sozinho.
-3. No mesmo projeto: **New → Database → PostgreSQL**.
-4. No serviço da aplicação, aba **Variables**, adicione:
+2. Railway → **New Project** → **Deploy from GitHub repo**. Ele acha o `Dockerfile`
+   sozinho: a documentação diz que um Dockerfile na raiz sempre vence o builder padrão.
+3. No mesmo projeto: **New** → **Database** → **Add PostgreSQL**. Deixe o serviço
+   com o nome `Postgres`.
+4. No serviço da aplicação, aba **Variables**:
 
    | variável | valor |
    |---|---|
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (variável de referência) |
-   | `MESTRE_LOGIN` | o login que você quer (padrão `mestre`) |
-   | `MESTRE_SENHA` | a sua senha |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+   | `ADMIN_LOGIN` | o login do administrador (padrão `admin`) |
+   | `ADMIN_SENHA` | a senha dele |
+   | `PORT` | `8080` |
 
-   Sem `MESTRE_SENHA` o app gera uma aleatória e escreve no log do primeiro boot.
-
-5. Aba **Settings → Volumes**: crie um volume montado em **`/data`**.
-   É onde ficam PDFs e trilha sonora. No plano Hobby são 5 GB; os dois livros
-   grandes somam ~300 MB, a trilha ~60 MB, então sobra espaço.
+5. **Settings → Volumes**: crie um volume montado em **`/data`**. É onde ficam
+   PDFs, áudio, imagens e os índices de busca, separados por campanha.
 6. **Settings → Networking → Generate Domain**.
-7. Abra o domínio, entre com o login do mestre.
 
-### Primeira vez dentro do app
+No primeiro boot o app cria a conta de administrador e escreve a senha no log se
+`ADMIN_SENHA` estiver vazia.
 
-No menu **"···"** do topo:
+## Primeiros passos dentro do app
 
-* **Arquivos (PDFs e trilha)** → *Enviar a pasta Sistema* (escolhe a pasta, ele filtra
-  os PDFs) e *Enviar a pasta Trilha Sonora* (a subpasta de cada mp3 vira a categoria).
-  Os dois livros grandes levam alguns minutos cada; deixe a janela aberta.
-* **Jogadores** → cria login e senha de cada um.
-* **Chave da IA** → cola a chave da Anthropic (console.anthropic.com) se quiser o
-  botão "Perguntar ao ...". A chave fica no banco, nunca chega ao navegador de ninguém.
+1. Entre com a conta de administrador e crie sua campanha.
+2. Menu **···** → **Arquivos**: envie os PDFs dos livros (marque quais os jogadores
+   podem ver), a trilha sonora e as imagens.
+3. Menu **···** → **Quem está na mesa**: gere um link de convite por jogador. Quem
+   abre o link entra na campanha, criando conta na hora se precisar.
+4. Menu **···** → **Vocabulário** e **Consulta rápida**: ajuste os nomes e escreva
+   o resumo de regras do seu sistema.
+5. Menu **···** → tema de cor: seis paletas, cada um escolhe a sua, o mestre define
+   a padrão da mesa.
 
-A busca dos dois livros públicos já vem pronta no jar, então o PDF serve só para
-abrir a página. Qualquer PDF novo que você subir é lido página por página pelo
-servidor e entra na sua busca (só na sua).
+### Pacote de campanha
 
-Se o upload pelo navegador travar nos dois livros grandes, tem um plano B em
-`scripts/enviar-midia.sh` (roda no Git Bash, WSL, Linux ou Mac):
+**Ajustes da campanha → Exportar pacote** gera um zip com guia, mesa, índices de
+busca e imagens. **Importar pacote** faz o caminho de volta, em qualquer instância.
+PDFs e áudio ficam de fora porque são grandes e cada mestre tem os seus.
+
+É assim que uma campanha pronta muda de servidor, e é por isso que o repositório
+não precisa carregar conteúdo.
+
+### Arquivos grandes
+
+O proxy do Railway corta requisições cujo corpo leve mais de 5 minutos subindo.
+Num PDF de 180 MB isso exige uns 5 Mbps de upload. Se não der, mande direto para
+o volume pelo CLI e depois clique em **Reescanear o volume**:
 
 ```bash
-./scripts/enviar-midia.sh https://seu-app.up.railway.app mestre SUA_SENHA \
-  "/c/Users/artur/.../Sistema" "/c/Users/artur/.../Trilha Sonora"
+railway volume files upload "Livro.pdf" /c1/pdf/LB.pdf
 ```
+
+O `c1` é o número da campanha e o nome do arquivo precisa ser a abreviação.
 
 ## Rodar na sua máquina
 
@@ -69,16 +84,10 @@ Se o upload pelo navegador travar nos dois livros grandes, tem um plano B em
 mvn spring-boot:run
 ```
 
-Sem `DATABASE_URL` ele usa H2 em arquivo, em `./dados/banco`, e guarda mídia em
-`./dados/midia`. Abre em http://localhost:8080 com `mestre` e a senha que aparecer no log.
+Sem `DATABASE_URL` ele usa H2 em arquivo dentro de `./dados` e guarda mídia em
+`./dados/midia`. Abre em http://localhost:8080.
 
-Para apontar para um Postgres local:
-
-```bash
-DATABASE_URL=postgresql://postgres:senha@localhost:5432/hexatombe mvn spring-boot:run
-```
-
-Build do jar: `mvn -DskipTests package` → `target/mesa.jar`.
+Build do jar: `mvn -DskipTests package` → `target/grimorio.jar`.
 
 ## Variáveis
 
@@ -86,50 +95,49 @@ Build do jar: `mvn -DskipTests package` → `target/mesa.jar`.
 |---|---|---|
 | `DATABASE_URL` | — | Postgres. Ausente = H2 em arquivo |
 | `JDBC_URL`, `JDBC_USER`, `JDBC_SENHA` | — | alternativa ao `DATABASE_URL` |
-| `MIDIA_DIR` | `/data/midia` no Docker, `./dados/midia` fora | onde ficam PDFs e áudios |
-| `MESTRE_LOGIN` | `mestre` | login criado no primeiro boot |
-| `MESTRE_SENHA` | aleatória | senha do primeiro boot |
+| `MIDIA_DIR` | `/data/midia` no Docker, `./dados/midia` fora | PDFs, áudio, imagens e índices |
+| `ADMIN_LOGIN` | `admin` | conta criada no primeiro boot |
+| `ADMIN_SENHA` | aleatória | senha do primeiro boot |
 | `PORT` | `8080` | o Railway injeta sozinho |
 | `DB_POOL` | `5` | conexões do pool |
 
-## Mapa do código
+## Modelo
 
 ```
-src/main/java/br/com/hexatombe
-  config/    BancoConfig (descobre o banco), SecurityConfig (login e papéis),
-             WebConfig (serve /midia com Range), Inicializacao (semeia mestre e docs)
-  model/     Usuario, Doc, MuralPost, Nota, Config, Midia
-  repo/      repositórios Spring Data
-  service/   UsuarioService, DocService, IndiceService (filtra por papel),
-             MidiaService (upload + indexação com PDFBox), IaService, ConfigService
-  web/       controllers REST + TratadorDeErros
-src/main/resources
-  indice/    indice-publico.json (600 pág.) e indice-as.json (323 pág., só mestre)
-  seed/      guia.json e mesa.json, conteúdo inicial
-  static/    index.html (o app inteiro), login.html, publico.js, img/, vendor/
+Usuario      conta na instância; admin = administra a instância inteira
+Campanha     uma mesa; tem dono, sistema, tema
+Membro       liga usuário e campanha com papel MESTRE ou JOGADOR
+Convite      token de entrada numa campanha, com usos e validade
+Documento    "guia" e "mesa" de cada campanha, JSON grande com versão
+Anotacao     caderno privado de cada pessoa em cada campanha
+MuralPost    recados da campanha
+Midia        PDF, áudio ou imagem de uma campanha; PDF tem marca de público
+Config       ajustes da instância (chave da IA, cadastro aberto)
 ```
 
-### Endpoints
+Mídia no disco: `/data/midia/c{campanha}/{pdf,audio,img,indice}/`.
+Quem pode baixar cada arquivo é decidido em `MidiaAutorizacao`: imagem para
+qualquer membro, áudio só para o mestre, PDF conforme a marca de público.
 
-| rota | quem | o quê |
-|---|---|---|
-| `POST /api/login` · `POST /api/logout` | todos | sessão por cookie |
-| `GET /api/sessao` | autenticado | quem sou eu, papel, se a IA está ligada |
-| `GET/PUT /api/guia` | **mestre** | o guia inteiro, com versão otimista |
-| `GET /api/mesa` · `GET /api/mesa/versao` | autenticado | o que foi liberado |
-| `PUT /api/mesa` | **mestre** | publica para a mesa |
-| `GET /api/indice` | autenticado | índice filtrado pelo papel |
-| `GET /api/mural` · `POST` · `DELETE /{id}` | autenticado | mural |
-| `GET/PUT /api/notas` | autenticado | caderno privado de cada um |
-| `POST /api/ia` | autenticado | pergunta à API da Anthropic |
-| `GET /api/midia` · `/midia/**` | **mestre** | catálogo e arquivos |
-| `/api/admin/**` | **mestre** | usuários, upload, chave da IA |
+## Endpoints
 
-## O que mudou em relação ao artifact
+| rota | quem |
+|---|---|
+| `POST /api/login` · `/api/logout` · `/api/registrar` · `GET /api/ping` | aberto |
+| `GET /api/sessao` | autenticado |
+| `GET/POST /api/campanhas`, `PUT/DELETE /api/campanhas/{id}` | dono ou mestre |
+| `/api/campanhas/{id}/membros` · `/convites` · `/sair` | mestre da campanha |
+| `POST /api/convites/{token}` | autenticado |
+| `GET/PUT /api/c/{id}/guia` | mestre |
+| `/api/c/{id}/mesa` · `/indice` · `/mural` · `/notas` · `/ia` | membro (escrita da mesa: mestre) |
+| `/api/c/{id}/midia/**` · `/pacote` | mestre |
+| `/api/admin/**` | administrador da instância |
+| `/midia/c{id}/**` | conforme `MidiaAutorizacao` |
 
-* `claude.use("db")` virou `/api/guia` e `/api/mesa` com Postgres por trás.
-* `claude.use("sample")` virou `POST /api/ia` com a chave do mestre no servidor.
-* A pasta local (File System Access API) virou upload no painel + volume do Railway.
-* A sincronização em tempo real do artifact virou uma sondagem de 6 s em `/api/mesa/versao`.
-* pdf.js e as fontes estão em `static/vendor/`, então o app não depende de CDN.
-* O visor de PDF carrega por URL com Range: não baixa o livro inteiro para ver uma página.
+## Migração de uma instalação antiga
+
+Quem vinha da versão de campanha única não precisa fazer nada: no primeiro boot,
+o app cria a campanha 1 com o guia, a mesa, as anotações e os recados que já
+existiam, põe o administrador como mestre e os demais usuários como jogadores, e
+move `/data/midia/{pdf,audio,indice}` para `/data/midia/c1/`. As tabelas antigas
+(`doc`, `nota`) continuam no banco, intactas, como cópia de segurança.

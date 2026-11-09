@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Hexatombe</title>
+<title>Grimório</title>
 <style>
 :root{--bg:#0b0a0a;--bg2:#131110;--line:#241f1d;--line2:#332b28;--fg:#e8e2dc;--fg3:#8d827c;
 --gold:#c9a227;--blood:#7a1c1c;--blood2:#b32424}
@@ -29,15 +29,20 @@ button[disabled]{opacity:.55;cursor:default}
 </head>
 <body>
 <form class="card" id="f" autocomplete="on">
-  <h1>Hexa<i>tombe</i></h1>
-  <p class="sub">Mesa de Ordem Paranormal</p>
+  <h1>Grim<i>ório</i></h1>
+  <p class="sub">Mesa de RPG</p>
   <label for="login">Login</label>
   <input id="login" name="login" autocapitalize="none" autocomplete="username" required>
   <label for="senha">Senha</label>
   <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+  <div id="campoNome" hidden>
+    <label for="nome">Seu nome na mesa</label>
+    <input id="nome" name="nome" autocomplete="name">
+  </div>
   <button id="b" type="submit">Entrar</button>
   <div class="msg" id="m"></div>
-  <p class="hint">Se você é jogador, o mestre te passa o login. Entrando, você vê a aba Mesa com o que ele liberou.</p>
+  <p class="hint" id="hint"></p>
+  <p class="hint"><a href="#" id="alt" style="color:var(--gold)">Criar uma conta</a></p>
 </form>
 <script>
 (function(){
@@ -45,25 +50,76 @@ button[disabled]{opacity:.55;cursor:default}
   function cookie(n){ var m=document.cookie.match(new RegExp("(^|; )"+n+"=([^;]*)")); return m?decodeURIComponent(m[2]):""; }
   fetch("/api/ping",{credentials:"same-origin"}).catch(function(){});
   var f=document.getElementById("f"), b=document.getElementById("b"), m=document.getElementById("m");
+  var alt=document.getElementById("alt"), hint=document.getElementById("hint");
+  var campoNome=document.getElementById("campoNome");
+  var convite="";
+  try{ convite=new URLSearchParams(location.search).get("convite")||""; }catch(e){}
+  var modo="entrar", registroAberto=false;
+
+  function pinta(){
+    var criar=(modo==="criar");
+    b.textContent=criar?"Criar conta":"Entrar";
+    campoNome.hidden=!criar;
+    document.getElementById("nome").required=criar;
+    document.getElementById("senha").setAttribute("autocomplete",criar?"new-password":"current-password");
+    alt.textContent=criar?"Já tenho conta":"Criar uma conta";
+    alt.hidden=!(registroAberto||convite||criar);
+    hint.textContent=convite
+      ? "Você chegou por um convite. Entre ou crie a conta e já cai na campanha."
+      : (criar ? "Escolha um login curto, sem espaço. A senha precisa de 6 caracteres ou mais."
+               : "Se você é jogador, quem mestra te passa o acesso.");
+    m.textContent="";
+  }
+  alt.onclick=function(e){ e.preventDefault(); modo=(modo==="criar")?"entrar":"criar"; pinta(); };
+
+  fetch("/api/ping",{credentials:"same-origin"})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ registroAberto=!!(j&&j.registroAberto); pinta(); })
+    .catch(function(){ pinta(); });
+
+  function destino(){ return convite ? ("/?convite="+encodeURIComponent(convite)) : "/"; }
+
   f.onsubmit=function(e){
     e.preventDefault();
-    m.textContent=""; b.disabled=true; b.textContent="Entrando…";
-    var body=new URLSearchParams();
-    body.set("login",document.getElementById("login").value);
-    body.set("senha",document.getElementById("senha").value);
+    m.textContent=""; b.disabled=true;
+    var login=document.getElementById("login").value;
+    var senha=document.getElementById("senha").value;
     var h={"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"};
     var t=cookie("XSRF-TOKEN"); if(t)h["X-XSRF-TOKEN"]=t;
+
+    if(modo==="criar"){
+      b.textContent="Criando…";
+      var hj={"Content-Type":"application/json;charset=UTF-8"};
+      if(t)hj["X-XSRF-TOKEN"]=t;
+      fetch("/api/registrar",{method:"POST",credentials:"same-origin",headers:hj,
+        body:JSON.stringify({login:login,senha:senha,
+          nome:document.getElementById("nome").value,convite:convite})})
+        .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
+          if(!r.ok){ m.textContent=(j&&j.erro)||"não consegui criar a conta";
+            b.disabled=false; pinta(); return; }
+          modo="entrar"; entrar(login,senha,h); }); })
+        .catch(function(){ m.textContent="servidor fora do ar"; b.disabled=false; pinta(); });
+      return;
+    }
+    b.textContent="Entrando…";
+    entrar(login,senha,h);
+  };
+
+  function entrar(login,senha,h){
+    var body=new URLSearchParams();
+    body.set("login",login); body.set("senha",senha);
     fetch("/api/login",{method:"POST",credentials:"same-origin",headers:h,body:body.toString()})
       .then(function(r){
-        if(r.ok){ location.href="/"; return; }
+        if(r.ok){ location.href=destino(); return; }
         return r.json().catch(function(){return {};}).then(function(j){
           m.textContent=(j&&j.erro)||"login ou senha inválidos";
-          b.disabled=false; b.textContent="Entrar";
+          b.disabled=false; pinta();
           document.getElementById("senha").value="";
           document.getElementById("senha").focus(); });
       })
-      .catch(function(){ m.textContent="servidor fora do ar"; b.disabled=false; b.textContent="Entrar"; });
-  };
+      .catch(function(){ m.textContent="servidor fora do ar"; b.disabled=false; pinta(); });
+  }
+  pinta();
   document.getElementById("login").focus();
 })();
 </script>

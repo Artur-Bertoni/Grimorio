@@ -10,7 +10,7 @@ RUN mvn -B -DskipTests package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 ENV MIDIA_DIR=/data/midia
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/./urandom"
-COPY --from=build /app/target/mesa.jar app.jar
+ENV JAVA_OPTS="-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC -Djava.security.egd=file:/dev/./urandom"
+COPY --from=build /app/target/grimorio.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS -jar app.jar"]
