@@ -4,6 +4,7 @@ import br.com.grimorio.model.Campanha;
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.ConfigService;
+import br.com.grimorio.service.MigracaoService;
 import br.com.grimorio.service.UsuarioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -20,13 +21,15 @@ public class SessaoController {
     private final ConfigService config;
     private final UsuarioService usuarios;
     private final CampanhaService campanhas;
+    private final MigracaoService migracao;
 
-    public SessaoController(Atual atual, ConfigService config,
-                            UsuarioService usuarios, CampanhaService campanhas) {
+    public SessaoController(Atual atual, ConfigService config, UsuarioService usuarios,
+                            CampanhaService campanhas, MigracaoService migracao) {
         this.atual = atual;
         this.config = config;
         this.usuarios = usuarios;
         this.campanhas = campanhas;
+        this.migracao = migracao;
     }
 
     /** Aberto: o login.html usa para pegar o cookie de CSRF antes de postar. */
@@ -71,6 +74,12 @@ public class SessaoController {
             return ResponseEntity.status(403).body(Map.of("erro", "esta instancia nao aceita cadastro aberto"));
 
         Usuario u = usuarios.criar(c.login, c.nome, c.senha, primeiro);
+        if (primeiro) {
+            // instalacao que vinha da versao de campanha unica: agora ha dono
+            Long cid = migracao.migrar();
+            if (cid != null) return ResponseEntity.ok(Map.of(
+                    "id", u.getId(), "login", u.getLogin(), "admin", true, "campanha", cid));
+        }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("id", u.getId());
         r.put("login", u.getLogin());

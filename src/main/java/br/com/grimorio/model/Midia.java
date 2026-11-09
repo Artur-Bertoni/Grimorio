@@ -41,7 +41,7 @@ public class Midia {
     private int paginas;
 
     /** Livro visivel na busca dos jogadores. Falso = so o mestre ve. */
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean publico = false;
 
     @Column(name = "enviado_em", nullable = false)

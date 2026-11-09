@@ -26,7 +26,7 @@ public class Campanha {
     @Column(name = "dono_id", nullable = false)
     private Long donoId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean arquivada = false;
 
     @Column(name = "criado_em", nullable = false)

@@ -41,8 +41,6 @@ spring:
 
 grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}
-  admin-login: ${ADMIN_LOGIN:${MESTRE_LOGIN:admin}}
-  admin-senha: ${ADMIN_SENHA:${MESTRE_SENHA:}}
 
 logging:
   level:

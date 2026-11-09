@@ -1423,14 +1423,33 @@ function cardCampanha(c){
     +'<span class="go">abrir ›</span></button>';
 }
 function formNovaCampanha(){
-  return '<div class="fld"><span class="flb">Criar campanha</span>'
+  return '<div class="fld"><span class="flb">Criar uma campanha</span>'
     +'<div class="addrow"><input class="inp" id="ncNome" placeholder="nome da campanha">'
-    +'<input class="inp" id="ncSis" placeholder="sistema (opcional)">'
-    +'<button class="btn" id="ncGo">Criar</button></div></div>';
+    +'<input class="inp" id="ncSis" placeholder="sistema de regras (opcional)">'
+    +'<button class="btn" id="ncGo">Criar</button></div>'
+    +'<div class="addrow" style="margin-top:8px;align-items:center">'
+      +'<button class="btn sec" id="ncPac">Escolher pacote (.zip)</button>'
+      +'<span class="sm muted" id="ncPacNome">nenhum pacote escolhido</span></div>'
+    +'<p class="sm muted">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar '
+    +'e ele entra junto, com guia, índices de busca e imagens.</p></div>'
+    +'<div class="fld"><span class="flb">Entrar numa campanha existente</span>'
+    +'<div class="addrow"><input class="inp" id="ncChave" placeholder="cole aqui a chave ou o link do convite">'
+    +'<button class="btn" id="ncEntrar">Entrar</button></div>'
+    +'<p class="sm muted">Quem mestra gera essa chave em “Quem está na mesa”.</p></div>';
+}
+var PACOTE=null;
+function chaveDoTexto(t){
+  t=String(t||"").trim();
+  var m=t.match(/[?&]convite=([^&\s]+)/);
+  if(m)return decodeURIComponent(m[1]);
+  m=t.match(/\/([A-Za-z0-9]{10,})\s*$/);
+  if(m)return m[1];
+  return t;
 }
 function viewSemCampanha(){
   return '<p class="eyebrow">Grimório</p><h1 class="page">Comece pela sua campanha</h1>'
-    +'<p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou peça um convite a quem mestra.</p>'
+    +'<p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou entre numa com a chave '
+    +'que quem mestra te passou.</p>'
     +'<div class="sec-wrap">'+formNovaCampanha()+'</div>';
 }
 function viewEscolher(){
@@ -1442,14 +1461,39 @@ function viewEscolher(){
 function hydrateCampanhas(v){
   $$("[data-entrar]",v).forEach(function(b){ b.onclick=function(){
     entrarNaCampanha(b.getAttribute("data-entrar")); }; });
+
+  var pac=$("#ncPac",v);
+  if(pac)pac.onclick=function(){ escolherArquivos(false,".zip").then(function(fs){
+    PACOTE=fs[0]||null;
+    var n=$("#ncPacNome",v); if(n)n.textContent=PACOTE?PACOTE.name:"nenhum pacote escolhido"; }); };
+
+  var ent=$("#ncEntrar",v);
+  if(ent)ent.onclick=function(){
+    var k=chaveDoTexto(($("#ncChave",v)||{}).value);
+    if(!k){ toast("Cole a chave do convite"); return; }
+    ent.disabled=true;
+    api("/api/convites/"+encodeURIComponent(k),{method:"POST"})
+      .then(function(c){ toast("Você entrou em "+c.nome);
+        return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(c.id); }); })
+      .catch(function(e){ ent.disabled=false; toast((e&&e.message)||"chave inválida"); }); };
+
   var go=$("#ncGo",v);
   if(go)go.onclick=function(){
     var nome=($("#ncNome",v)||{}).value||"", sis=($("#ncSis",v)||{}).value||"";
-    go.disabled=true;
+    if(!nome.trim()){ toast("Dê um nome à campanha"); return; }
+    go.disabled=true; go.textContent="Criando…";
     api("/api/campanhas",{method:"POST",body:{nome:nome,sistema:sis}})
-      .then(function(r){ return api("/api/sessao").then(function(s2){
-          CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
-      .catch(function(e){ go.disabled=false; toast((e&&e.message)||"não deu"); }); };
+      .then(function(r){
+        if(!PACOTE) return r;
+        go.textContent="Importando pacote…";
+        var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
+        return upload("/api/c/"+r.id+"/pacote",fd,null)
+          .then(function(imp){ toast((imp.indices||0)+" índices e "+(imp.imagens||0)+" imagens importados"); return r; })
+          .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+((e&&e.message)||e)); return r; });
+      })
+      .then(function(r){ PACOTE=null;
+        return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
+      .catch(function(e){ go.disabled=false; go.textContent="Criar"; toast((e&&e.message)||"não deu"); }); };
 }
 function trocarCampanha(){
   api("/api/sessao").then(function(s2){ EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
@@ -2201,7 +2245,7 @@ function abrirArquivos(back){
         +'<button class="btn sec" id="afUmPdf">Enviar um PDF</button>'
         +'<button class="btn sec" id="afScan">Reescanear o volume</button></div>'
       +'<p class="sm muted">O servidor lê o texto de cada página e joga na busca. '
-      +'Livro Básico e Sobrevivendo ao Horror já vêm indexados, então neles o PDF entra na hora. '
+      +'Se o índice daquele livro já veio num pacote importado, o PDF entra na hora. '
       +'<b>Reescanear</b> é para arquivos que você colocou no volume por fora, pelo CLI do Railway.</p></div>'
     +'<div class="fld"><span class="flb">Trilha sonora</span>'
       +'<div id="afAud"><p class="muted sm">carregando…</p></div>'

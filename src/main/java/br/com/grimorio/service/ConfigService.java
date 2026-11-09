@@ -34,8 +34,9 @@ public class ConfigService {
     }
 
     @Transactional(readOnly = true)
+    /** Aberto por padrao: a instancia nasce sem conta e sem variavel de ambiente. */
     public boolean registroAberto() {
-        return "1".equals(get(REGISTRO_ABERTO, "0"));
+        return !"0".equals(get(REGISTRO_ABERTO, "1"));
     }
 
     @Transactional(readOnly = true)

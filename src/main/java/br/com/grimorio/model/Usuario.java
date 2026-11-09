@@ -24,11 +24,15 @@ public class Usuario {
     @Column(nullable = false, length = 10)
     private Papel papel = Papel.JOGADOR;
 
-    /** Administrador da instancia: mexe em usuarios, chave da IA e registro. */
-    @Column(nullable = false)
+    /**
+     * Administrador da instancia: mexe em usuarios, chave da IA e registro.
+     * O columnDefinition tem DEFAULT de proposito: sem ele o Postgres recusa
+     * adicionar uma coluna NOT NULL numa tabela que ja tem linhas.
+     */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean admin = false;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
     private boolean ativo = true;
 
     @Column(name = "criado_em", nullable = false)
