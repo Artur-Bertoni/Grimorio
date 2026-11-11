@@ -71,6 +71,12 @@ public class UsuarioService implements UserDetailsService {
         return repo.save(u);
     }
 
+    /** Confere a senha em texto puro contra o hash guardado. */
+    public boolean conferirSenha(Long id, String senha) {
+        if (senha == null || senha.isEmpty()) return false;
+        return enc.matches(senha, porId(id).getSenhaHash());
+    }
+
     @Transactional
     public void trocarSenha(Long id, String senha) {
         if (senha == null || senha.length() < 6)

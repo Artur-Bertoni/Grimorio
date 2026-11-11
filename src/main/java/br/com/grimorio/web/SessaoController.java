@@ -55,6 +55,34 @@ public class SessaoController {
         return m;
     }
 
+    public static class MeuPerfil {
+        public String nome;
+        public String senhaAtual;
+        public String senhaNova;
+    }
+
+    /**
+     * A propria pessoa muda o nome e a senha. Trocar senha exige a atual, para
+     * que uma sessao esquecida aberta num navegador alheio nao vire sequestro
+     * de conta. O login nao muda: e a chave de tudo e dos convites.
+     */
+    @PutMapping("/perfil")
+    public ResponseEntity<?> perfil(@RequestBody MeuPerfil p) {
+        Usuario u = atual.usuario();
+        boolean querSenha = p.senhaNova != null && !p.senhaNova.isBlank();
+        if (querSenha && !usuarios.conferirSenha(u.getId(), p.senhaAtual))
+            return ResponseEntity.status(403).body(Map.of("erro", "a senha atual nao confere"));
+        if (p.nome != null && !p.nome.isBlank()) usuarios.renomear(u.getId(), p.nome);
+        if (querSenha) usuarios.trocarSenha(u.getId(), p.senhaNova);
+        Usuario d = usuarios.porId(u.getId());
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("id", d.getId());
+        r.put("login", d.getLogin());
+        r.put("nome", d.getNome());
+        r.put("senhaTrocada", querSenha);
+        return ResponseEntity.ok(r);
+    }
+
     public static class NovoCadastro {
         public String login;
         public String nome;
