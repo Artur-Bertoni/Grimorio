@@ -99,6 +99,7 @@ public class MidiaService {
             i.put("nome", m.getNome());
             i.put("chave", m.getChave());
             i.put("tamanho", m.getTamanho());
+            i.put("arquivo", m.getArquivo());
             i.put("url", url(campanhaId, m.getArquivo()));
             imgs.add(i);
         }

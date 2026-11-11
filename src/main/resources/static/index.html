@@ -53,7 +53,8 @@ header.top{
 }
 .topin{display:flex;align-items:center;gap:14px;max-width:var(--maxw);margin:0 auto;padding-block:9px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.brand{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:9px;flex:0 0 auto;cursor:pointer}
+.brand:hover #brandNome{color:var(--gold)}
 .sigil{width:26px;height:29px;flex:0 0 auto}
 .brand b{font-family:var(--disp);font-weight:800;font-size:1.02rem;letter-spacing:.14em;line-height:1}
 .brand span{display:block;font-family:var(--ui);font-size:.63rem;letter-spacing:.22em;color:var(--fg3);margin-top:2px}
@@ -119,6 +120,19 @@ h2.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(
 .pc:hover .por img:not(.mk){opacity:0}
 .pc .por:not(:has(img.mk)) img{opacity:1!important}
 .pc .bd{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+.pc .semfoto{width:100%;height:100%;display:grid;place-items:center;background:var(--bg3);color:var(--fg3);font:600 .72rem/1 var(--ui);letter-spacing:.14em;text-transform:uppercase}
+.ptools{gap:4px!important;margin-top:8px!important;padding-top:8px;border-top:1px solid var(--line)}
+.itools{display:none;gap:3px;margin-left:6px;vertical-align:middle}
+body.edit .itools{display:inline-flex}
+.epwrap{display:flex;flex-direction:column;background:var(--bg2)}
+.epwrap>.ep{width:100%}
+.eptools{display:flex;gap:4px;align-items:center;padding:0 13px 9px 13px;flex-wrap:wrap}
+.eptools .epnum{max-width:74px;padding:3px 6px;font:inherit;font-size:.82rem;background:var(--bg);color:var(--fg);border:1px solid var(--line2);border-radius:3px}
+.eigrid{display:flex;flex-wrap:wrap;gap:8px}
+.eigrid button{padding:0;border:2px solid transparent;background:none;cursor:pointer;line-height:0;border-radius:4px}
+.eigrid button.on{border-color:var(--gold)}
+.eigrid img{width:78px;height:78px;object-fit:cover;border-radius:3px;display:block}
+.eigrid .cap{display:block;max-width:78px;font-size:.62rem;color:var(--fg3);line-height:1.2;word-break:break-all;padding-top:2px}
 .pc b{font-family:var(--disp);font-size:.98rem;letter-spacing:.03em}
 .pc .alc{font-family:var(--ui);font-size:.74rem;letter-spacing:.14em;color:var(--blood2);text-transform:uppercase}
 .pc .termos{font-size:.82rem;color:var(--fg3);line-height:1.4}
@@ -419,7 +433,7 @@ body.edit .addrow.edonly{display:flex!important}
 <body>
 <header class="top">
   <div class="topin">
-    <div class="brand">
+    <div class="brand" id="brandHome" role="button" tabindex="0" title="Minhas campanhas">
       <svg class="sigil" viewBox="0 0 26 29" fill="none" aria-hidden="true">
         <path d="M13 1.2 24.3 7.6v12.8L13 27.8 1.7 20.4V7.6z" stroke="var(--blood)" stroke-width="1.3"/>
         <path d="M13 5.4 20.7 9.8v8.8L13 23.6 5.3 18.6V9.8z" stroke="var(--gold)" stroke-width=".8" opacity=".55"/>
@@ -652,11 +666,12 @@ function parametro(n){ try{ return new URLSearchParams(location.search).get(n)||
 function limparUrl(){ try{ history.replaceState({},"",location.pathname); }catch(e){} }
 
 /* ---------- VOCABULÁRIO ---------- */
-var VOCAB_PADRAO={campanha:"Campanha",sessao:"Sessão",sessoes:"Sessões",cena:"Cena",cenas:"Cenas",
+var VOCAB_PADRAO={campanha:"Campanha",campanhas:"Campanhas",sessao:"Sessão",sessoes:"Sessões",cena:"Cena",cenas:"Cenas",
  territorio:"Território",territorios:"Territórios",evidencia:"Evidência",evidencias:"Evidências",
  npc:"NPC",npcs:"NPCs",local:"Local",locais:"Locais",mestre:"Mestre",jogador:"Jogador",
  jogadores:"Jogadores",trilha:"Trilha",mesa:"Mesa",quadro:"Quadro",roteiro:"Roteiro",
- metodo:"Método",referencia:"Consulta rápida",ficha:"Ficha",fichas:"Fichas"};
+ metodo:"Método",referencia:"Consulta rápida",ficha:"Ficha",fichas:"Fichas",
+  personagem:"Personagem",personagens:"Personagens"};
 function V(k){ var v=PUBD().vocab||{}; return v[k]||VOCAB_PADRAO[k]||k; }
 function Vm(k){ var t=V(k); return t?t.charAt(0).toUpperCase()+t.slice(1):t; }
 var MESA={resumos:[],ev:[],npcs:[],locais:[],at:0},mesaT=null;
@@ -890,6 +905,20 @@ function normalizaCampanha(){
   if(!c.vocab||typeof c.vocab!=="object")c.vocab={};
   ["titulo","subtitulo","sistema","verdadeIntro","sacrificio"].forEach(function(k){
     if(typeof c[k]!=="string")c[k]=""; });
+  if(typeof c.preSessao.perguntasTitulo!=="string"||!c.preSessao.perguntasTitulo)c.preSessao.perguntasTitulo="Perguntas para a mesa";
+  if(typeof c.preSessao.metodoTitulo!=="string"||!c.preSessao.metodoTitulo)c.preSessao.metodoTitulo="Como usar as respostas";
+  c.corpos.forEach(function(p){
+    if(!p||typeof p!=="object")return;
+    if(!Array.isArray(p.fichas))p.fichas=[];
+    ["pc","mask","assassino","alcunha","agente","agenteNota","termos","dificuldade","as"].forEach(function(k){
+      if(typeof p[k]!=="string")p[k]=(p[k]==null?"":String(p[k]));
+    });
+  });
+  c.episodios.forEach(function(e2){
+    if(!e2||typeof e2!=="object")return;
+    e2.n=Number(e2.n)||0;
+    ["nome","resumo"].forEach(function(k){ if(typeof e2[k]!=="string")e2[k]=(e2[k]==null?"":String(e2[k])); });
+  });
   if(!Array.isArray(D.sessoes))D.sessoes=[];
   if(!Array.isArray(D.trilhaCategorias))D.trilhaCategorias=[];
   if(!Array.isArray(D.galeria))D.galeria=[];
@@ -1501,6 +1530,36 @@ function trocarCampanha(){
     try{ localStorage.removeItem("grim_cid"); }catch(e){}
     render(); }).catch(function(){ toast("não consegui listar suas campanhas"); });
 }
+/* ---------- edicao de listas da aba campanha ---------- */
+var LISTAS={
+  corpos:    function(c){ return c.corpos; },
+  episodios: function(c){ return c.episodios; },
+  perguntas: function(c){ return c.preSessao.perguntas; },
+  metodo:    function(c){ return c.preSessao.metodo; },
+  adaptacao: function(c){ return c.adaptacao.itens; },
+  regras:    function(c){ return c.regrasDeOuro; }
+};
+function listaCamp(nome){ var f=LISTAS[nome]; return (f&&D&&D.campanha)?f(D.campanha):null; }
+function itemNovo(nome){
+  if(nome==="corpos")return {pc:"",mask:"",assassino:"Novo "+V("personagem").toLowerCase(),alcunha:"",
+    agente:"",agenteNota:"a definir",termos:"",dificuldade:"",as:"",fichas:[]};
+  if(nome==="episodios"){
+    var ns=(D.campanha.episodios||[]).map(function(x){return Number(x.n)||0;});
+    return {n:(ns.length?Math.max.apply(null,ns):0)+1,nome:"",resumo:""};
+  }
+  return "";
+}
+function itemTools(nome,i){
+  if(!S.edit)return "";
+  return '<span class="itools"><button class="tbtn" data-mv="'+nome+':'+i+':-1" title="subir">↑</button>'
+    +'<button class="tbtn" data-mv="'+nome+':'+i+':1" title="descer">↓</button>'
+    +'<button class="tbtn d" data-rm="'+nome+':'+i+'" title="remover">✕</button></span>';
+}
+function addTools(nome,rotulo){
+  if(!S.edit)return "";
+  return '<div class="addrow" style="margin-top:8px"><button class="btn sec" data-add="'+nome+'">'+esc(rotulo)+'</button></div>';
+}
+
 function viewHome(){
   var c=D.campanha,h=[];
   if(!c)return viewVazio();
@@ -1509,9 +1568,11 @@ function viewHome(){
   if(vazia&&!S.edit)
     h.push('<div class="sec-wrap"><h2 class="sec">Primeiros passos</h2>'
       +'<p class="lead">Esta '+esc(V("campanha").toLowerCase())+' está em branco. Ligue o <b>modo edição</b> '
-      +'no topo (ou aperte <span class="kbd">E</span>) e os campos ficam escrivíveis direto na página.</p>'
+      +'no topo (ou aperte <span class="kbd">E</span>): os textos ficam escrivíveis direto na página e '
+      +'aparecem botões de adicionar e remover em cada bloco.</p>'
       +'<ul class="fl"><li>Comece pelo título, o sistema e o conceito.</li>'
-      +'<li>Crie a primeira '+esc(V("sessao").toLowerCase())+' pelo menu <b>'+esc(Vm("sessoes"))+'</b> no topo.</li>'
+      +'<li>Monte os '+esc(V("personagens").toLowerCase())+', com foto, foto de hover e fichas.</li>'
+      +'<li>Liste as '+esc(V("sessoes").toLowerCase())+' no mapa, e clique numa para criar o '+esc(V("roteiro").toLowerCase())+'.</li>'
       +'<li>Em <b>···</b> você ajusta o vocabulário, a '+esc(Vm("referencia").toLowerCase())
       +', os temas e convida a mesa.</li>'
       +'<li>Já tem uma '+esc(V("campanha").toLowerCase())+' pronta num pacote? <b>···</b> › Ajustes › Importar pacote.</li>'
@@ -1519,67 +1580,105 @@ function viewHome(){
   h.push('<p class="lead" style="margin-top:8px">'+E(c,"verdadeIntro")+'</p>');
 
   if(c.corpos.length||S.edit){
-  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"corposTitulo")+'</h2><div class="grid pcs">');
-  c.corpos.forEach(function(p,i){
-    h.push('<article class="pc"><div class="por"><img src="'+esc(IMG(p.pc))+'" alt="'+esc(p.assassino)+'" loading="lazy">'
-      +'<img class="mk" src="'+p.mask+'" alt="" loading="lazy"></div><div class="bd">'
-      +'<b>'+E(p,"assassino")+'</b><span class="alc">'+esc(p.alcunha)+'</span>'
-      +'<span class="sm" style="color:var(--fg2)">Agente: '+(p.agente?E(p,"agente"):'<span class="muted">'+esc(p.agenteNota||"a definir")+'</span>')+'</span>'
-      +'<span class="termos">'+E(p,"termos")+'</span>'
-      +'<div class="row"><span class="chip">'+esc(p.dificuldade)+'</span>'
-      +'<button class="chip g btn" data-doc="'+esc(p.as)+'">'+esc(refLivro(p.as))+'</button>'
-      +'<button class="chip btn" data-fichas="'+i+'">fichas</button></div></div></article>');
-  });
-  h.push('</div><p class="sm muted" style="margin:0">'+E(c,"sacrificio")+'</p></div>');
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"corposTitulo")+'</h2><div class="grid pcs">');
+    c.corpos.forEach(function(p,i){
+      var foto=p.pc?'<img src="'+esc(IMG(p.pc))+'" alt="'+esc(p.assassino)+'" loading="lazy">'
+                   :'<div class="semfoto">sem foto</div>';
+      var hover=p.mask?'<img class="mk" src="'+esc(IMG(p.mask))+'" alt="" loading="lazy">':'';
+      var nf=(p.fichas||[]).length;
+      h.push('<article class="pc"><div class="por">'+foto+hover+'</div><div class="bd">'
+        +'<b>'+E(p,"assassino")+'</b><span class="alc">'+E(p,"alcunha")+'</span>'
+        +'<span class="sm" style="color:var(--fg2)">Agente: '
+          +((p.agente||S.edit)?E(p,"agente"):'<span class="muted">'+esc(p.agenteNota||"a definir")+'</span>')+'</span>'
+        +'<span class="termos">'+E(p,"termos")+'</span>'
+        +'<div class="row"><span class="chip">'+E(p,"dificuldade")+'</span>'
+        +(S.edit?'<span class="chip g" title="abreviação do livro, ex. LB p42">'+E(p,"as")+'</span>'
+                :(p.as?'<button class="chip g btn" data-doc="'+esc(p.as)+'">'+esc(refLivro(p.as))+'</button>':''))
+        +(nf?'<button class="chip btn" data-fichas="'+i+'">fichas</button>':'')
+        +'</div>'
+        +(S.edit?'<div class="row ptools">'
+            +'<button class="tbtn" data-img="'+i+':pc">foto</button>'
+            +'<button class="tbtn" data-img="'+i+':mask">hover</button>'
+            +'<button class="tbtn" data-fic="'+i+'">fichas ('+nf+')</button>'
+            +'<button class="tbtn" data-mv="corpos:'+i+':-1" title="subir">↑</button>'
+            +'<button class="tbtn" data-mv="corpos:'+i+':1" title="descer">↓</button>'
+            +'<button class="tbtn d" data-rm="corpos:'+i+'">remover</button></div>':'')
+        +'</div></article>');
+    });
+    h.push('</div>'+addTools("corpos","+ "+V("personagem").toLowerCase())
+      +'<p class="sm muted" style="margin:0">'+E(c,"sacrificio")+'</p></div>');
   }
 
   var ps=c.preSessao;
-  if(ps.intro||ps.textoAbertura||(ps.perguntas||[]).length||S.edit)
-  h.push('<div class="sec-wrap"><h2 class="sec">'+E(ps,"titulo")+'</h2>'
-    +'<p class="lead">'+E(ps,"intro")+'</p>'
-    +'<div class="leitura" style="margin-top:4px">'+E(ps,"textoAbertura")+'</div>'
-    +'<div class="fld" style="margin-top:12px"><span class="flb">As seis perguntas, uma por estigma</span><ul class="fl">'
-    +ps.perguntas.map(function(x,i){return '<li>'+E(ps.perguntas,i)+'</li>';}).join("")+'</ul></div>'
-    +'<div class="fld"><span class="flb">Como usar as respostas</span><ul class="fl">'
-    +ps.metodo.map(function(x,i){return '<li>'+E(ps.metodo,i)+'</li>';}).join("")+'</ul></div></div>');
+  if(ps.intro||ps.textoAbertura||(ps.perguntas||[]).length||(ps.metodo||[]).length||S.edit)
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(ps,"titulo")+'</h2>'
+      +'<p class="lead">'+E(ps,"intro")+'</p>'
+      +'<div class="leitura" style="margin-top:4px">'+E(ps,"textoAbertura")+'</div>'
+      +'<div class="fld" style="margin-top:12px"><span class="flb">'+E(ps,"perguntasTitulo")+'</span><ul class="fl">'
+      +ps.perguntas.map(function(x,i){return '<li>'+E(ps.perguntas,i)+itemTools("perguntas",i)+'</li>';}).join("")
+      +'</ul>'+addTools("perguntas","+ pergunta")+'</div>'
+      +'<div class="fld"><span class="flb">'+E(ps,"metodoTitulo")+'</span><ul class="fl">'
+      +ps.metodo.map(function(x,i){return '<li>'+E(ps.metodo,i)+itemTools("metodo",i)+'</li>';}).join("")
+      +'</ul>'+addTools("metodo","+ item")+'</div></div>');
 
   var ad=c.adaptacao;
   if((ad.itens||[]).length||S.edit)
-  h.push('<div class="sec-wrap"><h2 class="sec">'+E(ad,"titulo")+'</h2><div class="grid met">'
-    +ad.itens.map(function(x,i){return '<div class="c"><p>'+E(ad.itens,i)+'</p></div>';}).join("")+'</div></div>');
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(ad,"titulo")+'</h2><div class="grid met">'
+      +ad.itens.map(function(x,i){return '<div class="c"><p>'+E(ad.itens,i)+itemTools("adaptacao",i)+'</p></div>';}).join("")
+      +'</div>'+addTools("adaptacao","+ adaptação")+'</div>');
 
   if(c.episodios.length||S.edit){
-  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"episodiosTitulo")+'</h2><div class="eps">');
-  c.episodios.forEach(function(e2){
-    var ses=D.sessoes.filter(function(x){return x.numero===e2.n;})[0];
-    var feita=!!(ses&&(ses.status==="jogada"||ses.status==="encerrada"));
-    h.push('<button class="ep'+(feita?' done':'')+'" data-ep="'+e2.n+'"><span class="n">'+e2.n+'</span><div><b>'+E(e2,"nome")+'</b>'
-      +'<p>'+E(e2,"resumo")+'</p></div><span class="go">'+(ses?(feita?"encerrada ›":"abrir ›"):"criar +")+'</span></button>');
-  });
-  h.push('</div></div>');
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"episodiosTitulo")+'</h2><div class="eps">');
+    c.episodios.forEach(function(e2,i){
+      var ses=D.sessoes.filter(function(x){return x.numero===e2.n;})[0];
+      var feita=!!(ses&&(ses.status==="jogada"||ses.status==="encerrada"));
+      var corpo='<button class="ep'+(feita?' done':'')+'" data-ep="'+e2.n+'"><span class="n">'+esc(e2.n)+'</span>'
+        +'<div><b>'+E(e2,"nome")+'</b><p>'+E(e2,"resumo")+'</p></div>'
+        +'<span class="go">'+(ses?(feita?"encerrada ›":"abrir ›"):"criar +")+'</span></button>';
+      if(!S.edit){ h.push(corpo); return; }
+      h.push('<div class="epwrap">'+corpo
+        +'<div class="eptools"><span class="sm muted">número</span>'
+        +'<input class="epnum" type="number" min="0" step="1" value="'+esc(e2.n)+'" data-epn="'+i+'">'
+        +'<button class="tbtn" data-mv="episodios:'+i+':-1" title="subir">↑</button>'
+        +'<button class="tbtn" data-mv="episodios:'+i+':1" title="descer">↓</button>'
+        +'<button class="tbtn d" data-rm="episodios:'+i+'">remover</button></div></div>');
+    });
+    h.push('</div>'+addTools("episodios","+ "+V("sessao").toLowerCase())
+      +(S.edit?'<p class="sm muted" style="margin-top:6px">O número liga a linha ao '+esc(V("roteiro").toLowerCase())
+        +' já criado. Mudar o número de uma linha que já tem '+esc(V("roteiro").toLowerCase())+' desfaz esse vínculo.</p>':'')
+      +'</div>');
   }
 
   if(c.conceitoTexto||(c.regrasDeOuro&&c.regrasDeOuro.length)||S.edit)
     h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"conceitoTitulo")+'</h2><p class="lead">'+E(c,"conceitoTexto")+'</p>'
-      +'<ul class="fl" style="margin-top:4px">'+(c.regrasDeOuro||[]).map(function(r,i){return '<li>'+E(c.regrasDeOuro,i)+'</li>';}).join("")+'</ul></div>');
+      +'<div class="fld" style="margin-top:10px"><span class="flb">'+E(c,"regrasDeOuroTitulo")+'</span><ul class="fl">'
+      +(c.regrasDeOuro||[]).map(function(r,i){return '<li>'+E(c.regrasDeOuro,i)+itemTools("regras",i)+'</li>';}).join("")
+      +'</ul>'+addTools("regras","+ regra")+'</div></div>');
 
-  if((c.indiceAS||[]).length||S.edit)
-  h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"indiceTitulo")+'</h2>'
-    +'<p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p><div class="grid idx">');
-  (c.indiceAS||[]).forEach(function(d){
-    var u=['<div class="doc"><b>'+esc(d.nome)+'</b><ul>'];
-    (d.grupos||[]).forEach(function(g){
-      u.push('<li class="g">'+esc(g.t)+(g.p?' <span class="pg" data-open="'+d.doc+':'+g.p+'">p'+g.p+'</span>':"")+'</li>');
-      (g.itens||[]).forEach(function(it){
-        u.push('<li class="s">'+esc(it.t)+(it.p?' <span class="pg" data-open="'+d.doc+':'+it.p+'">p'+it.p+'</span>':"")+'</li>');
-        (it.sub||[]).forEach(function(s2){ u.push('<li class="s2">'+esc(s2.t)+(s2.p?' <span class="pg" data-open="'+d.doc+':'+s2.p+'">p'+s2.p+'</span>':"")+'</li>'); });
+  if((c.indiceAS||[]).length||S.edit){
+    h.push('<div class="sec-wrap"><h2 class="sec">'+E(c,"indiceTitulo")+'</h2>'
+      +'<p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p>'
+      +(S.edit?'<div class="addrow" style="margin-top:8px"><button class="btn sec" id="hmRef">Editar o índice</button></div>':'')
+      +'<div class="grid idx">');
+    (c.indiceAS||[]).forEach(function(d){
+      var u=['<div class="doc"><b>'+esc(d.nome)+'</b><ul>'];
+      (d.grupos||[]).forEach(function(g){
+        u.push('<li class="g">'+esc(g.t)+(g.p?' <span class="pg" data-open="'+d.doc+':'+g.p+'">p'+g.p+'</span>':"")+'</li>');
+        (g.itens||[]).forEach(function(it){
+          u.push('<li class="s">'+esc(it.t)+(it.p?' <span class="pg" data-open="'+d.doc+':'+it.p+'">p'+it.p+'</span>':"")+'</li>');
+          (it.sub||[]).forEach(function(s2){
+            u.push('<li class="s2">'+esc(s2.t)+(s2.p?' <span class="pg" data-open="'+d.doc+':'+s2.p+'">p'+s2.p+'</span>':"")+'</li>');
+          });
+        });
       });
+      u.push('</ul></div>');
+      h.push(u.join(""));
     });
-    u.push('</ul></div>'); h.push(u.join(""));
-  });
-  h.push('</div></div>');
+    h.push('</div></div>');
+  }
   return h.join("");
 }
+
 function viewMetodo(){
   if(!D.campanha)return viewVazio();
   var h=['<p class="eyebrow">Como conduzir</p><h1 class="page">Método de mesa</h1>'];
@@ -1594,12 +1693,207 @@ function viewMetodo(){
 }
 function hydrateHome(){
   $$("[data-ep]").forEach(function(b){ b.onclick=function(e){
-    if(S.edit&&e.target.isContentEditable)return; abrirPorNumero(+b.getAttribute("data-ep")); };});
+    if(S.edit&&e.target.isContentEditable)return;
+    abrirPorNumero(+b.getAttribute("data-ep"));
+  };});
   $$("[data-fichas]").forEach(function(b){b.onclick=function(){abrirFichas(+b.getAttribute("data-fichas"));};});
   $$("[data-doc]").forEach(function(b){b.onclick=function(){
-    var m=/([A-Z]+\d+)\s*p?(\d+)/i.exec(b.getAttribute("data-doc")); if(m)abrirPdf(m[1].toUpperCase(),+m[2]);};});
+    var m=/([A-Z]+\d+)\s*p?(\d+)/i.exec(b.getAttribute("data-doc"));
+    if(m)abrirPdf(m[1].toUpperCase(),+m[2]);
+  };});
   $$("[data-open]").forEach(function(b){b.onclick=function(){
-    var pr=b.getAttribute("data-open").split(":"); abrirPdf(pr[0],+pr[1]);};});
+    var pr=b.getAttribute("data-open").split(":"); abrirPdf(pr[0],+pr[1]);
+  };});
+  if(!S.edit||!GM)return;
+
+  var rf=$("#hmRef"); if(rf)rf.onclick=function(){ abrirReferencia(); };
+
+  $$("[data-add]").forEach(function(b){ b.onclick=function(){
+    var nome=b.getAttribute("data-add"), l=listaCamp(nome);
+    if(!l){ toast("não achei essa lista"); return; }
+    l.push(itemNovo(nome)); save(); render();
+  };});
+
+  $$("[data-rm]").forEach(function(b){ b.onclick=function(){
+    var pr=b.getAttribute("data-rm").split(":"), l=listaCamp(pr[0]), i=+pr[1];
+    if(!l||!l[i]&&l[i]!=="")return;
+    var pesado=(pr[0]==="corpos"||pr[0]==="episodios");
+    if(pesado&&!confirm("Remover este item? Isso não dá para desfazer."))return;
+    l.splice(i,1); save(); render();
+  };});
+
+  $$("[data-mv]").forEach(function(b){ b.onclick=function(){
+    var pr=b.getAttribute("data-mv").split(":"), l=listaCamp(pr[0]), i=+pr[1], d=+pr[2], j=i+d;
+    if(!l||j<0||j>=l.length)return;
+    var t=l[i]; l[i]=l[j]; l[j]=t; save(); render();
+  };});
+
+  $$("[data-epn]").forEach(function(inp){ inp.onchange=function(){
+    var e2=D.campanha.episodios[+inp.getAttribute("data-epn")];
+    if(!e2)return;
+    e2.n=Number(inp.value)||0; save(); render();
+  };});
+
+  $$("[data-img]").forEach(function(b){ b.onclick=function(){
+    var pr=b.getAttribute("data-img").split(":"), p=D.campanha.corpos[+pr[0]], campo=pr[1];
+    if(!p)return;
+    escolherImagem(p[campo]).then(function(rel){
+      if(rel===null)return;
+      p[campo]=rel; save(); render();
+      toast(rel?"Imagem trocada":"Imagem removida");
+    });
+  };});
+
+  $$("[data-fic]").forEach(function(b){ b.onclick=function(){
+    abrirFichasEdit(+b.getAttribute("data-fic"));
+  };});
+}
+
+/* ---------- ESCOLHER IMAGEM ---------- */
+/* Devolve o caminho relativo ("img/x.webp"), "" para tirar a imagem, ou null
+   se a pessoa fechou sem escolher. Guardamos o caminho relativo e nao a URL:
+   e isso que o IMG() sabe resolver, e e isso que o pacote carrega. */
+function escolherImagem(atual){
+  return new Promise(function(res){
+    var escolhido=null, resolvido=false;
+    var ov=overlay("Escolher imagem",
+      '<p class="sm muted" style="margin:0 0 10px">As imagens da '+esc(V("campanha").toLowerCase())
+        +'. Envie uma nova se a que você quer ainda não está aqui.</p>'
+      +'<div id="eiList"><p class="muted sm">carregando…</p></div>'
+      +'<div class="addrow" style="margin-top:14px">'
+      +'<button class="btn" id="eiUp">Enviar imagem nova</button>'
+      +'<button class="btn sec" id="eiClr">Deixar sem imagem</button></div>',
+      {wide:true});
+    var fechar=ov.close;
+    ov.close=function(){ if(!resolvido){ resolvido=true; res(escolhido); } fechar(); };
+    function pinta(figs){
+      var alvo=$("#eiList",ov);
+      if(!figs.length){ alvo.innerHTML='<p class="empty">Nenhuma imagem nesta '+esc(V("campanha").toLowerCase())+' ainda.</p>'; return; }
+      alvo.innerHTML='<div class="eigrid">'+figs.map(function(x){
+        var rel=x.arquivo||("img/"+x.nome);
+        return '<button type="button" data-pick="'+esc(rel)+'"'+(rel===atual?' class="on"':'')+'>'
+          +'<img src="'+esc(x.url)+'" alt="" loading="lazy">'
+          +'<span class="cap">'+esc(x.nome)+'</span></button>';
+      }).join("")+'</div>';
+      $$("[data-pick]",ov).forEach(function(b){ b.onclick=function(){
+        escolhido=b.getAttribute("data-pick"); ov.close();
+      };});
+    }
+    function carrega(){
+      api(cAPI("/midia")).then(function(c){ pinta((c&&c.imagens)||[]); })
+        .catch(function(e){ $("#eiList",ov).innerHTML='<p class="empty">'+esc((e&&e.message)||"não deu para listar")+'</p>'; });
+    }
+    carrega();
+    $("#eiClr",ov).onclick=function(){ escolhido=""; ov.close(); };
+    $("#eiUp",ov).onclick=function(){
+      escolherArquivos(false,"image/*").then(function(fs){
+        if(!fs.length)return;
+        var b=$("#eiUp",ov); b.disabled=true; b.textContent="Enviando…";
+        var ultimo=null;
+        fs.reduce(function(fila,f){
+          return fila.then(function(){ return subirImagem(f).then(function(r){ ultimo=r&&r.arquivo; }); });
+        },Promise.resolve()).then(function(){
+          b.disabled=false; b.textContent="Enviar imagem nova";
+          recarregaCatalogo();
+          if(fs.length===1&&ultimo){ escolhido=ultimo; ov.close(); return; }
+          carrega(); toast(fs.length+" imagens enviadas");
+        }).catch(function(e){
+          b.disabled=false; b.textContent="Enviar imagem nova";
+          toast((e&&e.message)||"não deu para enviar");
+        });
+      });
+    };
+  });
+}
+function subirImagem(f){
+  var fd=new FormData();
+  fd.append("nome",f.name.replace(/\.[^.]+$/,""));
+  fd.append("arquivo",f);
+  return upload(cAPI("/midia/img"),fd);
+}
+
+/* ---------- FICHAS DE UM PERSONAGEM, NO MODO EDICAO ---------- */
+function abrirFichasEdit(i){
+  var p=D.campanha.corpos[i];
+  if(!p)return;
+  if(!Array.isArray(p.fichas))p.fichas=[];
+  var ov=overlay("Fichas de "+(p.assassino||V("personagem")),'<div id="feList"></div>'
+    +'<div class="addrow" style="margin-top:14px"><button class="btn" id="feAdd">Adicionar ficha</button></div>'
+    +'<p class="sm muted" style="margin-top:8px">As fichas abrem em tela cheia pelo botão <b>fichas</b> do cartão. '
+    +'Servem para folha de personagem, retrato grande, o que você quiser projetar.</p>',{wide:true,back:function(){ render(); }});
+  function pinta(){
+    var alvo=$("#feList",ov);
+    alvo.innerHTML=p.fichas.length?('<div class="eigrid">'+p.fichas.map(function(f,k){
+      return '<span style="display:inline-block"><img src="'+esc(IMG(f))+'" alt="" loading="lazy" '
+        +'style="width:96px;height:96px;object-fit:cover;border-radius:3px;display:block">'
+        +'<span class="addrow" style="margin-top:4px;gap:3px">'
+        +'<button class="tbtn" data-fmv="'+k+':-1" title="antes">←</button>'
+        +'<button class="tbtn" data-fmv="'+k+':1" title="depois">→</button>'
+        +'<button class="tbtn d" data-frm="'+k+'">✕</button></span></span>';
+    }).join("")+'</div>'):'<p class="empty">Nenhuma ficha ainda.</p>';
+    $$("[data-frm]",ov).forEach(function(b){ b.onclick=function(){
+      p.fichas.splice(+b.getAttribute("data-frm"),1); save(); pinta();
+    };});
+    $$("[data-fmv]",ov).forEach(function(b){ b.onclick=function(){
+      var pr=b.getAttribute("data-fmv").split(":"), k=+pr[0], j=k+(+pr[1]);
+      if(j<0||j>=p.fichas.length)return;
+      var t=p.fichas[k]; p.fichas[k]=p.fichas[j]; p.fichas[j]=t; save(); pinta();
+    };});
+  }
+  pinta();
+  $("#feAdd",ov).onclick=function(){
+    escolherImagem("").then(function(rel){
+      if(!rel)return;
+      p.fichas.push(rel); save(); pinta();
+    });
+  };
+}
+
+/* ---------- MINHA CONTA ---------- */
+function abrirConta(back){
+  var ov=overlay("Minha conta",
+    '<div class="fld"><span class="flb">Login</span>'
+    +'<p class="lead" style="margin:0"><b style="color:var(--gold)">'+esc((EU&&EU.login)||"?")+'</b></p>'
+    +'<p class="sm muted">O login não muda: é a chave dos convites e de tudo que você já criou.</p></div>'
+    +'<div class="fld"><span class="flb">Nome na mesa</span>'
+    +'<div class="addrow"><input class="inp" id="cnNome" value="'+esc((EU&&EU.nome)||"")+'" placeholder="como a mesa te vê">'
+    +'<button class="btn" id="cnNomeOk">Salvar</button></div></div>'
+    +'<div class="fld"><span class="flb">Trocar a senha</span>'
+    +'<div class="addrow"><input class="inp" id="cnAtual" type="password" placeholder="senha atual" autocomplete="current-password">'
+    +'<input class="inp" id="cnNova" type="password" placeholder="senha nova" autocomplete="new-password">'
+    +'<input class="inp" id="cnNova2" type="password" placeholder="repita a nova" autocomplete="new-password">'
+    +'<button class="btn" id="cnSenhaOk">Trocar</button></div>'
+    +'<p class="sm muted">Mínimo de 6 caracteres. Pedimos a atual de propósito: sessão esquecida aberta '
+    +'em navegador alheio não deve virar conta perdida.</p></div>',
+    {back:back});
+
+  function atualizaSessao(){
+    return api("/api/sessao").then(function(s2){
+      EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
+    });
+  }
+  $("#cnNomeOk",ov).onclick=function(){
+    var b=$("#cnNomeOk",ov), nome=($("#cnNome",ov).value||"").trim();
+    if(!nome){ toast("Escreva um nome"); return; }
+    b.disabled=true;
+    api("/api/perfil",{method:"PUT",body:{nome:nome}})
+      .then(atualizaSessao).then(function(){ b.disabled=false; toast("Nome salvo"); })
+      .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); });
+  };
+  $("#cnSenhaOk",ov).onclick=function(){
+    var b=$("#cnSenhaOk",ov);
+    var at=$("#cnAtual",ov).value||"", nv=$("#cnNova",ov).value||"", n2=$("#cnNova2",ov).value||"";
+    if(nv.length<6){ toast("A senha nova precisa de 6 caracteres"); return; }
+    if(nv!==n2){ toast("As duas senhas novas não batem"); return; }
+    b.disabled=true;
+    api("/api/perfil",{method:"PUT",body:{senhaAtual:at,senhaNova:nv}})
+      .then(function(){
+        b.disabled=false;
+        $("#cnAtual",ov).value=""; $("#cnNova",ov).value=""; $("#cnNova2",ov).value="";
+        toast("Senha trocada");
+      })
+      .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); });
+  };
 }
 
 /* ---------- OVERLAY ---------- */
@@ -2643,8 +2937,9 @@ function abrirMenu(){
   var quem='<p class="sm muted">Você é <b style="color:var(--gold)">'+esc((EU&&EU.nome)||"?")+'</b>'
     +(CID?(' em <b style="color:var(--gold)">'+esc(camp.nome||"")+'</b> ('+(GM?V("mestre"):V("jogador"))+')'):'')
     +(ADMIN?' · administra esta instância':'')+'.</p>';
-  var trocar=(CAMPANHAS.length>1||!CID)
-    ? '<div class="addrow"><button class="btn sec" id="mTroca">Trocar de '+esc(V("campanha").toLowerCase())+'</button></div>' : '';
+  var trocar='<div class="addrow"><button class="btn sec" id="mTroca">Minhas '
+    +esc((V("campanhas")||"campanhas").toLowerCase())+'</button>'
+    +'<button class="btn sec" id="mConta">Minha conta</button></div>';
   var atalhos='<div class="fld"><span class="flb">Atalhos</span><ul class="fl sm">'
     +'<li><span class="kbd">Ctrl</span>+<span class="kbd">F</span> busca</li>'
     +(GM?'<li><span class="kbd">E</span> liga e desliga o modo edição</li>':'')
@@ -2666,6 +2961,7 @@ function abrirMenu(){
         .then(function(){ ovj.close(); trocarCampanha(); })
         .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
     var aj=$("#mAdm",ovj); if(aj)aj.onclick=function(){ ovj.close(); abrirAdmin(abrirMenu); };
+    var cj=$("#mConta",ovj); if(cj)cj.onclick=function(){ ovj.close(); abrirConta(abrirMenu); };
     $("#mSair",ovj).onclick=sair; return;
   }
 
@@ -2695,6 +2991,7 @@ function abrirMenu(){
   $("#mVoc",ov).onclick=function(){ ov.close(); abrirVocabulario(abrirMenu); };
   $("#mRef",ov).onclick=function(){ ov.close(); abrirReferencia(abrirMenu); };
   var am=$("#mAdm",ov); if(am)am.onclick=function(){ ov.close(); abrirAdmin(abrirMenu); };
+  var cm=$("#mConta",ov); if(cm)cm.onclick=function(){ ov.close(); abrirConta(abrirMenu); };
   var tm=$("#mTroca",ov); if(tm)tm.onclick=function(){ ov.close(); trocarCampanha(); };
   $("#mSair",ov).onclick=sair;
   var iN=$("#iaN",ov), iA=$("#iaA",ov), iP=$("#iaPrev",ov);
@@ -3125,15 +3422,20 @@ $("#nbLoop").onclick=function(){ PL.loop=!PL.loop; if(PL.cur)PL.cur.loop=PL.loop
   var lp=$("#plLoop"); if(lp){lp.setAttribute("aria-pressed",PL.loop);lp.textContent="Loop "+(PL.loop?"ligado":"desligado");}
   toast(PL.loop?"Loop ligado":"Loop desligado"); };
 $("#btnMenu").onclick=function(){abrirMenu();};
-$("#btnEdit").onclick=function(){S.edit=!S.edit;applyEdit();toast(S.edit?"Modo edição ligado":"Modo edição desligado");};
+$("#btnEdit").onclick=function(){S.edit=!S.edit;applyEdit();render();toast(S.edit?"Modo edição ligado":"Modo edição desligado");};
 document.addEventListener("keydown",function(e){
   if((e.ctrlKey||e.metaKey)&&(e.key==="f"||e.key==="F")){ e.preventDefault(); e.stopPropagation(); abrirBusca(); return; }
   var tag=(e.target&&e.target.tagName||"").toLowerCase();
   if(tag==="input"||tag==="textarea"||e.target.isContentEditable)return;
   if($(".ov"))return;
-  if(e.key==="e"||e.key==="E"){S.edit=!S.edit;applyEdit();}
+  if(e.key==="e"||e.key==="E"){S.edit=!S.edit;applyEdit();render();}
 },true);
-window.addEventListener("resize",function(){
+var bh=document.getElementById("brandHome");
+  if(bh){
+    bh.onclick=function(){ if(PRONTO||CID)trocarCampanha(); };
+    bh.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); bh.onclick(); } };
+  }
+  window.addEventListener("resize",function(){
   document.documentElement.style.setProperty("--hh",($(".top").offsetHeight||56)+"px"); });
 boot();
 })();
