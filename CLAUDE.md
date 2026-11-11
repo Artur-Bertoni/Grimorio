@@ -58,8 +58,12 @@ de usos e validade).
 O conteúdo da campanha não é tabela: são dois documentos JSON grandes em `documento`,
 com versão otimista.
 
-- **guia** (`chave = "guia"`): tudo que é do mestre. `{campanha:{…}, sessoes:[…],
-  trilhaCategorias:[], galeria:[]}`. A rota exige MESTRE.
+- **guia** (`chave = "guia"`): tudo que é do mestre, na versão 3:
+  `{versao:3, campanha:{titulo, sistema, apresentacao, secoes:[…], vocab, referencia},
+  elenco:{personagens:[], npcs:[], locais:[], pistas:[]}, sessoes:[…]}`. Cada sessão
+  guarda `cenas`, `territorios` e os **ids** do elenco que usa (`npcIds`, `localIds`,
+  `pistaIds`). A rota exige MESTRE. Guia v2 é convertido por `migrarV3()` ao abrir, e
+  os campos antigos ficam no JSON de propósito.
 - **mesa** (`chave = "mesa"`): o recorte que o jogador vê. Resumos, evidências
   liberadas, quem é quem, locais, vocabulário, referência, tema, nome da IA.
 
@@ -129,6 +133,10 @@ dependência, é egress, não o `pom.xml`.
   `Vm("chave")`, o vocabulário configurável. Estrutura de campanha é toda opcional:
   `normalizaCampanha()` preenche o que faltar, e uma campanha em branco abre numa tela
   de primeiros passos em vez de quebrar.
+- **Tudo que aparece na tela é editável pela tela, e nada é tabela fixa no código.**
+  Assuntos da busca, sinônimos, páginas certas, índice dos livros, abreviação de livro
+  e categorias de trilha são dado da campanha. Precisou de uma lista de termos de um
+  sistema? Ela vai para o guia, com editor, nunca para uma constante.
 - **O repositório não carrega campanha, livro nem arte.** Conteúdo entra por pacote
   (`PacoteService`), um zip com `campanha.json`, `indice/*.json` e `img/*`.
 - **Cores só por token CSS** (`var(--bg)`, `var(--gold)`, …). Hex fixo quebra os temas
@@ -136,37 +144,69 @@ dependência, é egress, não o `pom.xml`.
 
 ## Como o front edita
 
-Modo edição (`S.edit`, botão no topo ou tecla `E`) deixa os textos escrivíveis na
-própria página:
+**Tudo passa por formulário.** Não existe mais modo edição, tecla `E` nem
+`contentEditable`: digitar direto na página não tinha rótulo, perdia quebra de linha
+e ligava sem querer (ver `docs/decisoes.md`). Cada item tem um botão **editar** que
+abre `formulario()`:
 
-- `E(objeto, chave)` devolve um `<span>` ligado àquele campo. Digitou, o `input`
-  global grava em `objeto[chave]` e chama `save()`. Funciona com array: `E(lista, i)`.
-- Controles de lista são `data-*` resolvidos em `hydrateHome()`:
-  `data-add="corpos"`, `data-rm="corpos:3"`, `data-mv="corpos:3:-1"`,
-  `data-img="3:pc"`, `data-fic="3"`, `data-epn="3"`. As listas editáveis estão no mapa
-  `LISTAS`; item novo sai de `itemNovo()`.
-- Ligar e desligar o modo edição chama `render()`, porque seção vazia e botão de
-  adicionar são decididos na montagem da tela.
-- `escolherImagem(atual)` abre o seletor e devolve o caminho relativo, `""` para tirar
-  a imagem, ou `null` se fechou sem escolher.
+```js
+formulario("Editar · npc", [
+  {k:"nome", rot:"Nome", obrig:true},
+  {k:"img",  rot:"Retrato", tipo:"img"},
+  {k:"desc", rot:"O que a mesa pode saber", tipo:"area", dica:"…"}
+], objeto, {
+  salvar:  function(copia){ /* grava, save(), render() */ },
+  remover: function(){ comDesfazer("Removido", function(){ /* tira da lista */ }); }
+});
+```
 
-Quem renderiza uma aba nova: devolva string de HTML numa `viewX()`, ligue os eventos
-numa `hydrateX()`, e registre as duas no `render()`.
+- Tipos de campo: texto (padrão), `area`, `linhas` (textarea, um item por linha, vira
+  array), `num`, `sel` (`ops:[[valor,rótulo]]`), `check`, `faixa`, `img`, `imgs` e
+  `grupo` (linhas repetíveis com `campos` próprios e `novo()`).
+- O formulário trabalha numa **cópia**. O original só muda dentro de `salvar(copia)`.
+  Fechar com mudança pendente pede confirmação.
+- **Remoção não pergunta "tem certeza?": faz e oferece desfazer** (`comDesfazer`), que
+  guarda o guia e a mesa inteiros por 7 segundos. A exceção é arquivo no servidor
+  (Biblioteca) e apagar a campanha: aí não tem volta, então a confirmação é de verdade.
+- `E(obj, chave)` continua existindo, mas é só um `esc()`.
+- `escolherImagem(atual)` é o único seletor de imagem: devolve o caminho relativo,
+  `""` para tirar, ou `null` se fechou sem escolher.
+
+`render()` **não rola a tela para o topo quando redesenha a mesma tela**. Era isso que
+fazia cada "adicionar" jogar a pessoa para o começo da página. Cena aberta
+(`S.aberta`) e caixa aberta do painel (`S.rbox`) também sobrevivem ao redesenho.
+
+As abas do mestre são Campanha (`home`), Sessões (`sessoes` é a lista, `sessao` é uma
+aberta), Elenco, Biblioteca e Mesa; a engrenagem abre `ajustes`. Quem renderiza uma
+aba nova: devolva string de HTML numa `viewX()`, ligue os eventos numa `hydrateX(v)`,
+e registre as duas no `render()` e em `renderTabs()`.
+
+As seções de Ajustes reaproveitam as funções `abrirMembros`, `abrirCampanha`,
+`abrirVocabulario`, `abrirReferencia`, `abrirAdmin` e `abrirConta`: o segundo
+parâmetro (`mk`) troca o overlay por `emPagina(alvo)`, que monta o mesmo HTML dentro
+da página.
 
 ## Como testar
 
-`scripts/teste-front/` tem o que existe: um stub em Python que responde os endpoints
-e um roteiro de Playwright por cima, exercitando a tela de verdade num Chromium.
+`scripts/teste-front/` tem o que existe: um stub em Node que responde os endpoints e
+um roteiro de Playwright por cima, exercitando a tela de verdade num navegador. Só
+precisa de Node; usa o Edge ou o Chrome que já estiver na máquina.
 
 ```bash
-cd scripts/teste-front && python3 stub.py &
-node teste.mjs
+cd scripts/teste-front && npm install      # uma vez
+node stub.mjs &
+node teste.mjs                             # FOTOS=pasta grava capturas das telas
 ```
 
 O stub gera a campanha de teste e as imagens na hora, então roda em qualquer máquina
-sem conteúdo por perto. Mexeu no front, rode isso antes de dar por pronto: `node
---check` pega sintaxe, não pega `função is not defined`, seletor que mudou de nome,
-nem imagem que não carrega.
+sem conteúdo por perto. **A campanha 1 do stub nasce no formato antigo (v2) de
+propósito**: é ela que prova que a migração para a v3 funciona. Mexeu no front, rode
+isso antes de dar por pronto: `node --check` pega sintaxe, não pega `função is not
+defined`, seletor que mudou de nome, nem imagem que não carrega. Mexeu em layout,
+rode com `FOTOS=` e olhe as capturas: teste nenhum avalia se ficou bom de usar.
+
+Cuidado ao conferir texto com `innerText`: ele devolve o texto já com o
+`text-transform` do CSS aplicado, então rótulo em caixa alta só casa com regex `/i`.
 
 SQL de schema vale testar contra um Postgres de verdade, não por leitura. As duas
 armadilhas do `ddl-auto` acima foram confirmadas assim.
@@ -182,4 +222,4 @@ assume dezenas de gigas de heap e nunca devolve memória.
 
 Upload pelo app morre em arquivo que leve mais de 5 minutos subindo, limite do proxy
 do Railway. Para livro grande: `railway volume files upload "livro.pdf"
-/midia/c1/pdf/LB.pdf` e depois **Reescanear o volume** na tela de Arquivos.
+/midia/c1/pdf/LB.pdf` e depois **Reescanear o volume** em Biblioteca › Livros › Avançado.

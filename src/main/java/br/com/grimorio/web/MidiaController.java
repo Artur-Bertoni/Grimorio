@@ -81,14 +81,22 @@ public class MidiaController {
         return r;
     }
 
-    public static class CorpoVisibilidade { public Boolean publico; }
+    /** Campos opcionais: so o que vier e alterado. */
+    public static class CorpoVisibilidade { public Boolean publico; public String nome; public String categoria; }
 
     @PutMapping("/midia/{id}")
     public Map<String, Object> visibilidade(@PathVariable Long cid, @PathVariable Long id,
                                             @RequestBody CorpoVisibilidade c) {
         camp.exigeMestre(cid, atual.id());
-        midia.trocarVisibilidade(cid, id, Boolean.TRUE.equals(c.publico));
+        if (c.publico != null) midia.trocarVisibilidade(cid, id, c.publico);
+        if (c.nome != null || c.categoria != null) midia.editar(cid, id, c.nome, c.categoria);
         return Map.of("ok", true);
+    }
+
+    @PostMapping("/midia/{id}/reindexar")
+    public Map<String, Object> reindexar(@PathVariable Long cid, @PathVariable Long id) throws Exception {
+        camp.exigeMestre(cid, atual.id());
+        return midia.reindexar(cid, id);
     }
 
     @PostMapping("/midia/reescanear")
