@@ -49,18 +49,21 @@ administradora.
 1. Crie sua conta e, na tela inicial, crie a campanha (ou entre numa existente
    colando a chave de convite que quem mestra te passou). Se tiver um pacote
    `.zip` de campanha, escolha o arquivo antes de clicar em Criar: ele entra junto.
-2. Menu **···** → **Arquivos**: envie os PDFs dos livros (marque quais os jogadores
-   podem ver), a trilha sonora e as imagens.
-3. Menu **···** → **Quem está na mesa**: gere um link de convite por jogador. Quem
-   abre o link entra na campanha, criando conta na hora se precisar.
-4. Menu **···** → **Vocabulário** e **Consulta rápida**: ajuste os nomes e escreva
-   o resumo de regras do seu sistema.
-5. Menu **···** → tema de cor: seis paletas, cada um escolhe a sua, o mestre define
-   a padrão da mesa.
+2. Aba **Campanha**: os primeiros passos mostram o que falta. Escreva a
+   apresentação e crie as seções que quiser.
+3. Aba **Elenco**: cadastre personagens, NPCs, locais e evidências. O que você
+   liberar aparece na Mesa dos jogadores.
+4. Aba **Biblioteca**: envie os PDFs dos livros (e ligue “jogadores veem” nos que
+   a mesa pode consultar), a trilha sonora e as imagens.
+5. **Ajustes** (a engrenagem) → **Mesa e convites**: gere um link de convite por
+   jogador. Quem abre o link entra na campanha, criando conta na hora se precisar.
+6. **Ajustes** → **Vocabulário** e **Consulta rápida**: ajuste os nomes e escreva o
+   resumo de regras do seu sistema. Em **Aparência** ficam as seis paletas: cada um
+   escolhe a sua, o mestre define a padrão da mesa.
 
 ### Pacote de campanha
 
-**Ajustes da campanha → Exportar pacote** gera um zip com guia, mesa, índices de
+**Ajustes → Campanha → Exportar pacote** gera um zip com guia, mesa, índices de
 busca e imagens. **Importar pacote** faz o caminho de volta, em qualquer instância.
 PDFs e áudio ficam de fora porque são grandes e cada mestre tem os seus.
 
@@ -71,7 +74,7 @@ não precisa carregar conteúdo.
 
 O proxy do Railway corta requisições cujo corpo leve mais de 5 minutos subindo.
 Num PDF de 180 MB isso exige uns 5 Mbps de upload. Se não der, mande direto para
-o volume pelo CLI e depois clique em **Reescanear o volume**:
+o volume pelo CLI e depois clique em **Reescanear o volume**, em Biblioteca › Livros › Avançado:
 
 ```bash
 railway volume files upload "Livro.pdf" /c1/pdf/LB.pdf

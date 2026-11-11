@@ -1,0 +1,13 @@
+{
+  "name": "grimorio-teste-front",
+  "private": true,
+  "type": "module",
+  "description": "Stub dos endpoints e roteiro de navegador para testar o front sem subir o Spring.",
+  "scripts": {
+    "stub": "node stub.mjs",
+    "teste": "node teste.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}

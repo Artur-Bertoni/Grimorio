@@ -8,6 +8,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
+import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,7 +146,7 @@ public class MidiaService {
         } else {
             paginas = 0;
             try {
-                paginas = indexarPdf(campanhaId, ab, nome, arquivo, publico);
+                paginas = indexarPdf(campanhaId, ab, nome, arquivo, publico)[0];
             } catch (Exception e) {
                 log.warn("PDF {} salvo, mas a indexacao falhou: {}", ab, e.getMessage());
             }
@@ -243,6 +246,50 @@ public class MidiaService {
         if (m.getTipo() == Midia.Tipo.PDF) indice.marcarPublico(campanhaId, m.getChave(), publico);
         indice.invalidar(campanhaId);
     }
+
+    /**
+     * Refaz o indice de busca de um livro a partir do PDF que ja esta no volume. Serve
+     * para livro enviado antes de o servidor ler os capitulos. Indice que veio de pacote
+     * (curado a mao, em arquivos ABREV-*.json) nao e tocado: a curadoria vence.
+     */
+    @Transactional
+    public Map<String, Object> reindexar(Long campanhaId, Long id) throws IOException {
+        Midia m = repo.findById(id)
+                .filter(x -> Objects.equals(x.getCampanhaId(), campanhaId) && x.getTipo() == Midia.Tipo.PDF)
+                .orElseThrow(() -> new IllegalArgumentException("livro nao encontrado"));
+        String ab = m.getChave();
+        boolean extraido = Files.exists(indice.pastaIndice(campanhaId).resolve(ab + ".json"));
+        if (!extraido && indice.temLivro(campanhaId, ab))
+            throw new IllegalArgumentException("este livro tem indice vindo de pacote; ele nao e refeito");
+        Path arquivo = raiz(campanhaId).resolve(m.getArquivo()).normalize();
+        if (!arquivo.startsWith(raiz(campanhaId)) || !Files.exists(arquivo))
+            throw new IllegalArgumentException("o PDF nao esta no servidor");
+        int[] r = indexarPdf(campanhaId, ab, m.getNome(), arquivo, m.isPublico());
+        m.setPaginas(r[0]);
+        repo.save(m);
+        indice.invalidar(campanhaId);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("paginas", r[0]);
+        out.put("comCapitulo", r[1]);
+        return out;
+    }
+
+    /**
+     * Troca o nome de exibicao e, em faixa de audio, a categoria. A chave nao muda:
+     * e ela que liga o PDF ao indice e a faixa ao roteiro que a cita.
+     */
+    @Transactional
+    public void editar(Long campanhaId, Long id, String nome, String categoria) {
+        Midia m = repo.findById(id)
+                .filter(x -> Objects.equals(x.getCampanhaId(), campanhaId))
+                .orElseThrow(() -> new IllegalArgumentException("midia nao encontrada"));
+        if (nome != null && !nome.isBlank()) m.setNome(corta(nome.trim(), 200));
+        if (categoria != null && !categoria.isBlank() && m.getTipo() == Midia.Tipo.AUDIO)
+            m.setCategoria(corta(categoria.trim(), 60));
+        repo.save(m);
+    }
+
+    private static String corta(String s, int max) { return s.length() > max ? s.substring(0, max) : s; }
 
     @Transactional
     public void remover(Long campanhaId, Long id) throws IOException {
@@ -373,16 +420,18 @@ public class MidiaService {
         }
     }
 
-    private int indexarPdf(Long campanhaId, String abrev, String nome, Path arquivo, boolean publico)
+    /** Devolve {total de paginas, paginas que ganharam titulo de capitulo}. */
+    private int[] indexarPdf(Long campanhaId, String abrev, String nome, Path arquivo, boolean publico)
             throws IOException {
         ObjectNode raiz = om.createObjectNode();
         raiz.put("publico", publico);
         ArrayNode docs = raiz.putArray("docs");
         ArrayNode pages = raiz.putArray("pages");
 
-        int total;
+        int total, comSecao = 0;
         try (PDDocument doc = Loader.loadPDF(arquivo.toFile())) {
             total = doc.getNumberOfPages();
+            String[] secao = secoesPorPagina(doc, total);
             PDFTextStripper s = new PDFTextStripper();
             s.setSortByPosition(true);
             for (int i = 1; i <= total; i++) {
@@ -393,7 +442,8 @@ public class MidiaService {
                 ObjectNode p = pages.addObject();
                 p.put("d", abrev.toLowerCase());
                 p.put("p", i);
-                p.put("s", "");
+                p.put("s", secao[i]);
+                if (!secao[i].isEmpty()) comSecao++;
                 p.put("t", t);
             }
         }
@@ -407,7 +457,50 @@ public class MidiaService {
         Path saida = indice.pastaIndice(campanhaId).resolve(abrev + ".json");
         Files.createDirectories(saida.getParent());
         Files.writeString(saida, om.writeValueAsString(raiz), StandardCharsets.UTF_8);
-        return total;
+        return new int[]{total, comSecao};
+    }
+
+    /**
+     * Titulo do capitulo de cada pagina (indice 1..total), tirado do sumario que o
+     * proprio PDF carrega (os marcadores). Nao adivinha capitulo pelo texto: fonte
+     * e diagramacao variam demais de livro para livro, e titulo errado atrapalha a
+     * busca mais do que titulo nenhum. PDF sem marcadores fica com tudo vazio.
+     */
+    private String[] secoesPorPagina(PDDocument doc, int total) {
+        String[] out = new String[total + 2];
+        Arrays.fill(out, "");
+        try {
+            PDDocumentOutline raizSumario = doc.getDocumentCatalog().getDocumentOutline();
+            if (raizSumario == null) return out;
+            // em cada pagina vale a ultima entrada do sumario que aponta para ela
+            String[] marca = new String[total + 2];
+            coletarSumario(doc, raizSumario.getFirstChild(), "", 0, marca, new int[]{0});
+            String atual = "";
+            for (int i = 1; i <= total; i++) {
+                if (marca[i] != null) atual = marca[i];
+                out[i] = atual;
+            }
+        } catch (Exception e) {
+            log.warn("Nao consegui ler o sumario do PDF: {}", e.getMessage());
+        }
+        return out;
+    }
+
+    private void coletarSumario(PDDocument doc, PDOutlineItem item, String capitulo, int nivel,
+                                String[] marca, int[] visitados) {
+        // sumario malformado pode ter ciclo; o teto evita laco infinito
+        while (item != null && visitados[0]++ < 20000) {
+            String titulo = item.getTitle() == null ? "" : item.getTitle().replaceAll("\\s+", " ").trim();
+            String rotulo = nivel == 0 || capitulo.isEmpty() ? titulo : capitulo + " · " + titulo;
+            try {
+                PDPage pg = item.findDestinationPage(doc);
+                // indexOf compara o objeto do PDF por baixo: cada leitura devolve um PDPage novo
+                int n = pg == null ? 0 : doc.getPages().indexOf(pg) + 1;
+                if (n >= 1 && n < marca.length && !titulo.isEmpty()) marca[n] = rotulo.length() > 160 ? rotulo.substring(0, 160) : rotulo;
+            } catch (Exception ignore) { }
+            if (nivel < 2) coletarSumario(doc, item.getFirstChild(), nivel == 0 ? titulo : capitulo, nivel + 1, marca, visitados);
+            item = item.getNextSibling();
+        }
     }
 
     private String limpar(String s) {
