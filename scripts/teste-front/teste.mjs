@@ -46,7 +46,8 @@ const ok = (c, msg) => { if (!c) falhas.push(msg); console.log((c ? '  ok  ' : '
 const titulo = t => console.log('\n=== ' + t + ' ===');
 
 const nav = await chromium.launch({ executablePath: exe });
-const ctx = await nav.newContext({ viewport: { width: 1366, height: 900 } });
+// LARGURA/ALTURA trocam o tamanho da janela: o layout cresce com a tela, entao vale olhar em ultrawide
+const ctx = await nav.newContext({ viewport: { width: +process.env.LARGURA || 1366, height: +process.env.ALTURA || 900 } });
 const pg = await ctx.newPage();
 pg.on('pageerror', e => erros.push('pageerror: ' + e.message));
 pg.on('console', m => {
@@ -211,6 +212,32 @@ await foto('05-cena');
 await pg.locator('.cenasheet .x').click();
 await espera(300);
 await foto('06-quadro');
+
+titulo('painel do quadro: mover e redimensionar com o mouse');
+if (!(await pg.locator('#railFloat').isVisible())) { await pg.click('#railBtn'); await espera(200); }
+const caixa = () => pg.locator('#railFloat').boundingBox();
+const p0 = await caixa();
+// primeiro encolhe: o painel nasce com a altura inteira do quadro e nao teria para onde descer
+const gp = await pg.locator('#rfGrip').boundingBox();
+await pg.mouse.move(gp.x + 8, gp.y + 8);
+await pg.mouse.down(); await pg.mouse.move(gp.x + 108, gp.y - 292, { steps: 6 }); await pg.mouse.up();
+await espera(150);
+const p1 = await caixa();
+ok(Math.abs(p1.width - p0.width - 100) < 4 && Math.abs(p1.height - p0.height + 300) < 4, 'painel mudou de tamanho');
+const hd = await pg.locator('#rfHd').boundingBox();
+await pg.mouse.move(hd.x + 20, hd.y + hd.height / 2);
+await pg.mouse.down(); await pg.mouse.move(hd.x + 320, hd.y + hd.height / 2 + 80, { steps: 6 }); await pg.mouse.up();
+await espera(150);
+const p2 = await caixa();
+ok(Math.abs(p2.x - p1.x - 300) < 4 && Math.abs(p2.y - p1.y - 80) < 4, 'painel mudou de lugar');
+await pg.locator('[data-vm="roteiro"]').click(); await espera(300);
+await pg.locator('[data-vm="canvas"]').click(); await espera(300);
+const p3 = await caixa();
+ok(Math.abs(p3.x - p2.x) < 2 && Math.abs(p3.width - p2.width) < 2, 'posicao e tamanho sobrevivem ao redesenho');
+await foto('06b-quadro-painel-movido');
+await pg.locator('#rfHd').dblclick(); await espera(200);
+const p4 = await caixa();
+ok(Math.abs(p4.x - p0.x) < 2 && Math.abs(p4.width - p0.width) < 2, 'clique duplo devolve ao lugar');
 
 titulo('roteiro: a cena continua aberta depois de editar');
 await pg.locator('[data-vm="roteiro"]').click();

@@ -38,7 +38,6 @@ public class AjusteEsquema {
             ok += realinhar(jdbc, "membro", "papel", Papel.values());
             ok += realinhar(jdbc, "convite", "papel", Papel.values());
             ok += realinhar(jdbc, "usuario", "papel", Papel.values());
-            log.info("Checks de enum conferidos: {} de 4.", ok);
         };
     }
 

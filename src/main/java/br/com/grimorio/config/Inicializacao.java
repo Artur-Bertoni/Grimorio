@@ -28,10 +28,7 @@ public class Inicializacao {
 
             long contas = usuarios.count();
             if (contas == 0) {
-                log.warn("=================================================");
-                log.warn(" Nenhuma conta ainda. Abra o site e clique em");
-                log.warn(" \"Criar uma conta\": a primeira vira administradora.");
-                log.warn("=================================================");
+                log.warn(" Nenhuma conta cadastrada.");
             } else {
                 migracao.migrar();
             }
