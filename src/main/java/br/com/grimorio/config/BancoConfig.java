@@ -55,7 +55,7 @@ public class BancoConfig {
             cfg.setUsername("sa");
             cfg.setPassword("");
             cfg.setDriverClassName("org.h2.Driver");
-            log.warn("Banco: H2 em arquivo ({}). Em producao aponte DATABASE_URL para o PostgreSQL.", dir);
+            log.info("Banco: H2 em arquivo ({})", dir);
         }
 
         return new HikariDataSource(cfg);
