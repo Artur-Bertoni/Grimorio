@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "midia")
+@Table(name = "midia", indexes = @Index(name = "ix_midia_hash", columnList = "hash"))
 public class Midia {
 
     public enum Tipo { PDF, AUDIO, IMG }
@@ -47,6 +47,15 @@ public class Midia {
     @Column(name = "enviado_em", nullable = false)
     private Instant enviadoEm = Instant.now();
 
+    /* SHA-256 do conteudo: e por ele, nunca pelo nome, que dois envios sao o mesmo arquivo.
+       Nullable de proposito (coluna nova em tabela com linhas): o boot preenche o que faltar. */
+    @Column(length = 64)
+    private String hash;
+
+    /* so na resposta do envio: o arquivo ja estava no volume e nao ocupou espaco novo */
+    @Transient
+    private boolean reaproveitado;
+
     public Long getId() { return id; }
     public Long getCampanhaId() { return campanhaId; }
     public void setCampanhaId(Long campanhaId) { this.campanhaId = campanhaId; }
@@ -67,6 +76,10 @@ public class Midia {
     public void setPublico(boolean publico) { this.publico = publico; }
     public int getPaginas() { return paginas; }
     public void setPaginas(int paginas) { this.paginas = paginas; }
+    public String getHash() { return hash; }
+    public void setHash(String hash) { this.hash = hash; }
+    public boolean isReaproveitado() { return reaproveitado; }
+    public void setReaproveitado(boolean reaproveitado) { this.reaproveitado = reaproveitado; }
     public Instant getEnviadoEm() { return enviadoEm; }
     public void setEnviadoEm(Instant enviadoEm) { this.enviadoEm = enviadoEm; }
 }

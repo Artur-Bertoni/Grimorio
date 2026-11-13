@@ -10,4 +10,7 @@ public interface MidiaRepo extends JpaRepository<Midia, Long> {
     List<Midia> findByCampanhaId(Long campanhaId);
     Optional<Midia> findByCampanhaIdAndTipoAndChaveIgnoreCase(Long campanhaId, Midia.Tipo tipo, String chave);
     void deleteByCampanhaId(Long campanhaId);
+    List<Midia> findByHash(String hash);
+    List<Midia> findByHashIsNull();
+    List<Midia> findByHashIsNotNullOrderByIdAsc();
 }

@@ -28,6 +28,13 @@ public class TratadorDeErros {
                 .body(Map.of("erro", "arquivo maior que o limite configurado"));
     }
 
+    @ExceptionHandler(br.com.grimorio.service.ArmazenamentoCheioException.class)
+    public ResponseEntity<?> cheio(br.com.grimorio.service.ArmazenamentoCheioException e) {
+        log.warn("Envio recusado: armazenamento de midia cheio");
+        return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
+                .body(Map.of("erro", "o armazenamento está cheio", "codigo", "armazenamento-cheio"));
+    }
+
     @ExceptionHandler(CampanhaService.SemAcessoException.class)
     public ResponseEntity<?> semAcesso(CampanhaService.SemAcessoException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", msg(e)));

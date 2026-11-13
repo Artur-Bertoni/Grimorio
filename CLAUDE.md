@@ -31,11 +31,12 @@ src/main/java/br/com/grimorio/
   config/     SecurityConfig, BancoConfig, MidiaAutorizacao, AjusteEsquema,
               Inicializacao, WebConfig, AppProps
   model/      Usuario, Campanha, Membro, Convite, Documento, Anotacao,
-              MuralPost, Midia, Config, Papel, Rolagem, Ficha, + Doc e Nota (legado)
+              MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado,
+              + Doc e Nota (legado)
   repo/       um repositório Spring Data por entidade
   service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
               PacoteService, UsuarioService, ConfigService, IaService,
-              RolagemService, MigracaoService
+              RolagemService, SuporteService, MigracaoService
   web/        um controller por área, todos sob /api
 src/main/resources/
   static/index.html   O APP INTEIRO: ~200 KB de HTML, CSS e JS num arquivo só
@@ -78,7 +79,35 @@ monta `MESA` campo a campo: **chave nova na mesa precisa entrar lá**, senão so
 primeira leitura.
 
 Arquivos ficam no volume, nunca no banco: `/data/midia/c{campanhaId}/{pdf,audio,img,indice}`.
-A tabela `midia` só cataloga.
+A tabela `midia` só cataloga, e guarda o SHA-256 de cada arquivo (`hash`).
+
+**O mesmo conteúdo ocupa o volume uma vez só.** Envio, importação de pacote e reescanear
+comparam o hash; se o conteúdo já existe em qualquer campanha, o caminho novo vira um *hard
+link* do antigo. Cada linha da `midia` mantém o próprio nome e caminho, então cada um vê o
+nome que deu. Quem conta as referências é o sistema de arquivos: apagar um caminho tira só
+aquela referência, e o conteúdo sai do disco junto com o último caminho. O boot junta, em
+segundo plano, as cópias iguais que ficaram de antes. Duas regras seguram isso:
+
+- **Nunca reescreva um arquivo de mídia no lugar** (`Files.write` num caminho existente):
+  se ele for um link, a mudança aparece em todas as campanhas que o compartilham. Trocar
+  arquivo é sempre gravar ao lado e mover por cima, como faz `gravarCompartilhado()`.
+- Volume que não aceita hard link cai para cópia comum, com aviso no log; nada quebra, só
+  não economiza.
+  O boot testa o volume e escreve no log se ele aceita hard link. Isso só aparece para o
+  administrador da instância (Administração › Armazenamento, via `/api/admin/sistema`); nada
+  sobre compartilhamento ou espaço economizado aparece para mestre ou jogador.
+- PDF repetido não é reprocessado: `copiarIndiceDoGemeo()` copia o índice de busca da cópia
+  já indexada, trocando sigla, nome e `publico` para a campanha que recebe.
+
+Antes de gravar, o servidor confere o espaço livre. Sem espaço, ainda aceita conteúdo que já
+existe (o link não ocupa nada); senão responde **507** com `codigo: "armazenamento-cheio"`,
+e a tela mostra `avisoArmazenamento()` com o caminho para o suporte.
+
+**Suporte** (`/api/suporte`, Ajustes › Suporte): a mensagem é gravada na tabela `chamado`
+sempre e enviada por SMTP quando ele está configurado em Administração (`smtp.*` na tabela
+`config`; a senha nunca volta para o navegador). O destino padrão é `grimorio.suporte-email`.
+A biblioteca de e-mail entra direto (`jakarta.mail` + `angus-mail`), sem o starter, com
+versão fixa no `pom.xml`.
 
 ## Separação mestre/jogador
 
@@ -101,6 +130,11 @@ tela:
   responde 404, não 403. O mestre vê e edita todas.
   O pacote leva as fichas; na importação elas entram em nome de quem importou, com o dono
   antigo entre parênteses no nome, porque as contas de outra instância não existem aqui.
+- `/api/admin/**` passa por `AdminAutorizacao`, que lê `admin` e `ativo` no banco a cada pedido.
+  Não use `hasRole("ADMIN")`: o papel da sessão é montado no login e a sessão dura 30 dias, então
+  promover ou rebaixar alguém (pela tela ou direto no banco) só valia depois de um novo login.
+- 403 sempre tem corpo com `codigo`: `csrf` (a tela pede token novo em `/api/ping` e repete o
+  pedido uma vez, em `api()` e `upload()`) ou `proibido`.
 - A chave da API da Anthropic fica na tabela `config` e só o servidor usa. O navegador
   nunca a recebe, nem o do mestre.
 

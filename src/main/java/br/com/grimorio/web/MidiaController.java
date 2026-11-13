@@ -51,6 +51,7 @@ public class MidiaController {
         r.put("abrev", m.getChave());
         r.put("paginas", m.getPaginas());
         r.put("publico", m.isPublico());
+        r.put("reaproveitado", m.isReaproveitado());
         return r;
     }
 
@@ -65,6 +66,7 @@ public class MidiaController {
         r.put("id", m.getId());
         r.put("nome", m.getNome());
         r.put("cat", m.getCategoria());
+        r.put("reaproveitado", m.isReaproveitado());
         return r;
     }
 
@@ -78,6 +80,7 @@ public class MidiaController {
         r.put("id", m.getId());
         r.put("nome", m.getNome());
         r.put("arquivo", m.getArquivo());
+        r.put("reaproveitado", m.isReaproveitado());
         return r;
     }
 

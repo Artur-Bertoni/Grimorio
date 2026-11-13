@@ -1,6 +1,7 @@
 package br.com.grimorio.config;
 
 import br.com.grimorio.repo.UsuarioRepo;
+import br.com.grimorio.service.MidiaService;
 import br.com.grimorio.service.MigracaoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,7 @@ public class Inicializacao {
 
     @Bean
     @Order(10)
-    public ApplicationRunner partida(UsuarioRepo usuarios, MigracaoService migracao, AppProps props) {
+    public ApplicationRunner partida(UsuarioRepo usuarios, MigracaoService migracao, AppProps props, MidiaService midia) {
         return args -> {
             Path raiz = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
             Files.createDirectories(raiz);
@@ -32,6 +33,13 @@ public class Inicializacao {
             } else {
                 migracao.migrar();
             }
+            /* em segundo plano: calcular hash de livro grande demora, e o site nao espera por isso */
+            Thread t = new Thread(() -> {
+                try { midia.desduplicarVolume(); }
+                catch (Exception e) { log.warn("Desduplicacao do volume falhou: {}", e.getMessage()); }
+            }, "desduplica-midia");
+            t.setDaemon(true);
+            t.start();
         };
     }
 }
