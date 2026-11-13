@@ -3133,7 +3133,7 @@ function blocoHtml(c,b,bi){
 /* ---------- CENA / SESSAO ---------- */
 function blkDe(c,tipo){ return (c.blocos||[]).filter(function(b){return b.tipo===tipo;})[0]; }
 function ckHtml(c){
-  return '<button class="ckbox" data-act="ck" data-c="'+c.id+'" aria-pressed="'+(!!c.feito)+'" aria-label="marcar como feita">'
+  return '<button class="ckbox" data-act="ck" data-c="'+c.id+'" aria-pressed="'+(!!c.feito)+'" aria-label="Marcar como feita">'
     +'<svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2"><path d="M2 6.3 4.6 9 10 3.2"/></svg></button>';
 }
 function ferrCena(c){
@@ -3169,7 +3169,7 @@ function hydrateCena(root){
 }
 function cenaModalBody(s,c){
   var t=terr(s,c.territorio);
-  return '<div class="cmhd">'+ckHtml(c)+'<span class="sm muted">marcar como feita</span>'
+  return '<div class="cmhd">'+ckHtml(c)+'<span class="sm muted">Marcar como feita</span>'
     +'<span class="mini" style="border-color:'+t.cor+';color:'+t.cor+'">'+esc(t.nome)+'</span>'
     +(c.forcado?'<span class="mini f">obrigatória</span>':"")
     +'<span style="flex:1"></span>'+ferrCena(c)
@@ -3283,8 +3283,8 @@ function canvasHtml(s){
   h.push('<div class="cvtools"><button data-z="+" title="Aproximar">+</button><button data-z="-" title="Afastar">−</button>'
     +'<button data-z="0" title="Enquadrar tudo">⤢</button>'
     +'<button data-act="terr-add" title="Novo '+vl("territorio")+'">⬡</button></div>');
-  h.push('<div class="cvhint">clique num card para abrir · arraste o card para trocar de '+vl("territorio")
-    +' · arraste o fundo para mover · roda do mouse para zoom</div></div>');
+  h.push('<div class="cvhint">Clique num card para abrir · Arraste o card para trocar de '+vl("territorio")
+    +' · Arraste o fundo para mover · Roda do mouse para zoom</div></div>');
   return h.join("");
 }
 function libDot(tp,x){ if(!GM)return ""; var on=jaLib(tp,x);
@@ -3604,7 +3604,7 @@ function formNovaCampanha(){
     +'<button class="btn" id="ncGo">Criar</button></div>'
     +'<div class="addrow" style="align-items:center">'
       +'<button class="btn sec" id="ncPac">Escolher pacote (.zip)</button>'
-      +'<span class="sm muted" id="ncPacNome">nenhum pacote escolhido</span></div>'
+      +'<span class="sm muted" id="ncPacNome">Nenhum pacote escolhido</span></div>'
     +'<p class="sm muted">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar '
     +'e ele entra junto, com guia, índices de busca e imagens.</p></div>'
     +'<div class="caixa"><span class="flb">Entrar numa campanha existente</span>'
@@ -3639,7 +3639,7 @@ function hydrateCampanhas(v){
   var pac=$("#ncPac",v);
   if(pac)pac.onclick=function(){ escolherArquivos(false,".zip").then(function(fs){
     PACOTE=fs[0]||null;
-    var n=$("#ncPacNome",v); if(n)n.textContent=PACOTE?PACOTE.name:"nenhum pacote escolhido"; }); };
+    var n=$("#ncPacNome",v); if(n)n.textContent=PACOTE?PACOTE.name:"Nenhum pacote escolhido"; }); };
 
   var ent=$("#ncEntrar",v);
   if(ent)ent.onclick=function(){
@@ -3951,10 +3951,10 @@ function hydrateBiblioteca(v){
       if(k==="livros"){ var docs=c.docs||[];
         alvo.innerHTML=docs.length?'<div class="alist">'+docs.map(function(x){
           return '<div class="arow"><div style="flex:1;min-width:11.25rem"><b>'+esc(x.nome)+'</b> '
-            +'<span class="muted sm">abreviação '+esc(x.abrev)+'</span> <button class="tbtn" data-ren="'+x.id+'" data-nome="'+esc(x.nome)+'">renomear</button> <button class="tbtn" data-reidx="'+x.id+'" title="Refaz o índice de busca deste livro, lendo os capítulos do sumário do PDF">reler capítulos</button>'
+            +'<span class="muted sm">Abreviação '+esc(x.abrev)+'</span> <button class="tbtn" data-ren="'+x.id+'" data-nome="'+esc(x.nome)+'">renomear</button> <button class="tbtn" data-reidx="'+x.id+'" title="Refaz o índice de busca deste livro, lendo os capítulos do sumário do PDF">reler capítulos</button>'
             +'<p class="muted sm" style="margin:0">'+(x.paginas||0)+' páginas · '+mb(x.tamanho)+'</p></div>'
             +'<button class="chip btn'+(x.publico?" g":"")+'" data-pub="'+x.id+'" data-v="'+(x.publico?"0":"1")
-              +'" title="Clique para trocar">'+esc(jg)+(x.publico?" veem":" não veem")+'</button>'
+              +'" title="Clique para trocar">'+esc(jg)+(x.publico?" Veem":" Não veem")+'</button>'
             +'<button class="tbtn" data-abrir="'+esc(x.abrev)+'">abrir</button>'
             +'<button class="tbtn d" data-del="'+x.id+'" data-nome="'+esc(x.nome)+'">remover</button></div>'; }).join("")+'</div>'
           :'<p class="empty">Nenhum livro ainda.</p>'; }
@@ -3963,7 +3963,7 @@ function hydrateBiblioteca(v){
         alvo.innerHTML=fx.length?Object.keys(porCat).sort().map(function(ct){
           return '<div class="fld" style="margin-bottom:1rem"><div class="sechd"><span class="flb" style="flex:1">'
             +'<i style="width:.5rem;height:.5rem;border-radius:50%;flex:0 0 auto;background:'+catColor(ct)+'"></i>'+esc(ct)+' ('+porCat[ct].length+')</span>'
-            +'<button class="edb" data-cated="'+esc(ct)+'">editar categoria</button></div><div class="alist">'
+            +'<button class="edb" data-cated="'+esc(ct)+'">Editar categoria</button></div><div class="alist">'
             +porCat[ct].map(function(f){ return '<div class="arow"><div style="flex:1;min-width:10rem"><b>'+esc(f.nome)+'</b> '
               +'<span class="muted sm">'+mb(f.tamanho)+'</span></div>'
               +'<button class="tbtn" data-fxcat="'+f.id+'" data-cat="'+esc(ct)+'" data-nome="'+esc(f.nome)+'">mudar categoria</button>'
@@ -3986,7 +3986,7 @@ function hydrateBiblioteca(v){
           recarregaIndice(); if(aqui())lista();
           toast(r.comCapitulo?(r.comCapitulo+" de "+r.paginas+" páginas ganharam capítulo")
             :"Índice refeito. Este PDF não traz sumário interno, então fica sem capítulos"); })
-        .catch(function(e){ b.disabled=false; b.textContent="reler capítulos"; toast((e&&e.message)||"não deu"); }); }; });
+        .catch(function(e){ b.disabled=false; b.textContent="Reler capítulos"; toast((e&&e.message)||"não deu"); }); }; });
       $$("[data-ren]",alvo).forEach(function(b){ b.onclick=function(){ renomearLivro(b.getAttribute("data-ren"),b.getAttribute("data-nome"),lista); }; });
       $$("[data-cated]",alvo).forEach(function(b){ b.onclick=function(){ var ct=b.getAttribute("data-cated");
         editarCategoria(ct,(porCat&&porCat[ct])||[],function(){ if(aqui())lista(); }); }; });
@@ -5322,7 +5322,7 @@ function abrirAdmin(back,mk){
     +'<div class="fld"><span class="flb">Mensagens de suporte</span><div id="adSup" class="suplist"><p class="muted sm">carregando…</p></div></div>'
     +'<div class="fld"><span class="flb">Cadastro</span>'
     +'<label class="sm" style="display:flex;align-items:center;gap:.5rem">'
-    +'<input type="checkbox" id="adReg"> deixar qualquer pessoa criar conta nesta instância</label>'
+    +'<input type="checkbox" id="adReg"> Habilitar a criação de contas.</label>'
     +'<p class="sm muted">Desligado, só entra quem receber um link de convite.</p></div>'
     +'<div class="fld"><span class="flb">Contas</span><div id="adUs"><p class="muted sm">carregando…</p></div>'
     +'<div class="addrow" style="margin-top:.5rem"><input class="inp" id="auL" placeholder="login">'
@@ -5332,8 +5332,7 @@ function abrirAdmin(back,mk){
     {wide:true,back:back});
 
   api("/api/admin/config").then(function(c){
-    $("#iaKst",ov).textContent=c.iaConfigurada?"uma chave já está salva (as bolinhas). Digite outra para substituir, ou apague tudo e salve para remover."
-                                              :"nenhuma chave salva ainda.";
+    $("#iaKst",ov).textContent=c.iaConfigurada?"Chave salva.":"Nenhuma chave salva ainda.";
     campoSecreto($("#iaK",ov),!!c.iaConfigurada);
     campoSecreto($("#smS",ov),!!c.smtpSenhaSalva); campoSecreto($("#smK",ov),!!c.emailChaveSalva);
     $("#iaM",ov).value=c.iaModelo||"";
