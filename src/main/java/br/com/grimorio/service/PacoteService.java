@@ -17,6 +17,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.zip.*;
+import br.com.grimorio.model.Ficha;
+import br.com.grimorio.model.Usuario;
+import br.com.grimorio.repo.FichaRepo;
+import br.com.grimorio.repo.UsuarioRepo;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 /**
  * Pacote de campanha: um zip com o guia, a mesa, os indices de busca e as
@@ -40,10 +45,15 @@ public class PacoteService {
     private final DocumentoService docs;
     private final MidiaService midia;
     private final IndiceService indice;
+    private final FichaRepo fichas;
+    private final UsuarioRepo usuarios;
     private final ObjectMapper om = new ObjectMapper();
 
     public PacoteService(CampanhaRepo campanhas, DocumentoService docs,
-                         MidiaService midia, IndiceService indice) {
+                         MidiaService midia, IndiceService indice,
+                         FichaRepo fichas, UsuarioRepo usuarios) {
+        this.fichas = fichas;
+        this.usuarios = usuarios;
         this.campanhas = campanhas;
         this.docs = docs;
         this.midia = midia;
@@ -63,8 +73,18 @@ public class PacoteService {
             raiz.put("sistema", c.getSistema());
             raiz.put("descricao", c.getDescricao());
             raiz.put("tema", c.getTema());
+            raiz.put("capa", c.getCapa() == null ? "" : c.getCapa());
             raiz.set("guia", leJson(docs.ler(campanhaId, DocumentoService.GUIA).getConteudo()));
             raiz.set("mesa", leJson(docs.ler(campanhaId, DocumentoService.MESA).getConteudo()));
+            ArrayNode fs = raiz.putArray("fichas");
+            Map<Long, String> nomes = new HashMap<>();
+            for (Ficha f : fichas.findByCampanhaIdOrderByNomeAsc(campanhaId)) {
+                ObjectNode o = fs.addObject();
+                o.put("nome", f.getNome());
+                o.put("dono", nomes.computeIfAbsent(f.getUsuarioId(),
+                        k -> usuarios.findById(k).map(Usuario::getNome).orElse("")));
+                o.set("conteudo", leJson(f.getConteudo()));
+            }
 
             z.putNextEntry(new ZipEntry("campanha.json"));
             z.write(om.writerWithDefaultPrettyPrinter().writeValueAsBytes(raiz));
@@ -100,12 +120,12 @@ public class PacoteService {
     // ---------- importar ----------
 
     @Transactional
-    public Map<String, Object> importar(Long campanhaId, MultipartFile zip,
+    public Map<String, Object> importar(Long campanhaId, Long usuarioId, MultipartFile zip,
                                         boolean substituirGuia) throws IOException {
         if (zip == null || zip.isEmpty()) throw new IllegalArgumentException("arquivo vazio");
         midia.prepararPastas(campanhaId);
 
-        int indices = 0, imagens = 0;
+        int indices = 0, imagens = 0, nFichas = 0;
         boolean trocouGuia = false, trocouMesa = false;
         String nomeCampanha = null;
         int entradas = 0;
@@ -124,6 +144,7 @@ public class PacoteService {
                     JsonNode n = om.readTree(dados);
                     nomeCampanha = n.path("nome").asText("");
                     aplicarCampanha(campanhaId, n);
+                    nFichas = importarFichas(campanhaId, usuarioId, n.path("fichas"));
                     if (substituirGuia && n.has("guia") && !n.get("guia").isNull()) {
                         docs.gravar(campanhaId, DocumentoService.GUIA, om.writeValueAsString(n.get("guia")), -1);
                         trocouGuia = true;
@@ -154,9 +175,43 @@ public class PacoteService {
         r.put("imagens", imagens);
         r.put("guia", trocouGuia);
         r.put("mesa", trocouMesa);
+        r.put("fichas", nFichas);
         log.info("Campanha {}: importou {} indices e {} imagens (guia={}).",
                 campanhaId, indices, imagens, trocouGuia);
         return r;
+    }
+
+    /* Os donos das fichas sao contas de outra instancia: aqui ninguem e "o mesmo jogador".
+       Elas entram em nome de quem importou (o mestre), com o dono antigo anotado no nome,
+       e o mestre repassa como quiser. Reimportar o mesmo pacote nao duplica: ficha com o
+       mesmo nome ja existente fica como esta. */
+    private int importarFichas(Long campanhaId, Long usuarioId, JsonNode lista) {
+        if (usuarioId == null || !lista.isArray()) return 0;
+        Set<String> tem = new HashSet<>();
+        for (Ficha f : fichas.findByCampanhaIdOrderByNomeAsc(campanhaId)) tem.add(f.getNome());
+        int n = 0;
+        for (JsonNode o : lista) {
+            if (n >= 200) break;
+            String nome = o.path("nome").asText("").trim();
+            if (nome.isEmpty()) nome = "Sem nome";
+            String dono = o.path("dono").asText("").trim();
+            if (!dono.isEmpty()) nome += " (" + dono + ")";
+            if (nome.length() > 120) nome = nome.substring(0, 120);
+            if (!tem.add(nome)) continue;
+            JsonNode c = o.path("conteudo");
+            if (!c.isObject()) continue;
+            String json;
+            try { json = om.writeValueAsString(c); } catch (Exception e) { continue; }
+            if (json.length() > 400_000) continue;
+            Ficha f = new Ficha();
+            f.setCampanhaId(campanhaId);
+            f.setUsuarioId(usuarioId);
+            f.setNome(nome);
+            f.setConteudo(json);
+            fichas.save(f);
+            n++;
+        }
+        return n;
     }
 
     private void aplicarCampanha(Long campanhaId, JsonNode n) {
@@ -165,6 +220,11 @@ public class PacoteService {
                 c.setSistema(n.path("sistema").asText(""));
             if (c.getDescricao() == null || c.getDescricao().isBlank())
                 c.setDescricao(n.path("descricao").asText(""));
+            /* a capa e uma imagem do pacote, que entra junto em img/ */
+            if (c.getCapa() == null || c.getCapa().isBlank()) {
+                try { c.setCapa(CampanhaService.capaValida(n.path("capa").asText(""))); }
+                catch (IllegalArgumentException e) { /* pacote com capa estranha: ignora */ }
+            }
             String tema = n.path("tema").asText("");
             if (!tema.isBlank()) c.setTema(tema);
             campanhas.save(c);

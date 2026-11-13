@@ -47,7 +47,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .httpBasic(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/login.html", "/favicon.ico",
+                /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
+                .requestMatchers("/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
                                  "/api/ping", "/api/registrar", "/api/publico").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/midia/**").access(midiaAutorizacao)

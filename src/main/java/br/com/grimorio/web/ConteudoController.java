@@ -6,6 +6,7 @@ import br.com.grimorio.repo.MuralRepo;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.DocumentoService;
 import br.com.grimorio.service.IndiceService;
+import br.com.grimorio.service.RolagemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +26,12 @@ public class ConteudoController {
     private final MuralRepo mural;
     private final AnotacaoRepo anotacoes;
     private final Atual atual;
+    private final RolagemService rolagens;
 
     public ConteudoController(CampanhaService camp, DocumentoService docs, IndiceService indice,
-                              MuralRepo mural, AnotacaoRepo anotacoes, Atual atual) {
+                              MuralRepo mural, AnotacaoRepo anotacoes, Atual atual,
+                              RolagemService rolagens) {
+        this.rolagens = rolagens;
         this.camp = camp;
         this.docs = docs;
         this.indice = indice;
@@ -154,6 +158,34 @@ public class ConteudoController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", "nao e seu"));
         mural.delete(p);
         return ResponseEntity.noContent().build();
+    }
+
+    // ---------- rolagens de dado ----------
+
+    public static class CorpoRolagem {
+        public String formula;
+        public Integer lados;
+        public Boolean publica;
+        public String rotulo;
+        public Long pedidoId;
+    }
+
+    @GetMapping("/rolagens")
+    public List<Map<String, Object>> lerRolagens(@PathVariable Long cid,
+                                                 @RequestParam(required = false) Long desde) {
+        return rolagens.recentes(cid, atual.id(), desde);
+    }
+
+    @PostMapping("/rolagens")
+    public Map<String, Object> rolar(@PathVariable Long cid, @RequestBody CorpoRolagem c) {
+        /* o botao de dado manda so os lados; a caixa de formula manda o texto */
+        String f = c.formula != null && !c.formula.isBlank() ? c.formula : "1d" + (c.lados == null ? 0 : c.lados);
+        return rolagens.rolar(cid, atual.usuario(), f, c.publica, c.rotulo, c.pedidoId);
+    }
+
+    @PostMapping("/rolagens/pedido")
+    public Map<String, Object> pedirTeste(@PathVariable Long cid, @RequestBody CorpoRolagem c) {
+        return rolagens.pedir(cid, atual.usuario(), c.formula, c.rotulo);
     }
 
     // ---------- anotacoes privadas ----------

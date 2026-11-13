@@ -100,14 +100,75 @@ public class IaService {
             sistema += "\n\n--- TRECHOS DOS LIVROS ---\n" + ctx;
         }
 
+        return chamar(chave, modelo, sistema, p.pergunta, 1500);
+    }
+
+    private static final int MAX_IMAGENS = 4, MAX_IMAGEM = 5_000_000;
+
+    /** Ficha de personagem (de um PDF) vira campos. Chega como texto extraido, ou como as
+     *  paginas desenhadas em imagem quando o PDF nao tem texto (ficha escaneada ou so arte).
+     *  Devolve o JSON como texto, ja conferido: {"nome":"", "campos":[{sec,rot,tipo,val,max}]}. */
+    public String estruturarFicha(String texto, List<String> imagens) {
+        String chave = config.get(ConfigService.IA_CHAVE, "");
+        if (chave.isBlank()) throw new IllegalStateException("a chave da API nao foi configurada");
+        if (texto == null) texto = "";
+        if (texto.length() > 40000) texto = texto.substring(0, 40000);
+        ArrayNode conteudo = om.createArrayNode();
+        int nImg = 0;
+        if (imagens != null) for (String b64 : imagens) {
+            if (b64 == null || b64.isBlank()) continue;
+            if (++nImg > MAX_IMAGENS) break;
+            if (b64.length() > MAX_IMAGEM) throw new IllegalArgumentException("pagina grande demais");
+            /* so base64 limpo: o navegador manda sem o prefixo data: */
+            if (!b64.matches("[A-Za-z0-9+/=]+")) throw new IllegalArgumentException("imagem da pagina veio estragada");
+            ObjectNode img = conteudo.addObject();
+            img.put("type", "image");
+            ObjectNode src = img.putObject("source");
+            src.put("type", "base64");
+            src.put("media_type", "image/jpeg");
+            src.put("data", b64);
+        }
+        if (texto.isBlank() && nImg == 0) throw new IllegalArgumentException("nao veio nada da ficha para ler");
+        conteudo.addObject().put("type", "text").put("text", texto.isBlank()
+                ? "Estas sao as paginas da ficha. Leia e monte os campos." : texto);
+        String sistema = "Voce recebe uma ficha de personagem de RPG de mesa, de qualquer sistema: o texto extraido"
+                + " de um PDF (baguncado, com rotulos e valores em linhas separadas) e/ou as paginas da ficha em imagem.\n"
+                + "Nas imagens, leia os rotulos impressos e o que estiver escrito ou preenchido. Ficha em branco"
+                + " e um modelo: crie todos os campos dela com val vazio. Atributos desenhados em diagrama ou"
+                + " tabela de pericias contam como campos num, um por atributo ou pericia.\n"
+                + "Monte a ficha e responda SOMENTE com JSON valido, sem comentario e sem cerca de codigo, neste formato:\n"
+                + "{\"nome\":\"nome do personagem\",\"campos\":[{\"sec\":\"nome da secao\",\"rot\":\"rotulo\","
+                + "\"tipo\":\"texto|num|barra|area|check\",\"val\":\"valor\",\"max\":\"so em barra\"}]}\n"
+                + "Regras: mantenha os rotulos no idioma da ficha. Use num para atributo, pericia, bonus e qualquer"
+                + " valor que se soma a um dado. Use barra para o que tem atual e maximo (vida, energia, sanidade)."
+                + " Use area para texto longo (historia, equipamento, anotacoes). Use check para caixa marcada,"
+                + " com val \"1\" ou \"\". Agrupe em secoes como a ficha agrupa. Nao invente valor: campo vazio"
+                + " na ficha fica com val vazio, e rotulo sem sentido fica de fora. No maximo 150 campos.";
+        String bruto = chamar(chave, config.get(ConfigService.IA_MODELO, MODELO_PADRAO), sistema, conteudo, 8000);
+        int a = bruto.indexOf('{'), b = bruto.lastIndexOf('}');
+        if (a < 0 || b <= a) throw new IllegalStateException("a IA nao devolveu uma ficha");
+        try {
+            JsonNode n = om.readTree(bruto.substring(a, b + 1));
+            if (!n.path("campos").isArray()) throw new IllegalStateException("a IA nao devolveu os campos da ficha");
+            return om.writeValueAsString(n);
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("a ficha que a IA devolveu veio quebrada");
+        }
+    }
+
+    /* usuario e texto puro, ou um ArrayNode de blocos (imagem + texto) */
+    private String chamar(String chave, String modelo, String sistema, Object usuario, int maxTokens) {
         ObjectNode corpo = om.createObjectNode();
         corpo.put("model", modelo);
-        corpo.put("max_tokens", 1500);
+        corpo.put("max_tokens", maxTokens);
         corpo.put("system", sistema);
         ArrayNode msgs = corpo.putArray("messages");
         ObjectNode m = msgs.addObject();
         m.put("role", "user");
-        m.put("content", p.pergunta);
+        if (usuario instanceof ArrayNode blocos) m.set("content", blocos);
+        else m.put("content", String.valueOf(usuario));
 
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(ENDPOINT))
