@@ -91,12 +91,53 @@ function sessaoAntiga() {
 }
 
 const CAMPS = [
-  { id: 1, nome: 'Campanha de teste', sistema: 'Sistema de teste', papel: 'MESTRE', arquivada: false },
+  { id: 1, nome: 'Campanha de teste', sistema: 'Sistema de teste', papel: 'MESTRE', arquivada: false, rolagensAbertas: true },
   { id: 2, nome: 'Mesa em branco', sistema: '', papel: 'MESTRE', arquivada: false },
   { id: 3, nome: 'Onde eu jogo', sistema: 'Outro sistema', papel: 'JOGADOR', arquivada: false },
 ];
 let ST = {};
+/* PDF minimo de tres paginas, com a tabela xref calculada: o pdf.js recusa offset errado */
+function pdfDeTeste(n, linhas) {
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', ''], kids = [];
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  for (let i = 1; i <= n; i++) {
+    const txt = linhas ? linhas.map((l, k) => 'BT /F1 14 Tf 60 ' + (520 - k * 30) + ' Td (' + l + ') Tj ET').join('\n')
+      : 'BT /F1 48 Tf 60 400 Td (Pagina ' + i + ') Tj ET';
+    objs.push('<< /Length ' + txt.length + ' >>\nstream\n' + txt + '\nendstream');
+    objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 595] /Contents ' + (objs.length) + ' 0 R /Resources << /Font << /F1 3 0 R >> >> >>');
+    kids.push(objs.length + ' 0 R');
+  }
+  objs[1] = '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>';
+  let s = '%PDF-1.4\n'; const off = [];
+  objs.forEach((o, i) => { off.push(s.length); s += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  const x = s.length;
+  s += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + off.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('');
+  s += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + x + '\n%%EOF\n';
+  return Buffer.from(s, 'latin1');
+}
+const PDF3 = pdfDeTeste(3);
+/* ficha em texto corrido, um "rotulo: valor" por linha: e o caminho de importacao sem IA */
+const PDF_FICHA = pdfDeTeste(1, ['Nome: Lia', 'Conceito: Batedora', 'Forca: 3', 'Vida: 7/10']);
+/* ficha sem uma letra de texto, como a escaneada: so a IA consegue ler */
+const PDF_IMAGEM = pdfDeTeste(1, []);
+/* rolagem do stub: so NdS com soma, o bastante para a tela; a gramatica inteira e do servidor Java */
+function rolaStub(formula) {
+  const m = /^(\d*)d(\d+)(?:(kh|kl|dh|dl)(\d+))?([+-]\d+)?$/.exec(String(formula).toLowerCase().replace(/\s+/g, ''));
+  if (!m) return null;
+  const q = Number(m[1] || 1), l = Number(m[2]), soma = Number(m[5] || 0);
+  const v = Array.from({ length: q }, () => 1 + Math.floor(Math.random() * l));
+  let ficam = v.slice();
+  if (m[3]) { const o = v.slice().sort((a, b) => a - b), k = Number(m[4]);
+    ficam = m[3] === 'kh' ? o.slice(-k) : m[3] === 'kl' ? o.slice(0, k) : m[3] === 'dl' ? o.slice(k) : o.slice(0, q - k); }
+  const total = ficam.reduce((a, b) => a + b, 0) + soma;
+  return { formula: q + 'd' + l + (m[3] ? m[3] + m[4] : '') + (m[5] || ''), detalhe: '[' + v.join(', ') + ']' + (soma ? (soma > 0 ? ' + ' : ' - ') + Math.abs(soma) : ''),
+    valor: total, lados: l, extremo: ficam.every(x => x === l) ? 1 : ficam.every(x => x === 1) ? -1 : 0 };
+}
+/* rolagens por campanha; a de outra pessoa entra por POST /__rolagem-de-outro, so no teste */
+let ROLAGENS = {}, FICHAS = {};
 function zera() {
+  ROLAGENS = {}; FICHAS = {};
+  for (const c of CAMPS) { c.capa = ''; c.rolagensAbertas = true; }
   const mesaVazia = () => ({ json: JSON.stringify({ resumos: [], ev: [], npcs: [], locais: [], at: 0 }), versao: 1 });
   ST = {
     guia: {
@@ -105,8 +146,9 @@ function zera() {
     },
     mesa: {
       1: mesaVazia(), 2: mesaVazia(),
-      3: { json: JSON.stringify({ titulo: 'Onde eu jogo', resumos: [{ n: 1, titulo: 'O começo', data: '01/01/2026', texto: 'Aconteceu muita coisa.' }],
-        ev: [], npcs: [{ id: 'n9', nome: 'Liberado', img: 'img/npc-1.png', desc: 'Um rosto conhecido.' }], locais: [], at: 1 }), versao: 1 },
+      3: { json: JSON.stringify({ titulo: 'Onde eu jogo', tema: 'luar',
+        locais: [{ id: 'l9', nome: 'Pensao', img: 'img/npc-1.png', desc: 'Onde todos dormem.' }], resumos: [{ n: 1, titulo: 'O começo', data: '01/01/2026', texto: 'Aconteceu muita coisa.' }],
+        ev: [], npcs: [{ id: 'n9', nome: 'Liberado', img: 'img/npc-1.png', desc: 'Um rosto conhecido.' }], at: 1 }), versao: 1 },
     },
     perfil: { id: 1, login: 'mestre', nome: 'Mestre de teste', admin: true, iaConfigurada: false },
     senha: 'segredo123',
@@ -148,6 +190,11 @@ http.createServer(async (req, res) => {
       if (p === '/api/ping') return envia(res, 200, { ok: true, csrf: 't0', registroAberto: true });
       if (p === '/api/sessao') return envia(res, 200, { ...ST.perfil, campanhas: CAMPS });
       if (p === '/api/campanhas') return envia(res, 200, CAMPS);
+      if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens$/))) {
+        const desde = Number(new URL(req.url, 'http://x').searchParams.get('desde') || 0);
+        return envia(res, 200, (ROLAGENS[m[1]] || []).filter(r => r.id > desde));
+      }
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) return envia(res, 200, FICHAS[m[1]] || []);
       if (p === '/api/zerar') { zera(); return envia(res, 200, { ok: true }); }
       if ((m = p.match(/^\/api\/c\/(\d+)\/(guia|mesa)$/))) {
         const d = (ST[m[2]][m[1]]) || ST[m[2]][2];
@@ -163,6 +210,10 @@ http.createServer(async (req, res) => {
       if (p === '/api/admin/config') return envia(res, 200, { iaConfigurada: false, iaModelo: '', registroAberto: true });
       if (p === '/api/admin/usuarios' || p === '/api/admin/campanhas') return envia(res, 200, []);
       if (p.startsWith('/api/')) return envia(res, 200, {});
+      if (/^\/midia\/c\d+\/pdf\/.+\.pdf$/.test(p)) return envia(res, 200, PDF3, 'application/pdf');
+      if (p === '/__ficha.pdf') return envia(res, 200, PDF_FICHA, 'application/pdf');
+      if (p === '/__ficha-imagem.pdf') return envia(res, 200, PDF_IMAGEM, 'application/pdf');
+      if (p === '/__ultimport') return envia(res, 200, ST.ultImport || {});
       if ((m = p.match(/^\/midia\/c\d+\/img\/(.+)$/))) {
         const d = IMGS[decodeURIComponent(m[1])];
         return d ? envia(res, 200, d, 'image/png') : envia(res, 404, 'nao achei', 'text/plain');
@@ -174,6 +225,11 @@ http.createServer(async (req, res) => {
     }
     const bruto = await lerCorpo(req), b = json(bruto);
     if (M === 'PUT') {
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
+        const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
+        f.nome = b.nome || f.nome; f.json = b.json || f.json;
+        return envia(res, 200, { ok: true });
+      }
       if ((m = p.match(/^\/api\/c\/(\d+)\/(guia|mesa)$/))) {
         const d = ST[m[2]][m[1]] || (ST[m[2]][m[1]] = { json: '{}', versao: 0 });
         d.json = b.json || '{}'; d.versao += 1;
@@ -193,7 +249,7 @@ http.createServer(async (req, res) => {
         return envia(res, 200, { ...ST.perfil, senhaTrocada: !!b.senhaNova });
       }
       if ((m = p.match(/^\/api\/campanhas\/(\d+)$/))) {
-        const c = CAMPS.find(x => x.id === Number(m[1])); if (c) { c.nome = b.nome || c.nome; c.sistema = b.sistema ?? c.sistema; }
+        const c = CAMPS.find(x => x.id === Number(m[1])); if (c) { c.nome = b.nome || c.nome; c.sistema = b.sistema ?? c.sistema; if (b.capa != null) c.capa = b.capa; if (b.rolagensAbertas != null) c.rolagensAbertas = b.rolagensAbertas; }
         return envia(res, 200, { ok: true });
       }
       return envia(res, 200, {});
@@ -206,6 +262,46 @@ http.createServer(async (req, res) => {
         return envia(res, 200, { id: 999, nome, arquivo: 'img/' + nome });
       }
       if (/^\/api\/c\/\d+\/midia\/\d+\/reindexar$/.test(p)) return envia(res, 200, { paginas: 120, comCapitulo: 80 });
+      if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens$/))) {
+        const c = CAMPS.find(x => x.id === Number(m[1])), mestre = c.papel === 'MESTRE';
+        const s = rolaStub(b.formula || ('1d' + b.lados));
+        if (!s) return envia(res, 400, { erro: 'nao entendi a rolagem' });
+        const r = { id: ++ST.seq, autor: ST.perfil.nome, minha: true, mestre, ...s, rotulo: b.rotulo || '',
+          publica: mestre ? b.publica !== false : c.rolagensAbertas !== false, pedido: false, pedidoId: b.pedidoId || null, em: Date.now() };
+        (ROLAGENS[m[1]] ||= []).unshift(r);
+        return envia(res, 200, r);
+      }
+      if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens\/pedido$/))) {
+        const s = rolaStub(b.formula); if (!s) return envia(res, 400, { erro: 'nao entendi a rolagem' });
+        const r = { id: ++ST.seq, autor: ST.perfil.nome, minha: true, mestre: true, formula: s.formula, detalhe: '', valor: 0, lados: s.lados,
+          extremo: 0, rotulo: b.rotulo || '', publica: true, pedido: true, pedidoId: null, em: Date.now() };
+        (ROLAGENS[m[1]] ||= []).unshift(r);
+        return envia(res, 200, r);
+      }
+      if ((m = p.match(/^\/__rolagem-de-outro\/(\d+)$/))) {
+        const r = { id: ++ST.seq, autor: 'Jogadora', minha: false, mestre: false, formula: '1d20', detalhe: '[13]', lados: 20, valor: 13,
+          extremo: 0, rotulo: '', publica: true, pedido: false, pedidoId: null, em: Date.now() };
+        (ROLAGENS[m[1]] ||= []).unshift(r);
+        return envia(res, 200, r);
+      }
+      if ((m = p.match(/^\/__pedido-de-outro\/(\d+)$/))) {
+        const r = { id: ++ST.seq, autor: 'Mestre de teste', minha: false, mestre: true, formula: '1d20', detalhe: '', lados: 20, valor: 0,
+          extremo: 0, rotulo: 'Percepcao', publica: true, pedido: true, pedidoId: null, em: Date.now() };
+        (ROLAGENS[m[1]] ||= []).unshift(r);
+        return envia(res, 200, r);
+      }
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) {
+        const f = { id: ++ST.seq, nome: b.nome || 'Sem nome', dono: ST.perfil.nome, minha: true, json: b.json || '{}', em: Date.now() };
+        (FICHAS[m[1]] ||= []).push(f);
+        return envia(res, 200, f);
+      }
+      if (/^\/api\/c\/\d+\/fichas\/importar$/.test(p)) {
+        if (!ST.perfil.iaConfigurada) return envia(res, 503, { erro: 'sem IA nesta instancia' });
+        ST.ultImport = { imagens: (b.imagens || []).length, tam: ((b.imagens || [])[0] || '').length, texto: (b.texto || '').length };
+        return envia(res, 200, { nome: 'Da imagem', campos: [{ sec: 'Atributos', rot: 'AGI', tipo: 'num', val: '' }, { sec: 'Atributos', rot: 'FOR', tipo: 'num', val: '' },
+          { sec: 'Recursos', rot: 'PV', tipo: 'barra', val: '', max: '' }] });
+      }
+      if ((m = p.match(/^\/__ia\/(\d)$/))) { ST.perfil.iaConfigurada = m[1] === '1'; return envia(res, 200, { ok: true }); }
       if (/^\/api\/c\/\d+\/mural$/.test(p)) {
         ST.mural.unshift({ id: ++ST.seq, usuarioId: 1, autor: ST.perfil.nome, em: new Date().toISOString(), texto: b.texto || '' });
         return envia(res, 200, { ok: true });
@@ -217,6 +313,10 @@ http.createServer(async (req, res) => {
       return envia(res, 200, {});
     }
     if (M === 'DELETE') {
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
+        FICHAS[m[1]] = (FICHAS[m[1]] || []).filter(x => x.id !== Number(m[2]));
+        res.writeHead(204, { 'Set-Cookie': 'XSRF-TOKEN=t0; Path=/' }); return res.end();
+      }
       if ((m = p.match(/^\/api\/c\/\d+\/midia\/(\d+)$/))) {
         const id = Number(m[1]);
         ST.docs = ST.docs.filter(x => x.id !== id); ST.faixas = ST.faixas.filter(x => x.id !== id);

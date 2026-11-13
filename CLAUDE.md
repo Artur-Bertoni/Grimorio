@@ -31,11 +31,11 @@ src/main/java/br/com/grimorio/
   config/     SecurityConfig, BancoConfig, MidiaAutorizacao, AjusteEsquema,
               Inicializacao, WebConfig, AppProps
   model/      Usuario, Campanha, Membro, Convite, Documento, Anotacao,
-              MuralPost, Midia, Config, Papel, + Doc e Nota (legado)
+              MuralPost, Midia, Config, Papel, Rolagem, Ficha, + Doc e Nota (legado)
   repo/       um repositório Spring Data por entidade
   service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
               PacoteService, UsuarioService, ConfigService, IaService,
-              MigracaoService
+              RolagemService, MigracaoService
   web/        um controller por área, todos sob /api
 src/main/resources/
   static/index.html   O APP INTEIRO: ~200 KB de HTML, CSS e JS num arquivo só
@@ -71,6 +71,12 @@ O front guarda o guia na variável `D` e a mesa em `MESA`. Mexeu em `D`, chame
 `save()`; mexeu em `MESA`, chame `salvarMesa()`. Os dois fazem debounce e PUT com
 versão; em 409 relêem a versão e repetem uma vez.
 
+A mesa também carrega o que o jogador precisa para as partes de jogo: `tema` (o tema
+sugerido pelo mestre), `ini` (o espelho público da iniciativa, com NPC oculto virando
+"???") e `fichaModelo`/`fichaFormula` (os campos e a rolagem das fichas). `aplicaMesa()`
+monta `MESA` campo a campo: **chave nova na mesa precisa entrar lá**, senão some na
+primeira leitura.
+
 Arquivos ficam no volume, nunca no banco: `/data/midia/c{campanhaId}/{pdf,audio,img,indice}`.
 A tabela `midia` só cataloga.
 
@@ -85,6 +91,16 @@ tela:
   `Midia.publico`.
 - O índice de busca é marcado por `publico` arquivo a arquivo. O jogador recebe só a
   parte pública.
+- Rolagem de dado (`/api/c/{cid}/rolagens`): o servidor lê a fórmula (`2d6+3`, `2d20kh1`,
+  `4d6dl1`), sorteia e decide quem vê. A de jogador segue `campanha.rolagensAbertas`; a do
+  mestre, o que ele marcou na hora. Rolagem fechada de outra pessoa não sai do servidor para
+  o jogador. Rolagem não vai para o mural, de propósito: ela tem o painel próprio
+  (`painelRolagens()`). Pedido de teste do mestre é uma linha da mesma tabela com
+  `pedido = true`.
+- Ficha (`/api/c/{cid}/fichas`): o jogador só enxerga as suas; ficha de outra pessoa
+  responde 404, não 403. O mestre vê e edita todas.
+  O pacote leva as fichas; na importação elas entram em nome de quem importou, com o dono
+  antigo entre parênteses no nome, porque as contas de outra instância não existem aqui.
 - A chave da API da Anthropic fica na tabela `config` e só o servidor usa. O navegador
   nunca a recebe, nem o do mestre.
 
@@ -96,12 +112,22 @@ pode pedir isso? Se não, exija MESTRE no controller.
 **1. `ddl-auto=update` não adiciona coluna NOT NULL em tabela que já tem linhas.**
 O Postgres recusa o `alter table`, a coluna não passa a existir, e qualquer `select`
 que a mencione quebra. Derrubou o login inteiro, sem mensagem na tela. Toda coluna
-booleana nova precisa de DEFAULT explícito:
+nova que seja NOT NULL, de qualquer tipo (boolean, texto, número), precisa de DEFAULT
+explícito. Vale também para coluna nova numa entidade que o seu banco local já tem: a
+tabela existe com linhas de uma versão anterior, e o aviso só aparece no log de boot:
 
 ```java
 @Column(nullable = false, columnDefinition = "boolean not null default false")
 private boolean admin = false;
+
+@Column(nullable = false, length = 60, columnDefinition = "varchar(60) not null default ''")
+private String formula = "";
 ```
+
+Em coluna de texto, o `length` tem de repetir o tamanho do `columnDefinition`. Sem ele o
+Hibernate supõe 255, vê a coluna menor no banco e tenta aumentá-la a cada boot com um
+`alter column ... set data type varchar(60) not null default ''`, que é SQL inválido. O
+app sobe mesmo assim, mas o log enche de erro a cada inicialização.
 
 **2. `ddl-auto=update` não atualiza CHECK constraint existente.** O Hibernate cria
 `check (tipo in ('PDF','AUDIO'))` quando a tabela nasce e nunca mais volta lá. Valor
@@ -140,7 +166,76 @@ dependência, é egress, não o `pom.xml`.
 - **O repositório não carrega campanha, livro nem arte.** Conteúdo entra por pacote
   (`PacoteService`), um zip com `campanha.json`, `indice/*.json` e `img/*`.
 - **Cores só por token CSS** (`var(--bg)`, `var(--gold)`, …). Hex fixo quebra os temas
-  claros. Já aconteceu no gradiente do header.
+  claros. Já aconteceu no gradiente do header. Precisa de transparência ou de um tom
+  intermediário? `color-mix(in srgb, var(--blood) 20%, transparent)`, nunca `rgba()` com
+  número.
+
+## Tema, estilo e movimento
+
+Um **tema** (`TEMAS`) é só a paleta. Cada tema aponta para um **estilo** (`ESTILOS`:
+fantasia, terror, mistério, investigação, ficção científica), e é o estilo que decide a
+letra dos títulos, o arredondamento, o ornamento e o fundo. `aplicarTema()` grava os
+tokens e põe `data-estilo` e `data-esquema` no `<html>`.
+
+Tudo isso mora na última folha de estilo do `index.html`, marcada `PELE`. Ela vem por
+último de propósito: veste o que as folhas de cima desenharam. Regra nova de forma,
+sombra, transição ou animação vai para lá; diferença entre estilos vai em
+`html[data-estilo="…"]`, com os tokens `--rc` (canto de bloco), `--rb` (canto de
+botão), `--gli` (glifo do ornamento, usado como máscara) e `--faixa` (a faixa do topo
+dos blocos). `--rc` e `--rb` podem ter quatro valores: só servem em `border-radius`
+inteiro. Tema novo é uma entrada em `TEMAS`; estilo novo é uma entrada em `ESTILOS`, um
+bloco na PELE e, se a fonte for nova, os `.woff2` em `vendor/fonts` com a regra em
+`vendor/fontes.css`.
+
+Além do estilo, **cada tema tem um efeito próprio** (bloco "IMERSAO" da PELE, por
+`html[data-tema="…"]`): o que acontece no bloco quando o mouse passa (sangue escorre,
+vinha cresce, LED corre na borda), o desenho da barra da música (tokens `--sk-*`) e, por
+estilo, a virada de página do PDF e o jeito de o dado rolar. Três convenções seguram isso:
+
+- **O `::before` de todo bloco é do tema, o `::after` é do estilo.** "Bloco" aqui é
+  `.ccard`, `.cad`, `.pc`, `.seccols>.sec-wrap`, `.caixa` e `.sbody>.blk`. Não use
+  esses pseudo-elementos para outra coisa.
+- **Efeito que depende do mouse** (a lanterna do Noir) é ligado por `segue:true` no tema;
+  o JS só grava `--mx`/`--my` no bloco e o CSS faz o resto.
+
+- **Nada que o efeito desenha pode vazar para cima de um bloco que mora em coluna**
+  (`.seccols`, `.sbody`). O Chrome pinta errado o que sobe acima do topo de uma coluna que
+  não é a primeira: o carimbo do Dossiê aparecia cortado e sem máscara só nesses blocos.
+  Nos cartões (que são grade) pode vazar.
+
+Movimento tem três regras que já evitaram defeito:
+
+- **A entrada da página só toca quando a tela muda.** `render()` põe a classe `entra`
+  no `<main>` quando a chave da tela é outra e tira no redesenho da mesma tela. Sem isso
+  cada "adicionar" faria a página inteira surgir de novo.
+- **Janela que fecha sai do DOM na hora.** O `Voltar` e os testes contam com isso. Quem
+  desaparece devagar é uma cópia inerte (`fantasma()`, classe `ovg`, dentro de
+  `#fantasmas`), sem id e sem clique.
+- **Tudo desliga.** `prefers-reduced-motion` e Ajustes › Aparência › Movimento
+  (`grim_fx`, `html[data-fx="off"]`) zeram animação e transição. Animação nova não pode
+  terminar num estado escondido, senão quem desligou fica sem ver o elemento.
+
+Som (`som("dado")`) é sintetizado com WebAudio, sem arquivo, e nasce ligado (`grim_som=0` desliga). Efeito de
+momento (cartão de capítulo, carta de revelação, crítico na tela toda, pedido de teste) é
+um elemento solto no `<body>` que se remove sozinho e, quando cobre a tela, tem
+`pointer-events:none` ou fecha no clique: nunca pode travar a mesa.
+
+O tema ativo se resolve em `temaAtivo()`: "nesta campanha sigo o mestre"
+(`grim_tema_c{id}`), depois o tema pessoal (`grim_tema`), depois `MESA.tema`.
+
+**Tour guiado** (`iniciarTour(p)`, `passosTour(p)`): um roteiro para mestre e outro para
+jogador, disparado na primeira entrada com aquele papel (`grim_tour_{papel}_{id}`) e revisto em
+Ajustes › Tour guiado. Cada passo é `{a: seletor, ir: troca de tela, t, x}`. Funcionalidade
+nova que aparece na tela ganha um passo, e o teste anda pelos dois tours e falha se algum
+seletor não achar o elemento. Atalho de teclado novo precisa respeitar `TOUR` aberto.
+
+**Logo**: `logoSvg(c)` é a única fonte do d20. O mesmo desenho sai na marca do topo, no
+login, na tela de carregamento e no favicon, que `aplicarTema()` refaz com as cores do tema.
+A marca estática do HTML e o favicon padrão foram gerados por essa função: mudou o
+desenho, gere de novo.
+
+A tela de login não conhece os temas: ela lê `grim_pele` do `localStorage`, que o app
+grava a cada `aplicarTema()`, e veste o último tema usado naquele aparelho.
 
 ## Como o front edita
 
@@ -196,6 +291,7 @@ precisa de Node; usa o Edge ou o Chrome que já estiver na máquina.
 cd scripts/teste-front && npm install      # uma vez
 node stub.mjs &
 node teste.mjs                             # FOTOS=pasta grava capturas das telas
+FOTOS=pasta node fotos-temas.mjs           # as telas principais em um tema de cada estilo
 ```
 
 O stub gera a campanha de teste e as imagens na hora, então roda em qualquer máquina

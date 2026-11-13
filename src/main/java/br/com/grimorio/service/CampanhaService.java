@@ -75,6 +75,8 @@ public class CampanhaService {
             m.put("sistema", c.getSistema());
             m.put("descricao", c.getDescricao());
             m.put("tema", c.getTema());
+            m.put("capa", c.getCapa() == null ? "" : c.getCapa());
+            m.put("rolagensAbertas", c.isRolagensAbertas());
             m.put("arquivada", c.isArquivada());
             m.put("dono", Objects.equals(c.getDonoId(), usuarioId));
             m.put("papel", papeis.get(c.getId()).name());
@@ -99,7 +101,8 @@ public class CampanhaService {
 
     @Transactional
     public void editar(Long campanhaId, Long usuarioId, String nome, String sistema,
-                       String descricao, String tema, Boolean arquivada) {
+                       String descricao, String tema, Boolean arquivada, String capa,
+                       Boolean rolagensAbertas) {
         exigeMestre(campanhaId, usuarioId);
         Campanha c = porId(campanhaId);
         if (nome != null && !nome.isBlank()) c.setNome(nome.trim());
@@ -107,7 +110,19 @@ public class CampanhaService {
         if (descricao != null) c.setDescricao(descricao.trim());
         if (tema != null && !tema.isBlank()) c.setTema(tema.trim());
         if (arquivada != null) c.setArquivada(arquivada);
+        if (capa != null) c.setCapa(capaValida(capa));
+        if (rolagensAbertas != null) c.setRolagensAbertas(rolagensAbertas);
         campanhas.save(c);
+    }
+
+    /** So imagem da propria campanha: o caminho vira URL /midia/c{id}/..., e a regra de
+     *  acesso de img (qualquer membro) e o que deixa o jogador ver a capa. */
+    static String capaValida(String capa) {
+        String s = capa.trim();
+        if (s.isEmpty()) return "";
+        if (!s.startsWith("img/") || s.contains("..") || s.contains("\\") || s.length() > 300)
+            throw new IllegalArgumentException("a capa precisa ser uma imagem da campanha");
+        return s;
     }
 
     // ---------- membros ----------

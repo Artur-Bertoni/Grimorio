@@ -133,6 +133,6 @@ public class MidiaController {
                                         @RequestParam(required = false, defaultValue = "false") boolean substituir)
             throws Exception {
         camp.exigeMestre(cid, atual.id());
-        return pacote.importar(cid, arquivo, substituir);
+        return pacote.importar(cid, atual.id(), arquivo, substituir);
     }
 }

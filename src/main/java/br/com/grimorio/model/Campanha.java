@@ -23,6 +23,17 @@ public class Campanha {
     @Column(length = 40)
     private String tema = "sangue";
 
+    /* Capa na lista de campanhas. Mora aqui e nao no guia porque a lista nao abre o guia
+       de cada campanha. Caminho relativo a pasta de midia da campanha (img/foo.webp).
+       Nullable de proposito: coluna nova em tabela com linhas (ver CLAUDE.md, armadilha 1). */
+    @Column(length = 300)
+    private String capa = "";
+
+    /* Rolagem de jogador: aberta para a mesa toda ou so para quem rolou e o mestre.
+       DEFAULT explicito: coluna NOT NULL nova em tabela com linhas (CLAUDE.md, armadilha 1). */
+    @Column(name = "rolagens_abertas", nullable = false, columnDefinition = "boolean not null default true")
+    private boolean rolagensAbertas = true;
+
     @Column(name = "dono_id", nullable = false)
     private Long donoId;
 
@@ -42,6 +53,10 @@ public class Campanha {
     public void setDescricao(String descricao) { this.descricao = descricao; }
     public String getTema() { return tema; }
     public void setTema(String tema) { this.tema = tema; }
+    public boolean isRolagensAbertas() { return rolagensAbertas; }
+    public void setRolagensAbertas(boolean v) { this.rolagensAbertas = v; }
+    public String getCapa() { return capa; }
+    public void setCapa(String capa) { this.capa = capa; }
     public Long getDonoId() { return donoId; }
     public void setDonoId(Long donoId) { this.donoId = donoId; }
     public boolean isArquivada() { return arquivada; }

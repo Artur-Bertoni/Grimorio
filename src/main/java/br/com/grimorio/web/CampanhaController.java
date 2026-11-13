@@ -25,11 +25,15 @@ public class CampanhaController {
     private final MuralRepo mural;
     private final MembroRepo membros;
     private final ConviteRepo convites;
+    private final RolagemRepo rolagens;
+    private final FichaRepo fichas;
 
     public CampanhaController(CampanhaService svc, Atual atual, MidiaService midia,
                               CampanhaRepo campanhas, DocumentoRepo documentos,
                               AnotacaoRepo anotacoes, MuralRepo mural,
-                              MembroRepo membros, ConviteRepo convites) {
+                              MembroRepo membros, ConviteRepo convites, RolagemRepo rolagens,
+                              FichaRepo fichas) {
+        this.fichas = fichas;
         this.svc = svc;
         this.atual = atual;
         this.midia = midia;
@@ -39,6 +43,7 @@ public class CampanhaController {
         this.mural = mural;
         this.membros = membros;
         this.convites = convites;
+        this.rolagens = rolagens;
     }
 
     public static class CorpoCampanha {
@@ -47,6 +52,8 @@ public class CampanhaController {
         public String descricao;
         public String tema;
         public Boolean arquivada;
+        public String capa;
+        public Boolean rolagensAbertas;
     }
 
     @GetMapping("/campanhas")
@@ -66,7 +73,7 @@ public class CampanhaController {
 
     @PutMapping("/campanhas/{cid}")
     public Map<String, Object> editar(@PathVariable Long cid, @RequestBody CorpoCampanha c) {
-        svc.editar(cid, atual.id(), c.nome, c.sistema, c.descricao, c.tema, c.arquivada);
+        svc.editar(cid, atual.id(), c.nome, c.sistema, c.descricao, c.tema, c.arquivada, c.capa, c.rolagensAbertas);
         return Map.of("ok", true);
     }
 
@@ -77,6 +84,8 @@ public class CampanhaController {
         documentos.deleteByCampanhaId(cid);
         anotacoes.deleteByCampanhaId(cid);
         mural.deleteByCampanhaId(cid);
+        rolagens.deleteByCampanhaId(cid);
+        fichas.deleteByCampanhaId(cid);
         convites.deleteByCampanhaId(cid);
         membros.deleteByCampanhaId(cid);
         midia.apagarTudoDaCampanha(cid);
