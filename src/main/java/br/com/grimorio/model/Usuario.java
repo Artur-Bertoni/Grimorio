@@ -20,6 +20,9 @@ public class Usuario {
     @Column(name = "senha_hash", nullable = false, length = 100)
     private String senhaHash;
 
+    /* Papel global, de quando a instancia tinha uma campanha so. Hoje o papel e por campanha
+       (Membro) e ninguem le este campo. Ele fica porque a coluna existe NOT NULL nos bancos em
+       uso: tirar o campo faria todo cadastro novo falhar no insert. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private Papel papel = Papel.JOGADOR;

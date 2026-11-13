@@ -78,6 +78,7 @@ button[disabled]{opacity:.55;cursor:default}
   <div class="msg" id="m"></div>
   <p class="hint" id="hint"></p>
   <p class="hint"><a href="#" id="alt" style="color:var(--gold)">Criar uma conta</a></p>
+  <p class="hint" style="text-align:center;margin-top:1.25rem;font-size:.6875rem;letter-spacing:.1em;text-transform:uppercase">© <span id="ano"></span> Grimório · Todos os direitos reservados</p>
 </form>
 <script>
 (function(){
@@ -155,6 +156,7 @@ button[disabled]{opacity:.55;cursor:default}
       .catch(function(){ m.textContent="servidor fora do ar"; b.disabled=false; pinta(); });
   }
   pinta();
+  document.getElementById("ano").textContent=new Date().getFullYear();
   document.getElementById("login").focus();
 })();
 </script>

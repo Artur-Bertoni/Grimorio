@@ -572,12 +572,14 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
       <button class="ibtn" id="btnTrilha" title="Trilha sonora"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 12.5V3.2l7-1.4v9"/><circle cx="4.2" cy="12.6" r="1.9"/><circle cx="11.2" cy="10.9" r="1.9"/></svg><span class="lbl">Trilha</span></button>
       <button class="ibtn" id="btnDados" title="Rolar dados"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 1.5 21.1 6.75v10.5L12 22.5 2.9 17.25V6.75z"/><path d="M7 8.5h10l-5 8.7z"/></svg><span class="lbl">Dados</span></button>
       <button class="ibtn" id="btnRol" title="Painel de rolagens da mesa"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg><span class="lbl">Rolagens</span></button>
-      <button class="ibtn" id="btnAjustes" title="Ajustes"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"/></svg><span class="lbl">Ajustes</span></button>
+      <button class="ibtn" id="btnAjustes" title="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span class="lbl">Configurações</span></button>
     </div>
   </div>
 </header>
 
 <main id="view"></main>
+<footer class="rodape" id="rodape"><span>© <span id="rdAno"></span> Grimório · Todos os direitos reservados</span>
+  <button class="rdsup" id="rdSup">Falar com o suporte</button></footer>
 <div id="layer"></div>
 <div id="fantasmas" aria-hidden="true"></div>
 
@@ -1674,6 +1676,16 @@ body.fora #btnRol{display:none!important}
 .tour.centro .tourft{justify-content:center}
 .tourajuste{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
 
+/* ---- rodape ---- */
+main:not(.board){min-height:calc(100dvh - var(--hh,3.5rem) - 4.25rem)}
+.rodape{display:flex;gap:.5rem 1.25rem;justify-content:center;align-items:center;flex-wrap:wrap;
+  padding:1.125rem var(--gut) 1.5rem;border-top:1px solid var(--line);
+  font-family:var(--ui);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3)}
+.rdsup{font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--gold);border-bottom:1px dotted var(--gold);
+  transition:color .18s,border-color .18s}
+.rdsup:hover{color:var(--gold2);border-color:var(--gold2)}
+body.board .rodape{display:none}
+
 /* ---- armazenamento cheio ---- */
 .sheet.cheiosheet{max-width:30rem}
 .cheio{text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;padding:.25rem .25rem .5rem}
@@ -1691,7 +1703,7 @@ body.fora #btnRol{display:none!important}
 .supit header b{font-family:var(--disp);color:var(--fg)}
 .supit p{margin:.25rem 0 0;color:var(--fg2);white-space:pre-wrap;font-size:.92rem}
 
-/* ---- quem pediu menos movimento (no sistema ou em Ajustes > Aparencia) ---- */
+/* ---- quem pediu menos movimento (no sistema ou em Configurações > Aparencia) ---- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .atmo .po,.atmo .nev::after{display:none!important}
@@ -1703,9 +1715,11 @@ html[data-fx="off"] .atmo .po,html[data-fx="off"] .atmo .nev::after{display:none
 <script>
 (function(){
 "use strict";
-var VAZIO={versao:2,campanha:null,sessoes:[],trilhaCategorias:[],galeria:[]};
-var BASE=window.GRIMORIO_DADOS||null;
-var D=BASE?JSON.parse(JSON.stringify(BASE)):JSON.parse(JSON.stringify(VAZIO));
+/* O guia tem um formato so, o 3. Guia gravado num formato anterior nao e convertido nem
+   regravado: abre a tela de erro com o motivo, e o que esta no banco fica como esta. */
+var FORMATO_GUIA=3;
+var VAZIO={versao:FORMATO_GUIA,campanha:null,elenco:{personagens:[],npcs:[],locais:[],pistas:[]},sessoes:[],trilhaCategorias:[]};
+var D=JSON.parse(JSON.stringify(VAZIO));
 var S={view:"mesa",sessao:0,vmode:"canvas",rail:true,msec:"resumos",el:"personagens",bib:"livros",aj:""};
 var saveT=null,USER=null,MYID=null,GM=false,PRONTO=false;
 var VGUIA=-1,VMESA=-1,IACFG=false,sondaT=null;
@@ -1751,7 +1765,7 @@ function catColor(c){var f=(D.trilhaCategorias||[]).filter(function(x){return x.
 function curSess(){return D.sessoes[S.sessao]||null;}
 function terr(s,id){var f=(s.territorios||[]).filter(function(t){return t.id===id;})[0];
   return f||{id:id,nome:"SEM TERRITÓRIO",cor:"#7d6e6b"};}
-/* o contador evita id repetido quando varios nascem no mesmo milissegundo (a migracao cria dezenas) */
+/* o contador evita id repetido quando varios nascem no mesmo milissegundo */
 var UIDN=0;
 function uid(p){return (p||"x")+Date.now().toString(36)+(++UIDN).toString(36)+Math.floor(Math.random()*1296).toString(36);}
 
@@ -1770,7 +1784,7 @@ function refLivro(txt){ var m=String(txt==null?"":txt).match(/^\s*([A-Za-z]{1,4}
 
 function cacheGM(j){ try{localStorage.setItem("grim_gm_"+CID,j);}catch(e){} }
 function lerCache(){ try{ var c=localStorage.getItem("grim_gm_"+CID); if(!c)return false;
-  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length){ D=v; normalizaCampanha(); return true; } }catch(e){} return false; }
+  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length&&(Number(v.versao)||0)>=FORMATO_GUIA){ D=v; normalizaCampanha(); return true; } }catch(e){} return false; }
 function cookie(n){ var m=document.cookie.match(new RegExp("(^|; )"+n+"=([^;]*)")); return m?decodeURIComponent(m[2]):""; }
 /* Token CSRF faltando ou trocado (cookie limpo, outra aba): o servidor responde 403 com
    codigo "csrf". Um GET qualquer devolve um cookie novo, e o pedido e repetido uma vez. */
@@ -1900,7 +1914,9 @@ function entrarNaCampanha(cid){
   var ps=[ api(cAPI("/mesa")).then(function(m){ VMESA=m.versao; aplicaMesa(m); }).catch(function(){}) ];
   if(GM) ps.push( api(cAPI("/guia")).then(function(g){ VGUIA=g.versao;
       try{ var v=JSON.parse(g.json||"{}");
-        if(v&&v.campanha)D=v;
+        if(v&&v.campanha&&(Number(v.versao)||0)<FORMATO_GUIA)
+          BOOTERR="este guia está num formato antigo, que esta versão do Grimório não converte mais. Nada foi alterado: o conteúdo continua salvo no servidor.";
+        else if(v&&v.campanha)D=v;
         else { D=JSON.parse(JSON.stringify(VAZIO)); D.campanha={titulo:c.nome,sistema:c.sistema||""}; }
       }catch(e){ BOOTERR="JSON inválido no guia: "+((e&&e.message)||e); } })
     .catch(function(e){ BOOTERR="não consegui ler o guia: "+((e&&e.message)||e); }) );
@@ -1908,7 +1924,6 @@ function entrarNaCampanha(cid){
   Promise.all(ps).then(function(){
     if(GM&&!D.campanha)D.campanha={titulo:c.nome,sistema:c.sistema||""};
     normalizaCampanha();
-    var mg=MIGROU; MIGROU=false; if(GM&&mg&&!BOOTERR)save();
     PRONTO=true; aplicarTema(temaAtivo()); pintarMarca();
     render(); zeraDados(); puxaRolagens(false); sondaMesa();
     /* primeira vez com este papel: o tour vem antes, e a sugestao de tema espera ele acabar */
@@ -2035,7 +2050,7 @@ function atualizaFavicon(pele){
 
 /* ---------- TOUR GUIADO ----------
    Um por papel, na primeira vez que a pessoa entra numa campanha com aquele papel. Fica em
-   Ajustes > Tour guiado para rever. Cada passo pode mudar de tela (ir) antes de apontar
+   Configurações > Tour guiado para rever. Cada passo pode mudar de tela (ir) antes de apontar
    para um elemento (a); sem elemento, o cartao aparece no meio. */
 var TOUR=null;
 function tourChave(p){ return "grim_tour_"+p+"_"+(MYID||"0"); }
@@ -2049,9 +2064,9 @@ function tourInicial(){
 function tourIr(view,extra){ return function(){ S.view=view; if(extra)extra(); render(); }; }
 function passosTour(p){
   var m=vl("mestre"), j=vl("jogadores"), L=[];
-  var fim={t:"Pronto para jogar",x:"Esse foi o Grimório inteiro. Para rever, é só ir em Ajustes › Tour guiado. Boa sessão!"};
+  var fim={t:"Pronto para jogar",x:"Esse foi o Grimório inteiro. Para rever, é só ir em Configurações › Tour guiado. Boa sessão!"};
   if(p==="mestre"){
-    L.push({t:"Bem-vindo à sua mesa",x:"Este tour mostra todas as partes do Grimório, uma de cada vez. Use as setas do teclado ou os botões. Dá para pular agora e rever quando quiser em Ajustes.",logo:true});
+    L.push({t:"Bem-vindo à sua mesa",x:"Este tour mostra todas as partes do Grimório, uma de cada vez. Use as setas do teclado ou os botões. Dá para pular agora e rever quando quiser em Configurações.",logo:true});
     L.push({a:".brand",t:"Suas "+vl("campanhas"),x:"Clique na logo para voltar à lista de "+vl("campanhas")+": criar outra, importar um pacote pronto ou entrar numa com convite."});
     L.push({a:"#tabs .tab:nth-child(1)",ir:tourIr("home"),t:Vm("campanha"),x:"A página da "+vl("campanha")+": apresentação, a próxima "+vl("sessao")+" e as seções que você escreve, como regras da casa, método e perguntas para a mesa."});
     L.push({a:".seccols .sec-wrap",ir:tourIr("home"),t:"Tudo se edita por formulário",x:"Cada bloco tem editar e setas para mudar a ordem. Remover não pergunta: faz e oferece desfazer por alguns segundos."});
@@ -2072,7 +2087,7 @@ function passosTour(p){
     L.push({a:"#mLib",ir:tourIr("mesa",function(){ S.msec="resumos"; }),t:"Liberar daqui também",x:"O mesmo liberar do "+vl("quadro")+", com o elenco inteiro."});
     L.push({a:'[data-msec="fichas"]',ir:tourIr("mesa",function(){ S.msec="fichas"; }),t:Vm("fichas"),x:"Você vê as fichas de todo mundo. Dá para importar de PDF, até escaneado se a IA estiver configurada, e definir o modelo de ficha da "+vl("campanha")+". Clicar num número da ficha rola o dado."});
   } else {
-    L.push({t:"Bem-vindo à "+vl("mesa"),x:"Este tour mostra tudo que você tem aqui, uma parte de cada vez. Use as setas do teclado ou os botões. Dá para pular agora e rever em Ajustes.",logo:true});
+    L.push({t:"Bem-vindo à "+vl("mesa"),x:"Este tour mostra tudo que você tem aqui, uma parte de cada vez. Use as setas do teclado ou os botões. Dá para pular agora e rever em Configurações.",logo:true});
     L.push({a:".brand",t:"Suas "+vl("campanhas"),x:"Clique na logo para ver as "+vl("campanhas")+" em que você está ou entrar numa nova com o convite do "+m+"."});
     var sec=function(k){ return tourIr("mesa",function(){ S.msec=k; }); };
     L.push({a:".mesanav",ir:sec("resumos"),t:"A "+vl("mesa"),x:"Tudo que o "+m+" liberar aparece aqui, separado por abas."});
@@ -2090,7 +2105,8 @@ function passosTour(p){
     +(p==="mestre"?" Você escolhe se a mesa toda vê cada rolagem sua, e pode pedir um teste aos "+j+".":" O "+m+" decide se a mesa vê as suas rolagens.")});
   L.push({a:"#btnRol",t:"Rolagens da "+vl("mesa"),x:"Um painel solto com as rolagens de todo mundo e os pedidos de teste. Abre, fecha, move e muda de tamanho."});
   if(p!=="mestre")L.push({t:"Pedidos e revelações",x:"Quando o "+m+" pedir um teste, aparece um aviso no topo com o botão Rolar. Quando ele liberar algo novo, a carta vira na sua tela. Na hora do combate, a ordem de iniciativa aparece no topo da "+vl("mesa")+"."});
-  L.push({a:"#btnAjustes",t:"Ajustes",x:(p==="mestre"
+  L.push({a:"#rdSup",t:"Suporte",x:"No rodapé de qualquer página: escreva o que aconteceu e a mensagem vai para quem cuida deste Grimório."});
+  L.push({a:"#btnAjustes",t:"Configurações",x:(p==="mestre"
     ?"A "+vl("campanha")+" (capa, tema sugerido, pacote), convites e a regra das rolagens, vocabulário, consulta rápida, busca, aparência e conta."
     :"O tema da página (o sugerido pelo "+m+" vem marcado), os sons, as animações e a sua conta.")+" O tour e o contato com o suporte também ficam aqui."});
   L.push(fim);
@@ -2222,7 +2238,7 @@ function quando2(ms){ try{ return new Date(ms).toLocaleString("pt-BR",{dateStyle
 
 /* ---------- SONS ----------
    Nenhum arquivo: tudo e sintetizado na hora, e o timbre muda com o estilo do tema.
-   Nasce ligado; quem desliga e a pessoa, em Ajustes > Aparencia. */
+   Nasce ligado; quem desliga e a pessoa, em Configurações > Aparencia. */
 var SOM={ctx:null};
 var TIMBRE={fantasia:{o:"triangle",f:1},terror:{o:"sawtooth",f:.5},misterio:{o:"sine",f:.75},
   investigacao:{o:"square",f:.6},ficcao:{o:"square",f:1.5}};
@@ -2276,7 +2292,7 @@ function sugereTema(){
   var d=el("div",{"class":"sugtema"}), igual=(temaAtivo()===m);
   d.innerHTML='<div class="sugprev">'+temaCard(m,"")+'</div><div class="sugtxt"><span>Tema sugerido pelo '+vl("mestre")+'</span>'
     +'<b>'+esc(TEMAS[m].nome)+' · '+esc((ESTILOS[TEMAS[m].estilo]||{}).nome||"")+'</b>'
-    +(igual?'<p>É o que você está vendo agora. Dá para trocar em Ajustes › Aparência.</p><div class="addrow"><button class="btn" data-s="ok">Entendi</button></div>'
+    +(igual?'<p>É o que você está vendo agora. Dá para trocar em Configurações › Aparência.</p><div class="addrow"><button class="btn" data-s="ok">Entendi</button></div>'
            :'<p>Você está com outro tema. Quer usar o sugerido nesta '+vl("campanha")+'?</p>'
             +'<div class="addrow"><button class="btn" data-s="usar">Usar nesta '+vl("campanha")+'</button>'
             +'<button class="btn sec" data-s="ok">Manter o meu</button></div>')+'</div>';
@@ -2862,11 +2878,6 @@ function trocarTema(id){
   if(document.startViewTransition&&fxLigado())document.startViewTransition(function(){ aplicarTema(id); });
   else aplicarTema(id);
 }
-/* O guia tem tres geracoes. A v3 troca as secoes fixas da campanha original por
-   cadastros (elenco) e secoes livres. A conversao roda no cliente e NAO apaga os
-   campos antigos: eles ficam no JSON, parados, para dar para voltar atras. */
-var MIGROU=false;
-function porNome(l,nome){ var k=norm(nome); return (l||[]).filter(function(x){return norm(x.nome)===k;})[0]||null; }
 function normalizaSessao(s){
   if(!s||typeof s!=="object")return;
   if(!s.id)s.id=uid("s");
@@ -2892,70 +2903,15 @@ function normalizaCampanha(){
   if(!c.vocab||typeof c.vocab!=="object")c.vocab={};
   if(!Array.isArray(D.sessoes))D.sessoes=[];
   if(!Array.isArray(D.trilhaCategorias))D.trilhaCategorias=[];
-  if(!Array.isArray(D.galeria))D.galeria=[];
   if(!D.elenco||typeof D.elenco!=="object")D.elenco={};
   ["personagens","npcs","locais","pistas"].forEach(function(k){ if(!Array.isArray(D.elenco[k]))D.elenco[k]=[]; });
-  if((Number(D.versao)||0)<3)migrarV3(c);
+  D.versao=FORMATO_GUIA;
   if(typeof c.apresentacao!=="string")c.apresentacao="";
   if(!Array.isArray(c.secoes))c.secoes=[];
   c.secoes.forEach(function(s){ if(!s.id)s.id=uid("q"); if(!s.tipo)s.tipo="texto";
     if(!Array.isArray(s.itens))s.itens=[]; if(typeof s.texto!=="string")s.texto=""; if(typeof s.titulo!=="string")s.titulo=""; });
   D.elenco.personagens.forEach(function(p){ if(!Array.isArray(p.fichas))p.fichas=[]; });
   D.sessoes.forEach(normalizaSessao);
-}
-function migrarV3(c){
-  var e=D.elenco;
-  function txt(x){ return typeof x==="string"?x.trim():(x==null?"":String(x).trim()); }
-  function lst(x){ return Array.isArray(x)?x.filter(function(y){return typeof y==="string"&&y.trim();}):[]; }
-  if(c.conceitoTexto==null&&c.hexatombeTexto!=null)c.conceitoTexto=c.hexatombeTexto;
-  if(c.regrasDeOuro==null&&c.hexatombeRegras!=null)c.regrasDeOuro=c.hexatombeRegras;
-
-  (Array.isArray(c.corpos)?c.corpos:[]).forEach(function(p){ if(!p||typeof p!=="object")return;
-    var notas=[];
-    if(txt(p.dificuldade))notas.push("Dificuldade: "+txt(p.dificuldade));
-    if(!txt(p.agente)&&txt(p.agenteNota)&&txt(p.agenteNota)!=="a definir")notas.push(txt(p.agenteNota));
-    e.personagens.push({id:uid("p"),nome:txt(p.assassino),subtitulo:txt(p.alcunha),jogador:txt(p.agente),
-      img:txt(p.pc),imgAlt:txt(p.mask),etiquetas:txt(p.termos),notas:notas.join("\n"),ref:txt(p.as),fichas:lst(p.fichas)}); });
-
-  var sec=[];
-  function poe(t,tipo,texto,itens){ if(!txt(texto)&&!(itens&&itens.length))return;
-    sec.push({id:uid("q"),titulo:t,tipo:tipo,texto:txt(texto),itens:itens||[]}); }
-  if(!txt(c.apresentacao))c.apresentacao=txt(c.verdadeIntro);
-  poe("Sobre os "+V("personagens").toLowerCase(),"texto",c.sacrificio);
-  var ps=(c.preSessao&&typeof c.preSessao==="object")?c.preSessao:{};
-  poe(txt(ps.titulo)||("Antes da primeira "+V("sessao").toLowerCase()),"texto",
-    [txt(ps.intro),txt(ps.textoAbertura)].filter(Boolean).join("\n\n"));
-  poe(txt(ps.perguntasTitulo)||"Perguntas para a mesa","lista","",lst(ps.perguntas));
-  poe(txt(ps.metodoTitulo)||"Como usar as respostas","lista","",lst(ps.metodo));
-  var ad=(c.adaptacao&&typeof c.adaptacao==="object")?c.adaptacao:{};
-  poe(txt(ad.titulo)||"Adaptações","lista","",lst(ad.itens));
-  poe(txt(c.conceitoTitulo)||"O conceito","texto",c.conceitoTexto);
-  poe(txt(c.regrasDeOuroTitulo)||"Regras de ouro","lista","",lst(c.regrasDeOuro));
-  var met=(Array.isArray(c.metodo)?c.metodo:[]).filter(function(m){return m&&(txt(m.t)||txt(m.d));})
-    .map(function(m){return {t:txt(m.t),d:txt(m.d)};});
-  poe("Método de mesa","cartoes",c.metodoNota,met);
-  c.secoes=(Array.isArray(c.secoes)?c.secoes:[]).concat(sec);
-
-  /* o "mapa das sessoes" era uma lista a parte, ligada ao roteiro por numero digitado
-     a mao. Agora a linha planejada e a propria sessao. */
-  (Array.isArray(c.episodios)?c.episodios:[]).forEach(function(ep){ if(!ep||typeof ep!=="object")return;
-    var n=Number(ep.n)||0, s=D.sessoes.filter(function(x){return x&&x.numero===n;})[0];
-    if(!s){ if(txt(ep.nome)||txt(ep.resumo))novaSessao(n,txt(ep.nome),txt(ep.resumo)); }
-    else if(!txt(s.resumo))s.resumo=txt(ep.resumo); });
-
-  /* NPC, local e evidencia moravam dentro de cada sessao. Sobem para o elenco,
-     sem duplicar por nome, e a sessao passa a apontar para eles. */
-  D.sessoes.forEach(function(s){ if(!s||typeof s!=="object")return;
-    function sobe(arr,dest,pre,mk){ var ids=[];
-      (Array.isArray(arr)?arr:[]).forEach(function(x){ if(!x||!txt(x.nome))return;
-        var a=porNome(dest,x.nome); if(!a){ a=mk(x); a.id=uid(pre); dest.push(a); }
-        if(ids.indexOf(a.id)<0)ids.push(a.id); });
-      return ids; }
-    s.npcIds=sobe(s.npcs,e.npcs,"n",function(x){return {nome:txt(x.nome),img:txt(x.img),desc:txt(x.desc),segredo:txt(x.segredo)};});
-    s.localIds=sobe(s.locais,e.locais,"l",function(x){return {nome:txt(x.nome),img:txt(x.img),desc:txt(x.desc)};});
-    s.pistaIds=sobe(s.handouts,e.pistas,"k",function(x){return {nome:txt(x.nome),img:txt(x.img),texto:txt(x.texto)};});
-  });
-  D.versao=3; MIGROU=true;
 }
 function tituloApp(){
   if(GM&&D&&D.campanha&&D.campanha.titulo)return D.campanha.titulo;
@@ -2968,13 +2924,7 @@ function pintarMarca(){
   try{ document.title=tituloApp(); }catch(e){}
 }
 
-/* ---------- EDICAO: tudo passa por formulario ----------
-   A edicao digitando na propria pagina (contentEditable + modo global) foi
-   retirada: nao tinha rotulo, perdia quebra de linha e ligava sem querer.
-   E() ficou como escape simples para quem ainda monta HTML com ele. */
-function E(o,k,cls){ var t=esc(o&&o[k]!=null?o[k]:""); return cls?'<span class="'+cls+'">'+t+'</span>':t; }
-function flushEd(){}
-function applyEdit(){}
+/* ---------- EDICAO: tudo passa por formulario ---------- */
 function vl(k){ return esc(V(k).toLowerCase()); }
 
 function toastAcao(m,rot,fn){
@@ -3252,7 +3202,7 @@ function refreshCenaModal(){
   if(s)for(i=0;i<s.cenas.length;i++) if(s.cenas[i].id===CMODAL.id)c=s.cenas[i];
   if(!c){ CMODAL.ov.close(); CMODAL=null; return; }
   var b=CMODAL.ov.querySelector("#cmBody");
-  if(b){ b.innerHTML=cenaModalBody(s,c); flushEd(b); applyEdit(); hydrateCena(b); }
+  if(b){ b.innerHTML=cenaModalBody(s,c); hydrateCena(b); }
   var h3=CMODAL.ov.querySelector("h3"); if(h3)h3.textContent=c.n+" · "+c.titulo;
 }
 function cardHtml(s,c){
@@ -3660,7 +3610,7 @@ function formNovaCampanha(){
     +'<div class="caixa"><span class="flb">Entrar numa campanha existente</span>'
     +'<div class="addrow"><input class="inp" id="ncChave" placeholder="cole aqui a chave ou o link do convite">'
     +'<button class="btn" id="ncEntrar">Entrar</button></div>'
-    +'<p class="sm muted">Quem mestra gera essa chave em Ajustes › Mesa e convites.</p></div></div>';
+    +'<p class="sm muted">Quem mestra gera essa chave em Configurações › Mesa e convites.</p></div></div>';
 }
 var PACOTE=null;
 function chaveDoTexto(t){
@@ -4276,7 +4226,7 @@ function secoesAjustes(){
 function viewAjustes(){
   var l=secoesAjustes();
   if(!l.some(function(x){return x[0]===S.aj;}))S.aj=l[0][0];
-  return '<div class="pagehd"><div><p class="eyebrow">'+esc(tituloApp())+'</p><h1 class="page">Ajustes</h1></div>'
+  return '<div class="pagehd"><div><p class="eyebrow">'+esc(tituloApp())+'</p><h1 class="page">Configurações</h1></div>'
     +'<button class="btn sec" id="ajCamps">Minhas '+vl("campanhas")+'</button></div>'
     +'<div style="margin-top:1rem">'+subnav(l,S.aj,"data-aj")+'</div><div id="ajBody" class="ajbody"></div>';
 }
@@ -4425,6 +4375,7 @@ function abrirConta(back,mk){
     +'em navegador alheio não deve virar conta perdida.</p></div>',
     {back:back});
 
+  ["#cnAtual","#cnNova","#cnNova2"].forEach(function(s){ campoSecreto($(s,ov)); });
   function atualizaSessao(){
     return api("/api/sessao").then(function(s2){
       EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
@@ -4447,7 +4398,8 @@ function abrirConta(back,mk){
     api("/api/perfil",{method:"PUT",body:{senhaAtual:at,senhaNova:nv}})
       .then(function(){
         b.disabled=false;
-        $("#cnAtual",ov).value=""; $("#cnNova",ov).value=""; $("#cnNova2",ov).value="";
+        /* a nova passa a ser a atual: os campos continuam preenchidos, sempre em bolinhas */
+        $("#cnAtual",ov).value=nv;
         toast("Senha trocada");
       })
       .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); });
@@ -5198,7 +5150,7 @@ function abrirMembros(back,mk){
 function abrirCampanha(back,mk){
   if(!GM){ toast("Só o mestre"); return; }
   var c=(CAMPANHAS.filter(function(x){return String(x.id)===String(CID);})[0])||{};
-  var ov=(mk||overlay)("Ajustes da campanha",
+  var ov=(mk||overlay)("Configurações da campanha",
     '<div class="fld"><span class="flb">Identificação</span>'
     +'<div class="addrow"><input class="inp" id="caNome" placeholder="nome" value="'+esc(c.nome||"")+'">'
     +'<input class="inp" id="caSis" placeholder="sistema de regras" value="'+esc(c.sistema||"")+'">'
@@ -5332,6 +5284,17 @@ function abrirReferencia(back,mk){
   ligar();
 }
 
+/* Segredo ja salvo aparece como bolinhas. O valor de verdade nunca sai do servidor, entao o
+   campo recebe uma mascara: quem salva sem mexer manda "nao mexi" (null), e o que esta
+   guardado fica. Campo de senha nao deixa copiar; o bloqueio de copiar e cortar e reforco. */
+var MASCARA="••••••••••••";
+function campoSecreto(inp,salvo){
+  if(!inp)return;
+  if(salvo!==undefined)inp.value=salvo?MASCARA:"";
+  inp.onfocus=function(){ if(inp.value===MASCARA)inp.select(); };
+  inp.oncopy=inp.oncut=function(e){ e.preventDefault(); };
+}
+function segredoDe(inp){ return inp.value===MASCARA?null:inp.value; }
 function abrirAdmin(back,mk){
   if(!ADMIN){ toast("Só o administrador da instância"); return; }
   var ov=(mk||overlay)("Administração da instância",
@@ -5346,13 +5309,16 @@ function abrirAdmin(back,mk){
     +'<div class="fld"><span class="flb">Sistema</span><div id="adSis" class="sm"><p class="muted sm">carregando…</p></div></div>'
     +'<div class="fld"><span class="flb">E-mail do suporte</span>'
     +'<div class="addrow"><input class="inp" id="smD" type="email" placeholder="para onde vão as mensagens"></div>'
-    +'<div class="addrow"><input class="inp" id="smH" placeholder="servidor SMTP, ex.: smtp-mail.outlook.com">'
+    +'<div class="addrow"><select id="smV" class="selmini"><option value="smtp">SMTP (Gmail, Outlook…)</option>'
+    +'<option value="resend">Resend (HTTPS, grátis)</option><option value="brevo">Brevo (HTTPS, grátis)</option></select></div>'
+    +'<div class="addrow" id="smKey" hidden><input class="inp" id="smK" type="password" placeholder="chave de API do provedor" autocomplete="new-password"></div>'
+    +'<div id="smSmtp"><div class="addrow"><input class="inp" id="smH" placeholder="servidor SMTP, ex.: smtp.gmail.com">'
     +'<input class="inp" id="smP" type="number" placeholder="porta" style="max-width:6.5rem"></div>'
     +'<div class="addrow"><input class="inp" id="smU" placeholder="usuário do SMTP" autocomplete="off">'
-    +'<input class="inp" id="smS" type="password" placeholder="senha do SMTP" autocomplete="new-password">'
-    +'<input class="inp" id="smR" placeholder="remetente (vazio = usuário)"></div>'
+    +'<input class="inp" id="smS" type="password" placeholder="senha do SMTP" autocomplete="new-password"></div></div>'
+    +'<div class="addrow"><input class="inp" id="smR" placeholder="remetente (e-mail que envia)"></div>'
     +'<div class="addrow"><button class="btn" id="smOk">Salvar</button><button class="btn sec" id="smT">Enviar e-mail de teste</button></div>'
-    +'<p class="sm muted" id="smSt">…</p></div>'
+    +'<p class="sm muted" id="smDica"></p><p class="sm muted" id="smSt">…</p></div>'
     +'<div class="fld"><span class="flb">Mensagens de suporte</span><div id="adSup" class="suplist"><p class="muted sm">carregando…</p></div></div>'
     +'<div class="fld"><span class="flb">Cadastro</span>'
     +'<label class="sm" style="display:flex;align-items:center;gap:.5rem">'
@@ -5366,14 +5332,17 @@ function abrirAdmin(back,mk){
     {wide:true,back:back});
 
   api("/api/admin/config").then(function(c){
-    $("#iaKst",ov).textContent=c.iaConfigurada?"uma chave já está salva; digitar outra substitui, vazio apaga."
+    $("#iaKst",ov).textContent=c.iaConfigurada?"uma chave já está salva (as bolinhas). Digite outra para substituir, ou apague tudo e salve para remover."
                                               :"nenhuma chave salva ainda.";
+    campoSecreto($("#iaK",ov),!!c.iaConfigurada);
+    campoSecreto($("#smS",ov),!!c.smtpSenhaSalva); campoSecreto($("#smK",ov),!!c.emailChaveSalva);
     $("#iaM",ov).value=c.iaModelo||"";
     $("#adReg",ov).checked=!!c.registroAberto;
     $("#smD",ov).value=c.suporteEmail||""; $("#smH",ov).value=c.smtpHost||""; $("#smP",ov).value=c.smtpPorta||"";
     $("#smU",ov).value=c.smtpUsuario||""; $("#smR",ov).value=c.smtpRemetente||"";
-    $("#smSt",ov).textContent=(c.smtpHost?"Envio configurado. ":"Sem servidor SMTP: as mensagens ficam só registradas aqui embaixo. ")
-      +(c.smtpSenhaSalva?"Uma senha já está salva; deixar o campo vazio mantém a senha.":"");
+    $("#smV",ov).value=c.emailProvedor||"smtp"; mostraProv();
+    $("#smSt",ov).textContent=(c.emailConfigurado?"Envio configurado. ":"Envio não configurado: as mensagens ficam só registradas aqui embaixo. ")
+      +((c.emailProvedor==="smtp"?c.smtpSenhaSalva:c.emailChaveSalva)?"Já há uma "+(c.emailProvedor==="smtp"?"senha":"chave")+" salva; deixar o campo vazio mantém.":"");
   }).catch(function(){});
   function pintaSistema(){ api("/api/admin/sistema").then(function(r){
     var a=r.armazenamento||{}, s=r.sistema||{};
@@ -5400,6 +5369,14 @@ function abrirAdmin(back,mk){
       b.disabled=false; b.textContent="Juntar arquivos iguais agora";
       toast(r.liberado?mb(r.liberado)+" liberados":"Nada para juntar: os arquivos iguais já estavam compartilhados"); pintaSistema(); })
      .catch(function(e){ b.disabled=false; b.textContent="Juntar arquivos iguais agora"; toast((e&&e.message)||"não deu"); }); };
+  var DICAS={
+    smtp:"Funciona em hospedagem que libera a saída SMTP. Railway Trial e Hobby bloqueiam: dá \"Couldn't connect\". Gmail: smtp.gmail.com, porta 587, senha de app.",
+    resend:"resend.com › API Keys › Create API Key. Sem domínio próprio, deixe o remetente vazio (usa onboarding@resend.dev) e crie a conta Resend com o mesmo e-mail que recebe o suporte: sem domínio verificado, o Resend só entrega para o dono da conta. 3.000 e-mails/mês grátis.",
+    brevo:"brevo.com › SMTP e API › Chaves de API. Em Remetentes, adicione e verifique o e-mail que vai enviar e escreva o mesmo no campo remetente. 300 e-mails/dia grátis."};
+  function mostraProv(){ var p=$("#smV",ov).value;
+    $("#smSmtp",ov).hidden=(p!=="smtp"); $("#smKey",ov).hidden=(p==="smtp");
+    $("#smDica",ov).textContent=DICAS[p]||""; }
+  $("#smV",ov).onchange=mostraProv; mostraProv();
   function pintaSup(){ api("/api/admin/suporte").then(function(l){
     $("#adSup",ov).innerHTML=(l||[]).map(function(x){
       return '<article class="supit"><header><b>'+esc(x.assunto)+'</b><span class="muted sm">'+esc(x.autor)+' · '+esc(quando2(x.em))+'</span>'
@@ -5410,16 +5387,21 @@ function abrirAdmin(back,mk){
       ||'<p class="empty">Nenhuma mensagem ainda.</p>'; }).catch(function(){}); }
   pintaSup();
   $("#smOk",ov).onclick=function(){
-    api("/api/admin/config",{method:"PUT",body:{suporteEmail:$("#smD",ov).value,smtpHost:$("#smH",ov).value,smtpPorta:$("#smP",ov).value,
-      smtpUsuario:$("#smU",ov).value,smtpSenha:$("#smS",ov).value,smtpRemetente:$("#smR",ov).value}})
-      .then(function(){ $("#smS",ov).value=""; toast("Salvo"); }).catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+    var corpo={suporteEmail:$("#smD",ov).value,emailProvedor:$("#smV",ov).value,smtpHost:$("#smH",ov).value,
+      smtpPorta:$("#smP",ov).value,smtpUsuario:$("#smU",ov).value,smtpRemetente:$("#smR",ov).value};
+    var sn=segredoDe($("#smS",ov)), ch=segredoDe($("#smK",ov));
+    if(sn!==null)corpo.smtpSenha=sn; if(ch!==null)corpo.emailChave=ch;
+    api("/api/admin/config",{method:"PUT",body:corpo})
+      .then(function(){ toast("Salvo"); }).catch(function(e){ toast((e&&e.message)||"não deu"); }); };
   $("#smT",ov).onclick=function(){ var b=this; b.disabled=true; $("#smSt",ov).textContent="enviando o teste…";
     api("/api/admin/suporte/teste",{method:"POST"}).then(function(r){ b.disabled=false; $("#smSt",ov).textContent="Teste enviado para "+r.para+". Confira a caixa de entrada (e o spam)."; })
       .catch(function(e){ b.disabled=false; $("#smSt",ov).textContent=(e&&e.message)||"não deu"; }); };
 
   $("#iaKs",ov).onclick=function(){
-    api("/api/admin/config",{method:"PUT",body:{iaApiKey:$("#iaK",ov).value,iaModelo:$("#iaM",ov).value}})
-      .then(function(){ IACFG=!!$("#iaK",ov).value.trim(); $("#iaK",ov).value=""; toast("Salvo"); })
+    var k=segredoDe($("#iaK",ov)), corpo={iaModelo:$("#iaM",ov).value};
+    if(k!==null)corpo.iaApiKey=k;
+    api("/api/admin/config",{method:"PUT",body:corpo})
+      .then(function(){ if(k!==null)IACFG=!!k.trim(); toast("Salvo"); })
       .catch(function(e){toast((e&&e.message)||"não deu");}); };
   $("#adReg",ov).onchange=function(){
     api("/api/admin/config",{method:"PUT",body:{registroAberto:$("#adReg",ov).checked?"true":"false"}})
@@ -5621,7 +5603,7 @@ function mesaSec(){
     var r=PUBD().referencia||[];
     if(!r.length)
       return '<p class="empty">Nada aqui ainda.'
-        +(GM?' Use <b>'+esc(Vm("referencia"))+'</b> em Ajustes para escrever o resumo de regras da sua mesa.':'')
+        +(GM?' Use <b>'+esc(Vm("referencia"))+'</b> em Configurações para escrever o resumo de regras da sua mesa.':'')
         +'</p>';
     return '<p class="lead">Resumo das mecânicas para não travar a mesa. Em caso de dúvida, o livro manda.'
       +(GM?' <button class="tbtn" id="refEd">editar</button>':'')+'</p>'
@@ -6008,6 +5990,8 @@ $("#btnBusca").onclick=function(){abrirBusca();};
 $("#btnTrilha").onclick=function(){abrirTrilha();};
 $("#btnDados").onclick=function(){abrirDados();};
 $("#btnRol").onclick=function(){ painelRolagens(); };
+$("#rdSup").onclick=function(){ abrirSuporte(); };
+$("#rdAno").textContent=new Date().getFullYear();
 $("#nbName").onclick=function(){abrirTrilha();};
 $("#nbPlay").onclick=function(){ if(!PL.cur)return; if(PL.cur.paused)PL.cur.play(); else PL.cur.pause(); playerUI(); };
 $("#nbStop").onclick=function(){ parar(); };

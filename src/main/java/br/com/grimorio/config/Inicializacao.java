@@ -2,7 +2,6 @@ package br.com.grimorio.config;
 
 import br.com.grimorio.repo.UsuarioRepo;
 import br.com.grimorio.service.MidiaService;
-import br.com.grimorio.service.MigracaoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
@@ -21,18 +20,13 @@ public class Inicializacao {
 
     @Bean
     @Order(10)
-    public ApplicationRunner partida(UsuarioRepo usuarios, MigracaoService migracao, AppProps props, MidiaService midia) {
+    public ApplicationRunner partida(UsuarioRepo usuarios, AppProps props, MidiaService midia) {
         return args -> {
             Path raiz = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
             Files.createDirectories(raiz);
             log.info("Pasta de midia: {}", raiz);
 
-            long contas = usuarios.count();
-            if (contas == 0) {
-                log.warn(" Nenhuma conta cadastrada.");
-            } else {
-                migracao.migrar();
-            }
+            if (usuarios.count() == 0) log.warn(" Nenhuma conta cadastrada.");
             /* em segundo plano: calcular hash de livro grande demora, e o site nao espera por isso */
             Thread t = new Thread(() -> {
                 try { midia.desduplicarVolume(); }
