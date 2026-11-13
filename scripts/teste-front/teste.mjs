@@ -78,7 +78,7 @@ const salvar = async () => { await pg.locator('.ov [data-ok]').last().click(); a
 await ctx.request.get(B + '/api/zerar');
 await pg.addInitScript(() => { try { if (!localStorage.getItem('grim_cid')) localStorage.setItem('grim_cid', '1'); } catch (e) {} });
 
-titulo('campanha antiga abre e e migrada');
+titulo('campanha de teste abre');
 await pg.goto(B + '/', { waitUntil: 'networkidle' });
 await espera(1300);
 ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do mestre abre o tour');
@@ -113,16 +113,15 @@ ok(abas.length === 5 && /elenco/i.test(abas.join(' ')) && /biblioteca/i.test(aba
 ok((await pg.locator('#btnEdit, #btnMenu, #editbanner').count()) === 0, 'modo edicao e menu ··· sairam');
 ok((await pg.locator('[contenteditable="true"]').count()) === 0, 'nada editavel digitando na pagina');
 const txtHome = await pg.locator('#view').innerText();
-ok(/Parágrafo de abertura/.test(txtHome), 'apresentacao veio do campo antigo');
-ok(/REGRAS DE OURO/i.test(txtHome) && /Regra um\./.test(txtHome), 'regras de ouro viraram secao');
-ok(/Cartão um/.test(txtHome), 'metodo virou secao de cartoes');
+ok(/Parágrafo de abertura/.test(txtHome), 'apresentacao aparece');
+ok(/REGRAS DE OURO/i.test(txtHome) && /Regra um\./.test(txtHome), 'secao de lista aparece');
+ok(/Cartão um/.test(txtHome), 'secao de cartoes aparece');
 await foto('01-campanha');
 let g = await guia(1);
-ok(g.versao === 3, 'guia regravado como v3');
-ok(Array.isArray(g.campanha.corpos) && g.campanha.corpos.length === 3, 'campos antigos continuam no JSON');
+ok(g.versao === 3, 'guia no formato atual');
 ok(g.elenco.personagens.length === 3 && g.elenco.npcs.length === 1 && g.elenco.pistas.length === 1 && g.elenco.locais.length === 1,
   'elenco: 3 personagens, 1 npc, 1 local, 1 pista');
-ok(g.sessoes.length === 2 && g.sessoes[0].npcIds.length === 1, 'episodio sem roteiro virou sessao; sessao aponta para o elenco');
+ok(g.sessoes.length === 2 && g.sessoes[0].npcIds.length === 1, 'duas sessoes; a sessao aponta para o elenco');
 ok(new Set(JSON.stringify(g).match(/"id":"[^"]+"/g)).size === JSON.stringify(g).match(/"id":"[^"]+"/g).length, 'nenhum id repetido');
 
 titulo('recarregar nao migra de novo');
@@ -175,7 +174,7 @@ await pg.locator('.ov [data-no]').click();
 await espera(300);
 ok(!/NOME ERRADO/.test(await pg.locator('#view').innerText()), 'cancelado nao muda nada');
 
-titulo('elenco: personagens migrados e fotos');
+titulo('elenco: personagens e fotos');
 await aba('Elenco');
 ok((await pg.locator('article.pc').count()) === 3, 'tres personagens');
 const fotos = await pg.evaluate(() => [...document.querySelectorAll('article.pc .por img')]
@@ -308,7 +307,7 @@ ok((await pg.locator('aside.rail details[data-rb="npcs"] .npcrow').count()) === 
 ok(await pg.locator('aside.rail details[data-rb="npcs"]').evaluate(d => d.open), 'a caixa do painel continua aberta');
 await foto('07-roteiro');
 
-titulo('sessao migrada: blocos antigos aparecem');
+titulo('sessao: blocos da cena aparecem');
 await pg.locator('#sesVolta').click();
 await espera(350);
 await pg.locator('[data-ses]').first().click();
@@ -318,7 +317,7 @@ await espera(300);
 await pg.locator('details.scn summary').first().click();
 await espera(250);
 const cenaAntiga = await pg.locator('details.scn[open]').innerText();
-ok(/A chuva não para/.test(cenaAntiga) && /Percepção/i.test(cenaAntiga) && /vê o papel/.test(cenaAntiga), 'leitura e testes da cena antiga');
+ok(/A chuva não para/.test(cenaAntiga) && /Percepção/i.test(cenaAntiga) && /vê o papel/.test(cenaAntiga), 'leitura e testes da cena');
 ok(/OBRIGAT/i.test(cenaAntiga), 'marca "forçado" virou "obrigatório"');
 
 titulo('encerrar sessao: cena pendente passa adiante e o resumo e oferecido');
@@ -485,6 +484,13 @@ await pg.click('#btnAjustes');
 await espera(450);
 const secs = await pg.locator('[data-aj]').allInnerTexts();
 ok(secs.length === 10, 'dez secoes para mestre admin: ' + secs.join(' | '));
+ok(/^configurações$/i.test((await pg.locator('h1.page').innerText()).trim()) && /configurações/i.test(await pg.locator('#btnAjustes').innerText()), 'a area se chama Configuracoes');
+ok(/direitos reservados/i.test(await pg.locator('#rodape').innerText()), 'rodape com direitos reservados');
+await pg.locator('#rdSup').click();
+await espera(400);
+ok(await pg.locator('.ov #suM').isVisible() && await pg.locator('.ov #suA').isVisible(), 'o rodape abre o contato com o suporte numa janela');
+await pg.keyboard.press('Escape');
+await espera(300);
 await foto('09-ajustes');
 await pg.locator('[data-aj="suporte"]').click();
 await espera(300);
@@ -530,6 +536,24 @@ const csrf = await (await ctx.request.post(B + '/__csrf-estado')).json();
 ok(csrf.falha === false && csrf.repetiu >= 1 && /Salvo/i.test(await pg.locator('.toast').last().innerText()), 'recusa por token CSRF e repetida sozinha e o ajuste salva');
 await pg.locator('#adReg').click();
 await espera(500);
+ok((await pg.locator('#smS').inputValue()) === '••••••••••••' && (await pg.locator('#iaK').inputValue()) === '••••••••••••'
+  && (await pg.locator('#smS').getAttribute('type')) === 'password', 'segredo ja salvo aparece em bolinhas, sem o valor de verdade');
+await pg.locator('#smOk').click();
+await espera(500);
+let uc = await (await ctx.request.get(B + '/__ultconfig')).json();
+ok(!('smtpSenha' in uc) && uc.smtpHost === 'smtp.exemplo.com', 'salvar sem mexer na senha nao manda a mascara');
+await pg.locator('#smS').fill('senha-nova');
+await pg.locator('#smOk').click();
+await espera(500);
+uc = await (await ctx.request.get(B + '/__ultconfig')).json();
+ok(uc.smtpSenha === 'senha-nova' && (await pg.locator('#smS').inputValue()) === 'senha-nova', 'senha nova e enviada e continua no campo depois de salvar');
+await pg.locator('#iaKs').click();
+await espera(500);
+uc = await (await ctx.request.get(B + '/__ultconfig')).json();
+ok(!('iaApiKey' in uc), 'salvar a IA sem mexer na chave mantem a chave guardada');
+await pg.locator('#smV').selectOption('resend');
+ok(await pg.locator('#smSmtp').isHidden() && await pg.locator('#smKey').isVisible() && /resend\.com/i.test(await pg.locator('#smDica').innerText()), 'trocar o provedor de e-mail mostra so os campos dele');
+await pg.locator('#smV').selectOption('smtp');
 await pg.locator('[data-aj="mesa"]').click();
 await espera(500);
 ok(/Jogadora/.test(await pg.locator('#ajBody').innerText()), 'lista quem esta na mesa');
@@ -563,7 +587,8 @@ ok((await pg.locator('#cnAtual').inputValue()) === 'errada', 'senha errada nao l
 await pg.fill('#cnAtual', 'segredo123');
 await pg.click('#cnSenhaOk');
 await espera(400);
-ok((await pg.locator('#cnAtual').inputValue()) === '', 'senha certa limpa os campos');
+ok((await pg.locator('#cnAtual').inputValue()) === 'novasenha1' && (await pg.locator('#cnNova').inputValue()) === 'novasenha1'
+  && (await pg.locator('#cnAtual').getAttribute('type')) === 'password', 'senha trocada continua nos campos, em bolinhas');
 await pg.locator('[data-aj="campanha"]').click();
 await espera(400);
 await pg.click('#caCapaEsc');
@@ -849,6 +874,16 @@ await aba('Campanha');
 ok((await pg.locator('.passo.ok').count()) === feitos + 1, 'o passo dos personagens ficou marcado');
 await aba('Sess');
 ok(/Nenhuma/.test(await pg.locator('#view').innerText()), 'lista de sessoes vazia tem explicacao');
+
+titulo('guia em formato antigo fica protegido');
+const gVelho = await (await ctx.request.get(B + '/api/c/2/guia')).json();
+await ctx.request.put(B + '/api/c/2/guia', { data: { json: JSON.stringify({ versao: 2, campanha: { titulo: 'Velha', corpos: [] }, sessoes: [] }), versao: gVelho.versao } });
+const vAntes = (await (await ctx.request.get(B + '/api/c/2/guia')).json()).versao;
+await pg.reload();
+await espera(2200);
+ok(/formato antigo/i.test(await pg.locator('#view').innerText()), 'guia em formato antigo abre com aviso, sem converter');
+const gDep = await (await ctx.request.get(B + '/api/c/2/guia')).json();
+ok(gDep.versao === vAntes && /Velha/.test(gDep.json) && JSON.parse(gDep.json).versao === 2, 'e o que esta no servidor nao e regravado');
 
 titulo('jogador');
 await pg.click('#brandHome');

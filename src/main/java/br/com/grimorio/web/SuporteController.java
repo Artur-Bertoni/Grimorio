@@ -38,7 +38,7 @@ public class SuporteController {
             suporte.testar();
             return ResponseEntity.ok(Map.of("ok", true, "para", suporte.destino()));
         } catch (Exception e) {
-            return ResponseEntity.status(502).body(Map.of("erro", "o e-mail não saiu: " + (e.getMessage() == null ? e.toString() : e.getMessage())));
+            return ResponseEntity.status(502).body(Map.of("erro", "o e-mail não saiu: " + suporte.explicar(e)));
         }
     }
 }

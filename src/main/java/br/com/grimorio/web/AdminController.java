@@ -153,6 +153,9 @@ public class AdminController {
         m.put("smtpUsuario", config.get(SuporteService.SMTP_USUARIO, ""));
         m.put("smtpRemetente", config.get(SuporteService.SMTP_REMETENTE, ""));
         m.put("smtpSenhaSalva", !config.get(SuporteService.SMTP_SENHA, "").isBlank());
+        m.put("emailProvedor", suporte.provedor());
+        m.put("emailChaveSalva", !config.get(SuporteService.EMAIL_CHAVE, "").isBlank());
+        m.put("emailConfigurado", suporte.envioConfigurado());
         m.put("iaConfigurada", ia.configurada());
         m.put("iaModelo", config.get(ConfigService.IA_MODELO, IaService.MODELO_PADRAO));
         m.put("registroAberto", config.registroAberto());
@@ -175,7 +178,14 @@ public class AdminController {
                 {"smtpRemetente", SuporteService.SMTP_REMETENTE}}) {
             if (body.containsKey(k[0])) config.set(k[1], body.get(k[0]) == null ? "" : body.get(k[0]).trim());
         }
-        /* senha vazia mantem a que esta salva: o campo nunca vem preenchido do servidor */
+        if (body.containsKey("emailProvedor")) {
+            String p = body.get("emailProvedor") == null ? "" : body.get("emailProvedor").trim().toLowerCase();
+            if (!SuporteService.PROVEDORES.contains(p)) throw new IllegalArgumentException("provedor de e-mail desconhecido");
+            config.set(SuporteService.EMAIL_PROVEDOR, p);
+        }
+        /* chave e senha vazias mantem a que esta salva: o campo nunca vem preenchido do servidor */
+        if (body.containsKey("emailChave") && body.get("emailChave") != null && !body.get("emailChave").isBlank())
+            config.set(SuporteService.EMAIL_CHAVE, body.get("emailChave").trim());
         if (body.containsKey("smtpSenha") && body.get("smtpSenha") != null && !body.get("smtpSenha").isEmpty())
             config.set(SuporteService.SMTP_SENHA, body.get("smtpSenha"));
         if (body.containsKey("registroAberto")) {

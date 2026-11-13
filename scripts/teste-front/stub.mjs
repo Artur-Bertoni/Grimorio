@@ -45,50 +45,10 @@ const IMGS = {
   'ficha-1.png': png(60, 60, 60), 'npc-1.png': png(120, 60, 160), 'pista-1.png': png(30, 150, 110),
 };
 
-function campanhaAntiga() {
-  const corpo = (n, nome) => ({
-    pc: `img/pc-${n}.png`, mask: `img/pc-${n}-hover.png`, assassino: nome, alcunha: 'ALCUNHA ' + n, agente: '',
-    agenteNota: 'a definir', termos: 'um, dois, tres', dificuldade: 'média', as: '', fichas: ['img/ficha-1.png'],
-  });
-  return {
-    titulo: 'Campanha de teste', sistema: 'Sistema de teste', verdadeIntro: 'Parágrafo de abertura.',
-    corposTitulo: 'Personagens dos jogadores',
-    corpos: [corpo(1, 'Primeiro'), corpo(2, 'Segundo'), corpo(3, 'Terceiro')],
-    sacrificio: 'Nota de rodapé dos personagens.',
-    preSessao: { titulo: 'Antes da primeira sessão', intro: 'Intro.', textoAbertura: 'Leia em voz alta.',
-      perguntasTitulo: 'Perguntas para a mesa', metodoTitulo: 'Como usar as respostas',
-      perguntas: ['Pergunta um?', 'Pergunta dois?'], metodo: ['Passo um.', 'Passo dois.'] },
-    adaptacao: { titulo: 'O que é cânone', itens: ['Item um.', 'Item dois.'] },
-    episodiosTitulo: 'Mapa das sessões',
-    episodios: [{ n: 1, nome: 'Começo', resumo: 'A primeira.' }, { n: 2, nome: 'Meio', resumo: 'A segunda.' }],
-    conceitoTitulo: 'O conceito', conceitoTexto: 'Do que a campanha trata.',
-    regrasDeOuroTitulo: 'Regras de ouro', regrasDeOuro: ['Regra um.', 'Regra dois.'],
-    metodo: [{ t: 'Cartão um', d: 'Explicação um.' }], metodoNota: 'Como conduzir.',
-    indiceTitulo: 'Índice dos livros', indiceAS: [], vocab: {}, referencia: [], sinonimos: {}, canonicas: {},
-  };
-}
-function sessaoAntiga() {
-  return {
-    id: 's1', numero: 1, titulo: 'Começo', status: 'planejada', resumo: '',
-    territorios: [{ id: 't1', nome: 'ABERTURA', cor: '#c2458a' }, { id: 't2', nome: 'CIDADE', cor: '#c9a227' }],
-    prep: { terPronto: ['Mapa impresso'], mecanicas: [] }, eventosFixos: { intro: '', lista: ['Meia-noite: o sino toca'] },
-    npcs: [{ nome: 'Dona Marta', img: 'img/npc-1.png', desc: 'Dona da pensão.', segredo: 'Sabe de tudo.' }],
-    locais: [{ nome: 'Pensão', desc: 'Três andares, cheiro de mofo.' }],
-    handouts: [{ nome: 'Bilhete rasgado', img: 'img/pista-1.png', texto: 'Não confie em M.' }],
-    plantado: 'O bilhete aponta para a Marta.',
-    cenas: [
-      { id: 'c1', n: 'Cena 1', titulo: 'Chegada', territorio: 't1', feito: false, forcado: true, blocos: [
-        { tipo: 'leitura', rotulo: 'CINEMÁTICA', nota: '', texto: 'A chuva não para.\nNinguém na rua.' },
-        { tipo: 'avancar', rotulo: 'PARA AVANÇAR', itens: [{ t: 'Alguém bate na porta', tipo: 'forcado', sub: ['duas vezes'] }] },
-        { tipo: 'testes', rotulo: 'TESTES', itens: [{ p: 'Percepção', t: 'Notar o bilhete', f: ['10 · vê o papel', '15 · lê o nome'] }] },
-        { tipo: 'trilha', rotulo: 'TRILHA', itens: [{ sit: 'CHEGADA', faixa: 'Chuva', cat: 'Ambiente' }] },
-      ] },
-      { id: 'c2', n: 'Cena 2', titulo: 'A pensão', territorio: 't2', feito: false, blocos: [
-        { tipo: 'quem', rotulo: 'QUEM ESTÁ LÁ', itens: [{ t: 'Dona Marta: atrás do balcão', motiva: 'esconder o hóspede', img: 'img/npc-1.png' }] },
-      ] },
-    ],
-  };
-}
+/* A campanha de teste mora num arquivo, no formato do guia de verdade. */
+const GUIA_TESTE = readFileSync(join(AQUI, 'campanha-teste.json'), 'utf8');
+const GUIA_BRANCO = JSON.stringify({ versao: 3, campanha: { titulo: '', sistema: '' },
+  elenco: { personagens: [], npcs: [], locais: [], pistas: [] }, sessoes: [], trilhaCategorias: [] });
 
 const CAMPS = [
   { id: 1, nome: 'Campanha de teste', sistema: 'Sistema de teste', papel: 'MESTRE', arquivada: false, rolagensAbertas: true },
@@ -141,8 +101,8 @@ function zera() {
   const mesaVazia = () => ({ json: JSON.stringify({ resumos: [], ev: [], npcs: [], locais: [], at: 0 }), versao: 1 });
   ST = {
     guia: {
-      1: { json: JSON.stringify({ versao: 2, campanha: campanhaAntiga(), sessoes: [sessaoAntiga()], trilhaCategorias: [], galeria: [] }), versao: 1 },
-      2: { json: JSON.stringify({ campanha: { titulo: '', sistema: '' }, sessoes: [] }), versao: 1 },
+      1: { json: GUIA_TESTE, versao: 1 },
+      2: { json: GUIA_BRANCO, versao: 1 },
     },
     mesa: {
       1: mesaVazia(), 2: mesaVazia(),
@@ -207,7 +167,9 @@ http.createServer(async (req, res) => {
       if (/^\/api\/c\/\d+\/notas$/.test(p)) return envia(res, 200, { texto: ST.notas });
       if (/^\/api\/campanhas\/\d+\/membros$/.test(p)) return envia(res, 200, ST.membros);
       if (/^\/api\/campanhas\/\d+\/convites$/.test(p)) return envia(res, 200, ST.convites);
-      if (p === '/api/admin/config') return envia(res, 200, { iaConfigurada: false, iaModelo: '', registroAberto: true });
+      if (p === '/api/admin/config') return envia(res, 200, { iaConfigurada: true, iaModelo: '', registroAberto: true,
+        emailProvedor: 'smtp', smtpHost: 'smtp.exemplo.com', smtpPorta: '587', smtpSenhaSalva: true, emailChaveSalva: false, emailConfigurado: true });
+      if (p === '/__ultconfig') return envia(res, 200, ST.ultConfig || {});
       if (p === '/api/admin/sistema') return envia(res, 200, {
         armazenamento: { links: true, livre: 8e9, total: 10e9, usado: 1.5e9, economizado: 3.2e8, compartilhados: 4,
           porCampanha: [{ id: 1, nome: 'Campanha de teste', arquivos: 12, bytes: 9e8, compartilhados: 2 }, { id: 2, nome: 'Mesa em branco', arquivos: 3, bytes: 4e8, compartilhados: 2 }] },
@@ -239,6 +201,7 @@ http.createServer(async (req, res) => {
       ST.csrf.repetiu++;
     }
     if (M === 'PUT') {
+      if (p === '/api/admin/config') { ST.ultConfig = b; return envia(res, 200, { ok: true }); }
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
         const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
         f.nome = b.nome || f.nome; f.json = b.json || f.json;

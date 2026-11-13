@@ -11,6 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -25,7 +33,13 @@ public class SuporteService {
 
     private static final Logger log = LoggerFactory.getLogger(SuporteService.class);
     public static final String SMTP_HOST = "smtp.host", SMTP_PORTA = "smtp.porta", SMTP_USUARIO = "smtp.usuario",
-            SMTP_SENHA = "smtp.senha", SMTP_REMETENTE = "smtp.remetente", DESTINO = "suporte.email";
+            SMTP_SENHA = "smtp.senha", SMTP_REMETENTE = "smtp.remetente", DESTINO = "suporte.email",
+            EMAIL_PROVEDOR = "email.provedor", EMAIL_CHAVE = "email.apiKey";
+    /* Por que o e-mail tem tres caminhos: hospedagem barata (Railway Trial/Hobby) bloqueia a saida
+       SMTP (portas 25/465/587), e ai nenhuma senha resolve. Brevo e Resend falam HTTPS. */
+    public static final Set<String> PROVEDORES = Set.of("smtp", "brevo", "resend");
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final ObjectMapper om = new ObjectMapper();
     private static final int POR_HORA = 8;
     private static final DateTimeFormatter QUANDO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("America/Sao_Paulo"));
 
@@ -40,7 +54,13 @@ public class SuporteService {
     }
 
     public String destino() { return config.get(DESTINO, props.getSuporteEmail()); }
-    public boolean smtpConfigurado() { return !config.get(SMTP_HOST, "").isBlank(); }
+    public String provedor() {
+        String p = config.get(EMAIL_PROVEDOR, "smtp").trim().toLowerCase();
+        return PROVEDORES.contains(p) ? p : "smtp";
+    }
+    public boolean envioConfigurado() {
+        return provedor().equals("smtp") ? !config.get(SMTP_HOST, "").isBlank() : !config.get(EMAIL_CHAVE, "").isBlank();
+    }
 
     public Map<String, Object> abrir(Usuario u, String assunto, String mensagem, String contato, String contexto) {
         String a = limpa(assunto, 120), msg = mensagem == null ? "" : mensagem.trim();
@@ -65,7 +85,7 @@ public class SuporteService {
         chamados.save(c);
 
         String motivo = null;
-        if (!smtpConfigurado()) {
+        if (!envioConfigurado()) {
             motivo = "o envio de e-mail não está configurado nesta instância";
         } else {
             try {
@@ -74,7 +94,7 @@ public class SuporteService {
             } catch (Exception e) {
                 log.warn("Chamado {} gravado, mas o e-mail nao saiu: {}", c.getId(), e.toString());
                 motivo = "o e-mail não saiu agora";
-                c.setErro(limpa(e.getMessage() == null ? e.toString() : e.getMessage(), 300));
+                c.setErro(limpa(explica(e), 300));
             }
             chamados.save(c);
         }
@@ -105,7 +125,8 @@ public class SuporteService {
 
     /** Botao "enviar e-mail de teste" da Administracao: devolve o erro do SMTP por extenso. */
     public void testar() throws Exception {
-        if (!smtpConfigurado()) throw new IllegalStateException("preencha o servidor SMTP primeiro");
+        if (!envioConfigurado()) throw new IllegalStateException(provedor().equals("smtp")
+                ? "preencha o servidor SMTP primeiro" : "cole a chave do provedor primeiro");
         enviar(destino(), null, "[Grimório] teste do e-mail de suporte",
                 "Se esta mensagem chegou, o contato com o suporte do Grimório está funcionando.");
     }
@@ -119,7 +140,73 @@ public class SuporteService {
                 + "\n" + c.getMensagem() + "\n";
     }
 
+    /** Mensagem para a tela: o erro cru do SMTP ("Couldn't connect to host") nao diz que a causa
+     *  costuma ser o bloqueio da hospedagem, e e o que mais confunde. */
+    public String explicar(Throwable e) { return explica(e); }
+
+    private String explica(Throwable e) {
+        String m = e.getMessage() == null ? e.toString() : e.getMessage();
+        String baixo = m.toLowerCase();
+        /* erro de rede (nao de senha): o que a hospedagem que bloqueia SMTP produz, em varias formas */
+        boolean rede = java.util.stream.Stream.of("connect", "timed out", "timeout", "reading response", "refused", "unreachable", "reset", "broken pipe").anyMatch(baixo::contains);
+        if (provedor().equals("smtp") && rede && !baixo.contains("auth") && !baixo.contains("password") && !baixo.contains("credential"))
+            return m + " — o servidor provavelmente bloqueia a saída SMTP (Railway Trial e Hobby bloqueiam). Troque o provedor para Brevo ou Resend, que usam HTTPS.";
+        return m;
+    }
+
     private void enviar(String para, String responderPara, String assunto, String corpo) throws Exception {
+        switch (provedor()) {
+            case "brevo" -> enviarBrevo(para, responderPara, assunto, corpo);
+            case "resend" -> enviarResend(para, responderPara, assunto, corpo);
+            default -> enviarSmtp(para, responderPara, assunto, corpo);
+        }
+    }
+
+    private String base(String padrao) {
+        String b = props.getEmailApiBase();
+        return b == null || b.isBlank() ? padrao : b.replaceAll("/+$", "");
+    }
+
+    /* Resend: sem dominio proprio so manda de onboarding@resend.dev e so para o e-mail da conta
+       Resend; com dominio verificado, de qualquer endereco dele. */
+    private void enviarResend(String para, String responderPara, String assunto, String corpo) throws Exception {
+        String de = config.get(SMTP_REMETENTE, "").trim();
+        ObjectNode j = om.createObjectNode();
+        j.put("from", de.isEmpty() ? "Grimório <onboarding@resend.dev>" : de);
+        j.putArray("to").add(para);
+        j.put("subject", assunto);
+        j.put("text", corpo);
+        if (responderPara != null && !responderPara.isBlank()) j.put("reply_to", responderPara);
+        postJson(base("https://api.resend.com") + "/emails", "Authorization", "Bearer " + config.get(EMAIL_CHAVE, "").trim(), j);
+    }
+
+    /* Brevo: o remetente precisa estar verificado na conta Brevo (Remetentes e IPs). */
+    private void enviarBrevo(String para, String responderPara, String assunto, String corpo) throws Exception {
+        String de = config.get(SMTP_REMETENTE, "").trim();
+        if (de.isEmpty()) throw new IllegalStateException("o Brevo exige um remetente verificado: preencha o campo Remetente");
+        ObjectNode j = om.createObjectNode();
+        j.putObject("sender").put("email", de.replaceAll(".*<(.+)>.*", "$1")).put("name", "Grimório");
+        j.putArray("to").addObject().put("email", para);
+        if (responderPara != null && !responderPara.isBlank()) j.putObject("replyTo").put("email", responderPara);
+        j.put("subject", assunto);
+        j.put("textContent", corpo);
+        postJson(base("https://api.brevo.com") + "/v3/smtp/email", "api-key", config.get(EMAIL_CHAVE, "").trim(), j);
+    }
+
+    private void postJson(String url, String cabecalho, String valor, ObjectNode corpo) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(20))
+                .header("Content-Type", "application/json").header("Accept", "application/json")
+                .header(cabecalho, valor)
+                .POST(HttpRequest.BodyPublishers.ofString(om.writeValueAsString(corpo), StandardCharsets.UTF_8)).build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (r.statusCode() / 100 != 2) {
+            String detalhe = r.body();
+            try { JsonNode n = om.readTree(r.body()); detalhe = n.path("message").asText(n.path("error").asText(r.body())); } catch (Exception ignore) { }
+            throw new IllegalStateException("o provedor respondeu " + r.statusCode() + ": " + limpa(detalhe, 200));
+        }
+    }
+
+    private void enviarSmtp(String para, String responderPara, String assunto, String corpo) throws Exception {
         String host = config.get(SMTP_HOST, "").trim();
         int porta;
         try { porta = Integer.parseInt(config.get(SMTP_PORTA, "587").trim()); } catch (NumberFormatException e) { porta = 587; }
