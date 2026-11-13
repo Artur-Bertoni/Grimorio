@@ -11,15 +11,18 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 public class SecurityConfig {
 
     private final MidiaAutorizacao midiaAutorizacao;
+    private final AdminAutorizacao adminAutorizacao;
 
-    public SecurityConfig(MidiaAutorizacao midiaAutorizacao) {
+    public SecurityConfig(MidiaAutorizacao midiaAutorizacao, AdminAutorizacao adminAutorizacao) {
         this.midiaAutorizacao = midiaAutorizacao;
+        this.adminAutorizacao = adminAutorizacao;
     }
 
     @Bean
@@ -50,7 +53,8 @@ public class SecurityConfig {
                 /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
                 .requestMatchers("/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
                                  "/api/ping", "/api/registrar", "/api/publico").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                /* conferido no banco a cada pedido, nao no papel congelado no login (ver AdminAutorizacao) */
+                .requestMatchers("/api/admin/**").access(adminAutorizacao)
                 .requestMatchers("/midia/**").access(midiaAutorizacao)
                 .anyRequest().authenticated())
             .formLogin(f -> f
@@ -73,6 +77,15 @@ public class SecurityConfig {
                 .logoutSuccessHandler((req, res, auth) -> res.setStatus(204))
                 .deleteCookies("GRIMORIO"))
             .exceptionHandling(e -> e
+                /* 403 que diz o motivo: token CSRF faltando (a tela pede outro e repete) ou falta de
+                   permissao. Antes os dois chegavam iguais, sem corpo, e nao dava para saber qual era. */
+                .accessDeniedHandler((req, res, ex) -> {
+                    res.setStatus(403);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write(ex instanceof CsrfException
+                        ? "{\"erro\":\"a sessao de seguranca expirou, tente de novo\",\"codigo\":\"csrf\"}"
+                        : "{\"erro\":\"sem permissao para isso\",\"codigo\":\"proibido\"}");
+                })
                 .defaultAuthenticationEntryPointFor(
                     (req, res, ex) -> {
                         res.setStatus(401);

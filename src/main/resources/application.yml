@@ -41,6 +41,7 @@ spring:
 
 grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}
+  suporte-email: ${SUPORTE_EMAIL:artur_b_santos@hotmail.com}
 
 logging:
   level:

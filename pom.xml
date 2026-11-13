@@ -52,6 +52,18 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- e-mail do suporte: a API e a implementacao direto, sem o starter. Versao fixa porque
+             a que o Boot 3.3.5 escolheria nao esta no cache do ambiente de build offline. -->
+        <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
+            <version>2.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.5</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>

@@ -1674,6 +1674,23 @@ body.fora #btnRol{display:none!important}
 .tour.centro .tourft{justify-content:center}
 .tourajuste{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
 
+/* ---- armazenamento cheio ---- */
+.sheet.cheiosheet{max-width:30rem}
+.cheio{text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;padding:.25rem .25rem .5rem}
+.cheio p{margin:0;color:var(--fg2);line-height:1.55}
+.cheio h4{font-family:var(--disp);font-size:1.35rem;color:var(--gold);margin:0}
+.cheioicone{width:4.5rem;height:4.5rem;filter:grayscale(.6) drop-shadow(0 .375rem .75rem var(--sh));animation:treme .5s .2s}
+.cheioicone svg{width:100%;height:100%}
+.suplist{display:flex;flex-direction:column;gap:.375rem;max-height:24rem;overflow:auto}
+.admtab{width:100%;border-collapse:collapse;margin-top:.625rem;font-size:.9rem}
+.admtab th{font-family:var(--ui);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);text-align:left;font-weight:600;padding:.25rem .5rem;border-bottom:1px solid var(--line2)}
+.admtab td{padding:.3125rem .5rem;border-bottom:1px solid var(--line);color:var(--fg2)}
+.admtab td:not(:first-child),.admtab th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.supit{border:1px solid var(--line);border-radius:var(--rb);background:var(--bg2);padding:.5rem .75rem}
+.supit header{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+.supit header b{font-family:var(--disp);color:var(--fg)}
+.supit p{margin:.25rem 0 0;color:var(--fg2);white-space:pre-wrap;font-size:.92rem}
+
 /* ---- quem pediu menos movimento (no sistema ou em Ajustes > Aparencia) ---- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -1755,8 +1772,12 @@ function cacheGM(j){ try{localStorage.setItem("grim_gm_"+CID,j);}catch(e){} }
 function lerCache(){ try{ var c=localStorage.getItem("grim_gm_"+CID); if(!c)return false;
   var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length){ D=v; normalizaCampanha(); return true; } }catch(e){} return false; }
 function cookie(n){ var m=document.cookie.match(new RegExp("(^|; )"+n+"=([^;]*)")); return m?decodeURIComponent(m[2]):""; }
-function api(url,opt){
-  opt=opt||{}; opt.credentials="same-origin"; opt.headers=opt.headers||{};
+/* Token CSRF faltando ou trocado (cookie limpo, outra aba): o servidor responde 403 com
+   codigo "csrf". Um GET qualquer devolve um cookie novo, e o pedido e repetido uma vez. */
+function renovaCsrf(){ return fetch("/api/ping",{credentials:"same-origin",cache:"no-store"}).catch(function(){}); }
+function api(url,opt,repetido){
+  var orig=opt;
+  opt=opt?Object.assign({},opt):{}; opt.credentials="same-origin"; opt.headers=Object.assign({},opt.headers||{});
   if(opt.body&&typeof opt.body==="object"&&!(opt.body instanceof FormData)){
     opt.headers["Content-Type"]="application/json;charset=UTF-8";
     opt.body=JSON.stringify(opt.body); }
@@ -1767,7 +1788,10 @@ function api(url,opt){
     if(r.status===204)return null;
     var ct=r.headers.get("content-type")||"";
     return (ct.indexOf("json")>=0?r.json():r.text()).then(function(b){
-      if(!r.ok){ var e=new Error((b&&b.erro)||("HTTP "+r.status)); e.status=r.status; e.corpo=b; throw e; }
+      if(r.status===403&&b&&b.codigo==="csrf"&&!repetido&&m!=="GET")
+        return renovaCsrf().then(function(){ return api(url,orig,true); });
+      if(!r.ok){ if(r.status===507)avisoArmazenamento();
+        var e=new Error((b&&b.erro)||("HTTP "+r.status)); e.status=r.status; e.corpo=b; throw e; }
       return b; }); });
 }
 function estadoSalvo(t,erro){ var n=document.getElementById("saveSt"); if(!n)return;
@@ -2068,7 +2092,7 @@ function passosTour(p){
   if(p!=="mestre")L.push({t:"Pedidos e revelações",x:"Quando o "+m+" pedir um teste, aparece um aviso no topo com o botão Rolar. Quando ele liberar algo novo, a carta vira na sua tela. Na hora do combate, a ordem de iniciativa aparece no topo da "+vl("mesa")+"."});
   L.push({a:"#btnAjustes",t:"Ajustes",x:(p==="mestre"
     ?"A "+vl("campanha")+" (capa, tema sugerido, pacote), convites e a regra das rolagens, vocabulário, consulta rápida, busca, aparência e conta."
-    :"O tema da página (o sugerido pelo "+m+" vem marcado), os sons, as animações e a sua conta.")+" O tour também fica aqui."});
+    :"O tema da página (o sugerido pelo "+m+" vem marcado), os sons, as animações e a sua conta.")+" O tour e o contato com o suporte também ficam aqui."});
   L.push(fim);
   return L;
 }
@@ -2144,6 +2168,57 @@ function fecharTour(silencio){
   S.view=GM?"home":"mesa"; if(!GM)S.msec="resumos"; render();
   if(t.fim)t.fim();
 }
+
+/* ---------- SUPORTE E ARMAZENAMENTO CHEIO ----------
+   O envio que esbarra no volume cheio volta 507; em vez de um erro generico, a pessoa ve o
+   que aconteceu e um caminho para falar com o suporte, que ja abre com o assunto certo. */
+var AVISO_CHEIO=0;
+function avisoArmazenamento(){
+  if(Date.now()-AVISO_CHEIO<4000)return; AVISO_CHEIO=Date.now();
+  var ov=overlay("Armazenamento cheio",
+    '<div class="cheio"><div class="cheioicone">'+logoCss("")+'</div>'
+    +'<h4>O espaço do servidor acabou</h4>'
+    +'<p>O armazenamento desta instância está cheio, então não dá para subir arquivos novos agora. '
+    +'Nada do que já estava salvo foi perdido.</p>'
+    +'<div class="addrow" style="justify-content:center;margin-top:.5rem"><button class="btn" id="chSup">Falar com o suporte</button>'
+    +'<button class="btn sec" id="chOk">Entendi</button></div></div>',{cls:"cheiosheet"});
+  $("#chOk",ov).onclick=function(){ ov.close(); };
+  $("#chSup",ov).onclick=function(){ ov.close(); abrirSuporte(null,null,{assunto:"Armazenamento cheio",
+    mensagem:"Tentei subir um arquivo e o servidor avisou que o armazenamento está cheio."}); };
+  som("min");
+}
+function contextoSuporte(){
+  var c=CID?campAtual():null;
+  return [c&&c.nome?V("campanha")+": "+c.nome+" (#"+CID+", "+(GM?"mestre":"jogador")+")":"fora de campanha",
+    "tela: "+S.view, "navegador: "+navigator.userAgent].join(" · ").slice(0,1000);
+}
+function abrirSuporte(back,mk,pre){
+  pre=pre||{};
+  var ops=["Algo não funciona","Armazenamento cheio","Dúvida","Sugestão","Outro"];
+  var ov=(mk||overlay)("Falar com o suporte",
+    '<p class="lead">Conte o que aconteceu. A mensagem vai para quem cuida deste Grimório, junto com a '
+    +vl("campanha")+' e a tela em que você estava, para facilitar.</p>'
+    +'<div class="form" style="max-width:48rem">'
+    +'<label>Assunto<select id="suA">'+ops.map(function(o){ return '<option'+(o===pre.assunto?" selected":"")+'>'+esc(o)+'</option>'; }).join("")+'</select></label>'
+    +'<label>O que aconteceu<textarea id="suM" rows="7" placeholder="O que você estava fazendo, o que esperava e o que apareceu."></textarea></label>'
+    +'<label>Seu e-mail para resposta (opcional)<input id="suC" type="email" placeholder="voce@exemplo.com" autocomplete="email"></label>'
+    +'<div class="addrow"><button class="btn" id="suGo">Enviar</button><span class="muted sm" id="suSt"></span></div></div>',
+    {back:back});
+  $("#suM",ov).value=pre.mensagem||"";
+  $("#suGo",ov).onclick=function(){
+    var b=this, m=$("#suM",ov).value.trim();
+    if(m.length<5){ toast("Escreva um pouco mais sobre o que aconteceu"); $("#suM",ov).focus(); return; }
+    b.disabled=true; $("#suSt",ov).textContent="enviando…";
+    api("/api/suporte",{method:"POST",body:{assunto:$("#suA",ov).value,mensagem:m,contato:$("#suC",ov).value.trim(),contexto:contextoSuporte()}})
+      .then(function(r){
+        b.disabled=false; $("#suM",ov).value="";
+        var t=r.enviado?"Mensagem enviada ao suporte. Obrigado!"
+          :"Mensagem registrada. "+(r.motivo?r.motivo.charAt(0).toUpperCase()+r.motivo.slice(1):"")+", mas o administrador vê a mensagem na Administração.";
+        $("#suSt",ov).textContent=t; toast(r.enviado?"Enviado ao suporte":"Mensagem registrada"); })
+      .catch(function(e){ b.disabled=false; $("#suSt",ov).textContent=""; toast((e&&e.message)||"não deu para enviar"); });
+  };
+}
+function quando2(ms){ try{ return new Date(ms).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }catch(e){ return ""; } }
 
 /* ---------- SONS ----------
    Nenhum arquivo: tudo e sintetizado na hora, e o timbre muda com o estilo do tema.
@@ -3545,12 +3620,10 @@ function viewVazio(){
     +'<h1 class="page" style="margin:.375rem 0 .625rem">Seus dados não vieram</h1>'
     +'<p class="lead">O app está em modo mestre, mas não conseguiu ler o guia no banco. Nada foi perdido: o conteúdo continua salvo, só não chegou nesta sessão.</p>'
     +(BOOTERR?'<p class="sm muted" style="margin-top:.5rem">Motivo: '+esc(BOOTERR)+'</p>':'')
-    +'<div class="addrow" style="margin-top:.875rem"><button class="btn" id="vwRetry">Tentar de novo</button>'
-    +'<button class="btn sec" id="vwImp">Importar JSON</button></div></div>';
+    +'<div class="addrow" style="margin-top:.875rem"><button class="btn" id="vwRetry">Tentar de novo</button></div></div>';
 }
 function hydrateVazio(){
   var r=$("#vwRetry"); if(r)r.onclick=function(){ recarregarGuia(); };
-  var i=$("#vwImp"); if(i)i.onclick=function(){ S.view="ajustes"; S.aj="campanha"; render(); };
 }
 function recarregarGuia(){
   toast("Buscando o guia…");
@@ -4196,7 +4269,7 @@ function secoesAjustes(){
   if(GM&&CID)l.push(["campanha",Vm("campanha")],["mesa","Mesa e convites"],["vocab","Vocabulário"],["ref",Vm("referencia")],["busca","Busca"]);
   l.push(["aparencia","Aparência"]);
   if(CID)l.push(["tour","Tour guiado"]);
-  l.push(["conta","Conta"]);
+  l.push(["conta","Conta"],["suporte","Suporte"]);
   if(ADMIN)l.push(["admin","Administração"]);
   return l;
 }
@@ -4223,6 +4296,7 @@ function hydrateAjustes(v){
   else if(k==="ref")abrirReferencia(null,mk);
   else if(k==="busca")ajustesBusca(alvo);
   else if(k==="admin")abrirAdmin(null,mk);
+  else if(k==="suporte")abrirSuporte(null,mk);
   else if(k==="tour"){
     alvo.innerHTML='<h2 class="sec" style="margin-bottom:1rem">Tour guiado</h2>'
       +'<p class="lead">Um passeio por todas as partes do Grimório, passo a passo. Dá para pular a qualquer momento.</p>'
@@ -4233,22 +4307,6 @@ function hydrateAjustes(v){
   }
   else if(k==="campanha"){
     abrirCampanha(null,mk);
-    alvo.insertAdjacentHTML("beforeend",'<div class="fld" style="margin-top:1.125rem"><span class="flb">Cópia bruta do guia</span>'
-      +'<div class="addrow"><button class="btn sec" id="mE">Exportar (JSON)</button>'
-      +'<button class="btn sec" id="mI">Importar (JSON)</button></div>'
-      +'<p class="sm muted">Uma cópia de segurança em texto. Para levar a '+vl("campanha")+' a outro servidor, use o pacote acima.</p></div>');
-    $("#mE",alvo).onclick=function(){ var txt=JSON.stringify(D,null,2);
-      var o2=overlay("Exportar guia",'<p class="sm muted">Copie e guarde num arquivo.</p>'
-        +'<textarea id="xt" class="inp" style="width:100%;height:16.25rem;font-family:monospace;font-size:.75rem"></textarea>');
-      $("#xt",o2).value=txt; $("#xt",o2).select();
-      try{navigator.clipboard.writeText(txt).then(function(){toast("Copiado");},function(){});}catch(e){} };
-    $("#mI",alvo).onclick=function(){
-      var o2=overlay("Importar guia",'<p class="sm muted">Cole o JSON exportado. Ele substitui o guia inteiro desta '+vl("campanha")+'.</p>'
-        +'<textarea id="it" class="inp" style="width:100%;height:16.25rem;font-family:monospace;font-size:.75rem"></textarea>'
-        +'<div style="margin-top:.625rem"><button class="btn" id="ik">Importar</button></div>',{firme:true});
-      $("#ik",o2).onclick=function(){ var j;
-        try{ j=JSON.parse($("#it",o2).value); if(!j||!j.campanha)throw 0; }catch(e){ toast("JSON inválido"); return; }
-        o2.close(); comDesfazer("Guia importado",function(){ BOOTERR=""; D=j; normalizaCampanha(); }); }; };
   }
   else if(k==="conta"){
     abrirConta(null,mk);
@@ -5025,7 +5083,7 @@ function abrirBusca(){
 }
 
 /* ---------- MENU ---------- */
-function upload(url,fd,onProg){
+function upload(url,fd,onProg,repetido){
   return new Promise(function(res,rej){
     var x=new XMLHttpRequest();
     x.open("POST",url,true); x.withCredentials=true;
@@ -5033,7 +5091,10 @@ function upload(url,fd,onProg){
     if(x.upload)x.upload.onprogress=function(e){ if(e.lengthComputable&&onProg)onProg(e.loaded/e.total); };
     x.onload=function(){ var b=null; try{ b=JSON.parse(x.responseText); }catch(e){}
       if(x.status>=200&&x.status<300)res(b||{});
-      else rej(new Error((b&&b.erro)||("HTTP "+x.status))); };
+      else if(x.status===403&&b&&b.codigo==="csrf"&&!repetido){
+        renovaCsrf().then(function(){ return upload(url,fd,onProg,true); }).then(res,rej); }
+      else { if(x.status===507)avisoArmazenamento();
+        var er=new Error((b&&b.erro)||("HTTP "+x.status)); er.status=x.status; rej(er); } };
     x.onerror=function(){ rej(new Error("falha de rede")); };
     x.ontimeout=function(){ rej(new Error("tempo esgotado")); };
     x.send(fd);
@@ -5279,6 +5340,20 @@ function abrirAdmin(back,mk){
     +'<input class="inp" id="iaM" placeholder="claude-sonnet-4-5">'
     +'<button class="btn" id="iaKs">Salvar</button></div>'
     +'<p class="sm muted" id="iaKst">…</p></div>'
+    +'<div class="fld"><span class="flb">Armazenamento</span><div id="adArm" class="sm"><p class="muted sm">carregando…</p></div>'
+    +'<div class="addrow" style="margin-top:.5rem"><button class="btn sec" id="adJunta">Juntar arquivos iguais agora</button></div>'
+    +'<p class="sm muted">O servidor já faz isso sozinho a cada inicialização. Use depois de subir arquivos direto no volume.</p></div>'
+    +'<div class="fld"><span class="flb">Sistema</span><div id="adSis" class="sm"><p class="muted sm">carregando…</p></div></div>'
+    +'<div class="fld"><span class="flb">E-mail do suporte</span>'
+    +'<div class="addrow"><input class="inp" id="smD" type="email" placeholder="para onde vão as mensagens"></div>'
+    +'<div class="addrow"><input class="inp" id="smH" placeholder="servidor SMTP, ex.: smtp-mail.outlook.com">'
+    +'<input class="inp" id="smP" type="number" placeholder="porta" style="max-width:6.5rem"></div>'
+    +'<div class="addrow"><input class="inp" id="smU" placeholder="usuário do SMTP" autocomplete="off">'
+    +'<input class="inp" id="smS" type="password" placeholder="senha do SMTP" autocomplete="new-password">'
+    +'<input class="inp" id="smR" placeholder="remetente (vazio = usuário)"></div>'
+    +'<div class="addrow"><button class="btn" id="smOk">Salvar</button><button class="btn sec" id="smT">Enviar e-mail de teste</button></div>'
+    +'<p class="sm muted" id="smSt">…</p></div>'
+    +'<div class="fld"><span class="flb">Mensagens de suporte</span><div id="adSup" class="suplist"><p class="muted sm">carregando…</p></div></div>'
     +'<div class="fld"><span class="flb">Cadastro</span>'
     +'<label class="sm" style="display:flex;align-items:center;gap:.5rem">'
     +'<input type="checkbox" id="adReg"> deixar qualquer pessoa criar conta nesta instância</label>'
@@ -5295,7 +5370,52 @@ function abrirAdmin(back,mk){
                                               :"nenhuma chave salva ainda.";
     $("#iaM",ov).value=c.iaModelo||"";
     $("#adReg",ov).checked=!!c.registroAberto;
+    $("#smD",ov).value=c.suporteEmail||""; $("#smH",ov).value=c.smtpHost||""; $("#smP",ov).value=c.smtpPorta||"";
+    $("#smU",ov).value=c.smtpUsuario||""; $("#smR",ov).value=c.smtpRemetente||"";
+    $("#smSt",ov).textContent=(c.smtpHost?"Envio configurado. ":"Sem servidor SMTP: as mensagens ficam só registradas aqui embaixo. ")
+      +(c.smtpSenhaSalva?"Uma senha já está salva; deixar o campo vazio mantém a senha.":"");
   }).catch(function(){});
+  function pintaSistema(){ api("/api/admin/sistema").then(function(r){
+    var a=r.armazenamento||{}, s=r.sistema||{};
+    $("#adArm",ov).innerHTML='<ul class="fl">'
+      +(a.total>0?'<li>Livre no volume: <b>'+mb(a.livre)+'</b> de '+mb(a.total)+'</li>':'')
+      +'<li>Arquivos de mídia ocupam <b>'+mb(a.usado||0)+'</b>.</li>'
+      +'<li>'+(a.links
+        ?'Arquivos iguais são compartilhados: <b>'+(a.compartilhados||0)+'</b> cópias evitadas, economizando <b>'+mb(a.economizado||0)+'</b>.'
+        :'<span style="color:var(--blood2)">Este volume não aceita compartilhar arquivos iguais</span>: cada arquivo repetido ocupa espaço próprio.')+'</li></ul>'
+      +((a.porCampanha||[]).length?'<table class="admtab"><thead><tr><th>'+esc(Vm("campanha"))+'</th><th>Arquivos</th><th>Referencia</th><th>Compartilhados</th></tr></thead><tbody>'
+        +a.porCampanha.map(function(c){ return '<tr><td>'+esc(c.nome)+'</td><td>'+c.arquivos+'</td><td>'+mb(c.bytes)+'</td><td>'+c.compartilhados+'</td></tr>'; }).join("")
+        +'</tbody></table><p class="sm muted">"Referencia" é o tamanho de tudo que a '+vl("campanha")+' usa, contando arquivos compartilhados com outras.</p>':'');
+    var desde=s.noArDesde?Math.max(0,Date.now()-s.noArDesde):0, h=Math.floor(desde/3600000), d=Math.floor(h/24);
+    $("#adSis",ov).innerHTML='<ul class="fl"><li>Banco: <b>'+esc(s.banco||"?")+'</b></li>'
+      +'<li>Pasta de mídia: <code>'+esc(s.midiaDir||"?")+'</code></li>'
+      +'<li>Java '+esc(s.java||"?")+' · memória '+mb(s.memoriaUsada||0)+' de '+mb(s.memoriaMax||0)+'</li>'
+      +'<li>No ar há '+(d?d+' dia(s) e '+(h%24)+' h':h?h+' h':Math.floor(desde/60000)+' min')+'</li>'
+      +'<li>'+(s.contas||0)+' conta(s), '+(s.campanhas||0)+' '+vl("campanhas")+'</li>'
+      +(s.suporteNaoEnviado?'<li style="color:var(--blood2)">'+s.suporteNaoEnviado+' mensagem(ns) de suporte não saíram por e-mail (veja abaixo)</li>':'')+'</ul>';
+  }).catch(function(){ $("#adArm",ov).innerHTML='<p class="muted sm">não consegui ler</p>'; }); }
+  pintaSistema();
+  $("#adJunta",ov).onclick=function(){ var b=this; b.disabled=true; b.textContent="Juntando…";
+    api("/api/admin/armazenamento/juntar",{method:"POST"}).then(function(r){
+      b.disabled=false; b.textContent="Juntar arquivos iguais agora";
+      toast(r.liberado?mb(r.liberado)+" liberados":"Nada para juntar: os arquivos iguais já estavam compartilhados"); pintaSistema(); })
+     .catch(function(e){ b.disabled=false; b.textContent="Juntar arquivos iguais agora"; toast((e&&e.message)||"não deu"); }); };
+  function pintaSup(){ api("/api/admin/suporte").then(function(l){
+    $("#adSup",ov).innerHTML=(l||[]).map(function(x){
+      return '<article class="supit"><header><b>'+esc(x.assunto)+'</b><span class="muted sm">'+esc(x.autor)+' · '+esc(quando2(x.em))+'</span>'
+        +'<span class="chip'+(x.enviado?" ok":"")+'">'+(x.enviado?"enviado":"só registrado")+'</span></header>'
+        +(x.contato?'<p class="sm">Responder para: '+esc(x.contato)+'</p>':'')
+        +'<p>'+esc(x.mensagem)+'</p>'+(x.contexto?'<p class="sm muted">'+esc(x.contexto)+'</p>':'')
+        +(x.erro?'<p class="sm" style="color:var(--blood2)">'+esc(x.erro)+'</p>':'')+'</article>'; }).join("")
+      ||'<p class="empty">Nenhuma mensagem ainda.</p>'; }).catch(function(){}); }
+  pintaSup();
+  $("#smOk",ov).onclick=function(){
+    api("/api/admin/config",{method:"PUT",body:{suporteEmail:$("#smD",ov).value,smtpHost:$("#smH",ov).value,smtpPorta:$("#smP",ov).value,
+      smtpUsuario:$("#smU",ov).value,smtpSenha:$("#smS",ov).value,smtpRemetente:$("#smR",ov).value}})
+      .then(function(){ $("#smS",ov).value=""; toast("Salvo"); }).catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+  $("#smT",ov).onclick=function(){ var b=this; b.disabled=true; $("#smSt",ov).textContent="enviando o teste…";
+    api("/api/admin/suporte/teste",{method:"POST"}).then(function(r){ b.disabled=false; $("#smSt",ov).textContent="Teste enviado para "+r.para+". Confira a caixa de entrada (e o spam)."; })
+      .catch(function(e){ b.disabled=false; $("#smSt",ov).textContent=(e&&e.message)||"não deu"; }); };
 
   $("#iaKs",ov).onclick=function(){
     api("/api/admin/config",{method:"PUT",body:{iaApiKey:$("#iaK",ov).value,iaModelo:$("#iaM",ov).value}})

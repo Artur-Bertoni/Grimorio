@@ -2,11 +2,16 @@ package br.com.grimorio.web;
 
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.repo.CampanhaRepo;
+import br.com.grimorio.repo.ChamadoRepo;
 import br.com.grimorio.repo.MembroRepo;
 import br.com.grimorio.service.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.sql.DataSource;
+import java.lang.management.ManagementFactory;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.*;
 
 /** Painel do administrador da instancia. Rota inteira exige papel ADMIN. */
@@ -19,9 +24,21 @@ public class AdminController {
     private final IaService ia;
     private final CampanhaRepo campanhas;
     private final MembroRepo membros;
+    private final SuporteService suporte;
+    private final MidiaService midia;
+    private final ChamadoRepo chamados;
+    private final DataSource banco;
+    private final br.com.grimorio.config.AppProps props;
 
     public AdminController(UsuarioService usuarios, ConfigService config, IaService ia,
-                           CampanhaRepo campanhas, MembroRepo membros) {
+                           CampanhaRepo campanhas, MembroRepo membros, SuporteService suporte,
+                           MidiaService midia, ChamadoRepo chamados, DataSource banco,
+                           br.com.grimorio.config.AppProps props) {
+        this.suporte = suporte;
+        this.midia = midia;
+        this.chamados = chamados;
+        this.banco = banco;
+        this.props = props;
         this.usuarios = usuarios;
         this.config = config;
         this.ia = ia;
@@ -74,6 +91,42 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Armazenamento e saude do servidor, para o painel de Administracao. */
+    @GetMapping("/sistema")
+    public Map<String, Object> sistema() {
+        Map<Long, String> nomes = new HashMap<>();
+        campanhas.findAll().forEach(c -> nomes.put(c.getId(), c.getNome()));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("armazenamento", midia.estadoArmazenamento(nomes));
+        Map<String, Object> s = new LinkedHashMap<>();
+        String nomeBanco;
+        try (var c = banco.getConnection()) {
+            var md = c.getMetaData();
+            nomeBanco = md.getDatabaseProductName() + " " + md.getDatabaseProductVersion().split(" ")[0];
+        } catch (Exception e) {
+            nomeBanco = "indisponível (" + e.getMessage() + ")";
+        }
+        s.put("banco", nomeBanco);
+        s.put("midiaDir", Paths.get(props.getMidiaDir()).toAbsolutePath().normalize().toString());
+        s.put("java", System.getProperty("java.version"));
+        Runtime rt = Runtime.getRuntime();
+        s.put("memoriaUsada", rt.totalMemory() - rt.freeMemory());
+        s.put("memoriaMax", rt.maxMemory());
+        s.put("noArDesde", Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime()).toEpochMilli());
+        s.put("contas", usuarios.todos().size());
+        s.put("campanhas", nomes.size());
+        s.put("suporteNaoEnviado", chamados.countByEnviadoFalse());
+        m.put("sistema", s);
+        return m;
+    }
+
+    /** Junta agora as copias iguais do volume (o boot ja faz isso; serve para depois de subir
+     *  arquivos direto no volume). */
+    @PostMapping("/armazenamento/juntar")
+    public Map<String, Object> juntar() {
+        return Map.of("liberado", midia.desduplicarVolume());
+    }
+
     @GetMapping("/campanhas")
     public List<Map<String, Object>> todasCampanhas() {
         List<Map<String, Object>> out = new ArrayList<>();
@@ -93,6 +146,13 @@ public class AdminController {
     @GetMapping("/config")
     public Map<String, Object> lerConfig() {
         Map<String, Object> m = new LinkedHashMap<>();
+        /* SMTP: tudo volta menos a senha, como a chave da IA */
+        m.put("suporteEmail", suporte.destino());
+        m.put("smtpHost", config.get(SuporteService.SMTP_HOST, ""));
+        m.put("smtpPorta", config.get(SuporteService.SMTP_PORTA, "587"));
+        m.put("smtpUsuario", config.get(SuporteService.SMTP_USUARIO, ""));
+        m.put("smtpRemetente", config.get(SuporteService.SMTP_REMETENTE, ""));
+        m.put("smtpSenhaSalva", !config.get(SuporteService.SMTP_SENHA, "").isBlank());
         m.put("iaConfigurada", ia.configurada());
         m.put("iaModelo", config.get(ConfigService.IA_MODELO, IaService.MODELO_PADRAO));
         m.put("registroAberto", config.registroAberto());
@@ -110,6 +170,14 @@ public class AdminController {
             config.set(ConfigService.IA_MODELO,
                     m == null || m.isBlank() ? IaService.MODELO_PADRAO : m.trim());
         }
+        for (String[] k : new String[][]{{"suporteEmail", SuporteService.DESTINO}, {"smtpHost", SuporteService.SMTP_HOST},
+                {"smtpPorta", SuporteService.SMTP_PORTA}, {"smtpUsuario", SuporteService.SMTP_USUARIO},
+                {"smtpRemetente", SuporteService.SMTP_REMETENTE}}) {
+            if (body.containsKey(k[0])) config.set(k[1], body.get(k[0]) == null ? "" : body.get(k[0]).trim());
+        }
+        /* senha vazia mantem a que esta salva: o campo nunca vem preenchido do servidor */
+        if (body.containsKey("smtpSenha") && body.get("smtpSenha") != null && !body.get("smtpSenha").isEmpty())
+            config.set(SuporteService.SMTP_SENHA, body.get("smtpSenha"));
         if (body.containsKey("registroAberto")) {
             config.set(ConfigService.REGISTRO_ABERTO,
                     "true".equalsIgnoreCase(body.get("registroAberto"))

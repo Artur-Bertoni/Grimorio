@@ -51,8 +51,8 @@ const ctx = await nav.newContext({ viewport: { width: +process.env.LARGURA || 13
 const pg = await ctx.newPage();
 pg.on('pageerror', e => erros.push('pageerror: ' + e.message));
 pg.on('console', m => {
-  // o 403 do teste de senha errada e esperado
-  if (m.type() === 'error' && !/403/.test(m.text())) erros.push('console: ' + m.text());
+  // o 403 do teste de senha errada e o 507 do armazenamento cheio sao esperados
+  if (m.type() === 'error' && !/403|507/.test(m.text())) erros.push('console: ' + m.text());
 });
 pg.on('dialog', d => d.accept());
 const espera = ms => pg.waitForTimeout(ms);
@@ -484,8 +484,52 @@ titulo('ajustes');
 await pg.click('#btnAjustes');
 await espera(450);
 const secs = await pg.locator('[data-aj]').allInnerTexts();
-ok(secs.length === 9, 'nove secoes para mestre admin: ' + secs.join(' | '));
+ok(secs.length === 10, 'dez secoes para mestre admin: ' + secs.join(' | '));
 await foto('09-ajustes');
+await pg.locator('[data-aj="suporte"]').click();
+await espera(300);
+await pg.locator('#suM').fill('O mapa nao abre quando clico.');
+await pg.locator('#suC').fill('jogador@exemplo.com');
+await pg.locator('#suGo').click();
+await espera(700);
+const sup = await (await ctx.request.get(B + '/__suporte')).json();
+ok(sup.length === 1 && /mapa/.test(sup[0].mensagem) && sup[0].contato === 'jogador@exemplo.com' && /tela: ajustes/.test(sup[0].contexto),
+  'mensagem de suporte chega ao servidor com o contexto de onde veio');
+ok(/registrada/i.test(await pg.locator('#suSt').innerText()), 'sem e-mail configurado, a tela avisa que a mensagem ficou registrada');
+await ctx.request.post(B + '/__cheio/1');
+await pg.locator('[data-aj="campanha"]').click();
+await espera(400);
+ok(!/cópia bruta/i.test(await pg.locator('#ajBody').innerText()) && (await pg.locator('#mE, #mI').count()) === 0, 'a copia bruta do guia saiu: o pacote cobre tudo');
+await pg.locator('#caCapaEsc').click();
+await espera(600);
+const [seletor] = await Promise.all([pg.waitForEvent('filechooser'), pg.locator('#eiUp').click()]);
+await seletor.setFiles({ name: 'grande.png', mimeType: 'image/png', buffer: Buffer.alloc(2000, 1) });
+await espera(1000);
+ok(/espaço do servidor acabou/i.test(await pg.locator('.cheio').innerText().catch(() => '')), 'envio com o armazenamento cheio mostra o aviso proprio');
+await pg.locator('#chSup').click();
+await espera(400);
+ok((await pg.locator('.ov #suA').inputValue()) === 'Armazenamento cheio' && /armazenamento/i.test(await pg.locator('.ov #suM').inputValue()),
+  'o aviso abre o suporte ja com o assunto certo');
+await pg.keyboard.press('Escape');
+await espera(300);
+await pg.keyboard.press('Escape');
+await espera(300);
+await ctx.request.post(B + '/__cheio/0');
+await pg.locator('[data-aj="admin"]').click();
+await espera(500);
+const arm = await pg.locator('#adArm').innerText();
+ok(/compartilhados: 4 cópias evitadas, economizando 305\.2 MB/i.test(arm) && /Campanha de teste/.test(arm), 'administracao mostra o armazenamento e o uso por campanha');
+ok(/H2/.test(await pg.locator('#adSis').innerText()) && /1 dia/.test(await pg.locator('#adSis').innerText()), 'administracao mostra banco e tempo no ar');
+await pg.locator('#adJunta').click();
+await espera(500);
+ok(/Nada para juntar/i.test(await pg.locator('.toast').last().innerText()), 'juntar arquivos iguais responde na tela');
+await ctx.request.post(B + '/__csrf');
+await pg.locator('#adReg').click();
+await espera(800);
+const csrf = await (await ctx.request.post(B + '/__csrf-estado')).json();
+ok(csrf.falha === false && csrf.repetiu >= 1 && /Salvo/i.test(await pg.locator('.toast').last().innerText()), 'recusa por token CSRF e repetida sozinha e o ajuste salva');
+await pg.locator('#adReg').click();
+await espera(500);
 await pg.locator('[data-aj="mesa"]').click();
 await espera(500);
 ok(/Jogadora/.test(await pg.locator('#ajBody').innerText()), 'lista quem esta na mesa');
@@ -864,7 +908,7 @@ await pg.locator('[data-msec="resumos"]').click();
 await espera(300);
 await pg.click('#btnAjustes');
 await espera(400);
-ok((await pg.locator('[data-aj]').count()) === 4 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, tour, conta, admin');
+ok((await pg.locator('[data-aj]').count()) === 5 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, tour, conta, suporte, admin');
 
 titulo('celular');
 await pg.setViewportSize({ width: 390, height: 800 });

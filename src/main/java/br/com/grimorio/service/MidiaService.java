@@ -18,7 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -131,18 +135,30 @@ public class MidiaService {
         if (arquivo == null || arquivo.isEmpty()) throw new IllegalArgumentException("arquivo vazio");
         prepararPastas(campanhaId);
         Path destino = raiz(campanhaId).resolve("pdf").resolve(ab + ".pdf");
-        gravar(arquivo, destino);
-        return registrarPdf(campanhaId, ab, nome, publico, destino);
+        Gravado g = gravar(arquivo, destino);
+        Midia m = registrarPdf(campanhaId, ab, nome, publico, destino, g.hash());
+        m.setReaproveitado(g.reaproveitado());
+        return m;
     }
 
     @Transactional
     public Midia registrarPdf(Long campanhaId, String abrev, String nome, boolean publico,
                               Path arquivo) throws IOException {
+        return registrarPdf(campanhaId, abrev, nome, publico, arquivo, null);
+    }
+
+    @Transactional
+    public Midia registrarPdf(Long campanhaId, String abrev, String nome, boolean publico,
+                              Path arquivo, String hash) throws IOException {
         String ab = abrev.toUpperCase();
-        int paginas;
+        /* veio do reescanear (arquivo posto direto no volume): junta com uma copia igual, se houver */
+        String h = hash != null ? hash : desduplicar(arquivo);
+        int paginas, copiadas;
         if (indice.temLivro(campanhaId, ab)) {
             paginas = contarPaginas(arquivo);
             log.info("PDF {} registrado sem reindexar: ja existe indice para ele.", ab);
+        } else if ((copiadas = copiarIndiceDoGemeo(campanhaId, ab, nome, publico, h)) > 0) {
+            paginas = copiadas;
         } else {
             paginas = 0;
             try {
@@ -162,6 +178,7 @@ public class MidiaService {
         m.setCategoria("livro");
         m.setArquivo("pdf/" + ab + ".pdf");
         m.setTamanho(Files.size(arquivo));
+        m.setHash(h);
         m.setPaginas(paginas);
         m.setPublico(publico);
         m.setEnviadoEm(Instant.now());
@@ -183,7 +200,7 @@ public class MidiaService {
         String rel = "audio/" + slug(cat) + "/" + slug(nomeFinal) + "." + ext;
         Path destino = raiz(campanhaId).resolve(rel);
         Files.createDirectories(destino.getParent());
-        gravar(arquivo, destino);
+        Gravado g = gravar(arquivo, destino);
 
         String chave = slug(cat) + "/" + slug(nomeFinal);
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.AUDIO, chave)
@@ -198,7 +215,10 @@ public class MidiaService {
         m.setPaginas(0);
         m.setPublico(false);
         m.setEnviadoEm(Instant.now());
-        return repo.save(m);
+        m.setHash(g.hash());
+        repo.save(m);
+        m.setReaproveitado(g.reaproveitado());
+        return m;
     }
 
     @Transactional
@@ -218,8 +238,8 @@ public class MidiaService {
         prepararPastas(campanhaId);
         String rel = "img/" + nomeArquivo;
         Path destino = raiz(campanhaId).resolve(rel);
-        Files.createDirectories(destino.getParent());
-        Files.write(destino, bytes);
+        /* nunca Files.write no caminho: se ele for um link compartilhado, mudaria a imagem dos outros */
+        Gravado g = gravarCompartilhado(new ByteArrayInputStream(bytes), destino);
 
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.IMG, nomeArquivo)
                 .orElseGet(Midia::new);
@@ -233,7 +253,10 @@ public class MidiaService {
         m.setPaginas(0);
         m.setPublico(true);
         m.setEnviadoEm(Instant.now());
-        return repo.save(m);
+        m.setHash(g.hash());
+        repo.save(m);
+        m.setReaproveitado(g.reaproveitado());
+        return m;
     }
 
     @Transactional
@@ -351,6 +374,7 @@ public class MidiaService {
             m.setPaginas(0);
             m.setPublico(false);
             m.setEnviadoEm(Instant.now());
+            m.setHash(desduplicar(p));
             repo.save(m);
             audios++;
         }
@@ -374,6 +398,7 @@ public class MidiaService {
             m.setPaginas(0);
             m.setPublico(true);
             m.setEnviadoEm(Instant.now());
+            m.setHash(desduplicar(p));
             repo.save(m);
             imagens++;
         }
@@ -402,13 +427,287 @@ public class MidiaService {
 
     // ---------- utilidades ----------
 
-    private void gravar(MultipartFile arquivo, Path destino) throws IOException {
+    // ---------- armazenamento compartilhado ----------
+    /* O mesmo conteudo, enviado por quem for e com o nome que for, ocupa o volume uma vez so:
+       o segundo caminho vira um hard link do primeiro. Quem conta as referencias e o sistema de
+       arquivos: apagar um caminho tira so aquela referencia, e o conteudo sai do disco quando o
+       ultimo caminho for apagado. Por isso nenhum arquivo de midia pode ser reescrito no lugar
+       (Files.write no caminho existente): com o link, a mudanca apareceria para todos. Troca de
+       arquivo e sempre "grava ao lado e move por cima", que so mexe naquele caminho. */
+
+    public record Gravado(String hash, boolean reaproveitado) { }
+
+    /* folga que fica livre no volume: banco H2 local, indices e logs tambem precisam de espaco */
+    private static final long FOLGA = 32L * 1024 * 1024;
+
+    interface Fonte { InputStream abrir() throws IOException; }
+
+    private Gravado gravar(MultipartFile arquivo, Path destino) throws IOException {
+        return gravarCompartilhado(arquivo::getInputStream, arquivo.getSize(), destino);
+    }
+
+    private Gravado gravarCompartilhado(InputStream in, Path destino) throws IOException {
+        byte[] b = in.readAllBytes();
+        return gravarCompartilhado(() -> new ByteArrayInputStream(b), b.length, destino);
+    }
+
+    private Gravado gravarCompartilhado(Fonte fonte, long tamanho, Path destino) throws IOException {
         Files.createDirectories(destino.getParent());
+        if (tamanho >= 0 && semEspaco(destino.getParent(), tamanho)) {
+            /* Sem espaco para gravar, mas talvez nem precise: se o conteudo ja existe no volume,
+               o link nao ocupa nada. So entao o envio e recusado como armazenamento cheio. */
+            String h;
+            try (InputStream in = fonte.abrir()) { h = hashDe(in); }
+            Path igual = acharIgual(h, tamanho);
+            if (igual != null && Files.exists(destino) && Files.isSameFile(igual, destino)) return new Gravado(h, true);
+            if (igual != null && ligar(igual, destino)) return new Gravado(h, true);
+            throw new ArmazenamentoCheioException();
+        }
         Path tmp = destino.resolveSibling(destino.getFileName() + ".parcial");
-        try (var in = arquivo.getInputStream()) {
-            Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+        MessageDigest md = sha256();
+        try (InputStream din = new DigestInputStream(fonte.abrir(), md)) {
+            Files.copy(din, tmp, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            Files.deleteIfExists(tmp);
+            if (discoCheio(e)) throw new ArmazenamentoCheioException();
+            throw e;
+        }
+        String h = hex(md.digest());
+        Path igual = acharIgual(h, Files.size(tmp));
+        if (igual != null) {
+            /* reenvio do mesmo arquivo para o mesmo lugar: ja esta la */
+            if (Files.exists(destino) && Files.isSameFile(igual, destino)) {
+                Files.deleteIfExists(tmp);
+                return new Gravado(h, true);
+            }
+            if (ligar(igual, destino)) {
+                Files.deleteIfExists(tmp);
+                return new Gravado(h, true);
+            }
         }
         Files.move(tmp, destino, StandardCopyOption.REPLACE_EXISTING);
+        return new Gravado(h, false);
+    }
+
+    /* um arquivo de outra linha do catalogo com o mesmo hash e o mesmo tamanho, ainda no disco */
+    private Path acharIgual(String hash, long tamanho) {
+        for (Midia o : repo.findByHash(hash)) {
+            Path p = raiz(o.getCampanhaId()).resolve(o.getArquivo()).normalize();
+            try {
+                if (Files.isRegularFile(p) && Files.size(p) == tamanho) return p;
+            } catch (IOException ignore) { }
+        }
+        return null;
+    }
+
+    /* Troca destino por um link para origem sem nunca deixar destino sem conteudo: o link nasce
+       ao lado e so entao toma o lugar. Volume que nao aceita hard link fica com a copia. */
+    private boolean ligar(Path origem, Path destino) {
+        Path lnk = destino.resolveSibling(destino.getFileName() + ".lnk");
+        try {
+            Files.deleteIfExists(lnk);
+            Files.createLink(lnk, origem);
+            Files.move(lnk, destino, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return true;
+        } catch (Exception e) {
+            try { Files.deleteIfExists(lnk); } catch (IOException ignore) { }
+            log.warn("Nao consegui compartilhar {} com {} ({}): fica como copia.", destino, origem, e.toString());
+            return false;
+        }
+    }
+
+    /* Arquivo que ja esta no volume: calcula o hash e, se outra linha tiver o mesmo conteudo,
+       troca este por um link para aquele. Devolve o hash. */
+    private String desduplicar(Path p) throws IOException {
+        String h = hashArquivo(p);
+        Path igual = acharIgual(h, Files.size(p));
+        if (igual != null && !Files.isSameFile(igual, p)) ligar(igual, p);
+        return h;
+    }
+
+    /** Roda no boot, em segundo plano: poe hash no que veio de antes desta versao e junta as
+     *  copias iguais que ja estavam no volume. Devolve quantos bytes deixaram de ser duplicados. */
+    /** O mesmo PDF ja indexado em outra campanha (ou com outra sigla): o indice de busca e o
+     *  mesmo texto, entao copia em vez de extrair tudo de novo. Le o indice do gemeo, troca o que
+     *  e desta campanha (sigla, nome, publico) e grava ao lado. Devolve as paginas, ou 0 se nao
+     *  houver gemeo com indice. */
+    private int copiarIndiceDoGemeo(Long campanhaId, String ab, String nome, boolean publico, String hash) {
+        if (hash == null) return 0;
+        for (Midia o : repo.findByHash(hash)) {
+            if (o.getTipo() != Midia.Tipo.PDF) continue;
+            if (Objects.equals(o.getCampanhaId(), campanhaId) && o.getChave().equalsIgnoreCase(ab)) continue;
+            Path origem = indice.pastaIndice(o.getCampanhaId()).resolve(o.getChave() + ".json");
+            if (!Files.isRegularFile(origem)) continue;
+            try {
+                ObjectNode raiz = (ObjectNode) om.readTree(Files.readString(origem, StandardCharsets.UTF_8));
+                String id = ab.toLowerCase();
+                raiz.put("publico", publico);
+                int paginas = 0;
+                for (var d : raiz.withArray("docs")) {
+                    ObjectNode doc = (ObjectNode) d;
+                    doc.put("id", id);
+                    doc.put("abrev", ab);
+                    doc.put("nome", nome == null || nome.isBlank() ? ab : nome.trim());
+                    paginas = Math.max(paginas, doc.path("paginas").asInt(0));
+                }
+                for (var p : raiz.withArray("pages")) ((ObjectNode) p).put("d", id);
+                if (paginas == 0) paginas = raiz.withArray("pages").size();
+                Path destino = indice.pastaIndice(campanhaId).resolve(ab + ".json");
+                Files.createDirectories(destino.getParent());
+                Path tmp = destino.resolveSibling(destino.getFileName() + ".parcial");
+                Files.writeString(tmp, om.writeValueAsString(raiz), StandardCharsets.UTF_8);
+                Files.move(tmp, destino, StandardCopyOption.REPLACE_EXISTING);
+                log.info("PDF {} da campanha {}: indice copiado de {} da campanha {}, sem reprocessar o arquivo.",
+                        ab, campanhaId, o.getChave(), o.getCampanhaId());
+                return Math.max(1, paginas);
+            } catch (Exception e) {
+                log.warn("Nao consegui copiar o indice de {}: {}", origem, e.getMessage());
+            }
+        }
+        return 0;
+    }
+
+    // ---------- estado do armazenamento (so a Administracao ve) ----------
+
+    private volatile Boolean linksOk;
+
+    /** O volume aceita hard link? Testa uma vez com dois arquivos de rascunho na pasta de midia. */
+    public boolean linksDisponiveis() {
+        if (linksOk != null) return linksOk;
+        Path a = raizGeral().resolve(".teste-link-a"), b = raizGeral().resolve(".teste-link-b");
+        boolean ok = false;
+        try {
+            Files.createDirectories(raizGeral());
+            Files.deleteIfExists(b);
+            Files.writeString(a, "grimorio");
+            Files.createLink(b, a);
+            ok = Files.isSameFile(a, b);
+        } catch (Exception e) {
+            log.warn("O volume de midia NAO aceita hard link ({}): arquivo repetido vai ocupar espaco proprio.", e.toString());
+        } finally {
+            try { Files.deleteIfExists(b); Files.deleteIfExists(a); } catch (IOException ignore) { }
+        }
+        if (ok) log.info("Volume de midia aceita hard link: arquivos iguais ocupam espaco uma vez so.");
+        linksOk = ok;
+        return ok;
+    }
+
+    /** Para o painel do administrador: espaco do volume, o que a midia ocupa de verdade, a
+     *  economia do compartilhamento e o uso de cada campanha. "Ocupa de verdade" conta cada
+     *  conteudo uma vez; o uso por campanha conta tudo que ela referencia. */
+    public Map<String, Object> estadoArmazenamento(Map<Long, String> nomes) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("links", linksDisponiveis());
+        try {
+            FileStore fs = Files.getFileStore(raizGeral());
+            r.put("livre", fs.getUsableSpace());
+            r.put("total", fs.getTotalSpace());
+        } catch (IOException e) {
+            r.put("livre", -1); r.put("total", -1);
+        }
+        long economia = 0, usado = 0; int compartilhados = 0;
+        Map<String, Path> primeiro = new HashMap<>();
+        Map<Long, long[]> porCamp = new TreeMap<>();
+        for (Midia m : repo.findAll()) {
+            Path p = raiz(m.getCampanhaId()).resolve(m.getArquivo()).normalize();
+            try {
+                if (!Files.isRegularFile(p)) continue;
+                long tam = Files.size(p);
+                long[] c = porCamp.computeIfAbsent(m.getCampanhaId(), k -> new long[3]);
+                c[0]++; c[1] += tam;
+                Path o = m.getHash() == null ? null : primeiro.putIfAbsent(m.getHash(), p);
+                if (o != null && Files.isSameFile(o, p)) { economia += tam; compartilhados++; c[2]++; }
+                else usado += tam;
+            } catch (IOException ignore) { }
+        }
+        List<Map<String, Object>> lista = new ArrayList<>();
+        porCamp.forEach((cid, c) -> {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("id", cid);
+            x.put("nome", nomes.getOrDefault(cid, "campanha apagada (#" + cid + ")"));
+            x.put("arquivos", c[0]);
+            x.put("bytes", c[1]);
+            x.put("compartilhados", c[2]);
+            lista.add(x);
+        });
+        lista.sort((a, b) -> Long.compare((long) b.get("bytes"), (long) a.get("bytes")));
+        r.put("usado", usado);
+        r.put("economizado", economia);
+        r.put("compartilhados", compartilhados);
+        r.put("porCampanha", lista);
+        return r;
+    }
+
+    public long desduplicarVolume() {
+        linksDisponiveis();
+        long liberado = 0;
+        int calculados = 0, ligados = 0;
+        for (Midia m : repo.findByHashIsNull()) {
+            Path p = raiz(m.getCampanhaId()).resolve(m.getArquivo()).normalize();
+            if (!Files.isRegularFile(p)) continue;
+            try { m.setHash(hashArquivo(p)); repo.save(m); calculados++; }
+            catch (Exception e) { log.warn("Sem hash para {}: {}", p, e.getMessage()); }
+        }
+        Map<String, Path> primeiro = new HashMap<>();
+        for (Midia m : repo.findByHashIsNotNullOrderByIdAsc()) {
+            Path p = raiz(m.getCampanhaId()).resolve(m.getArquivo()).normalize();
+            try {
+                if (!Files.isRegularFile(p)) continue;
+                Path origem = primeiro.putIfAbsent(m.getHash(), p);
+                if (origem == null || Files.isSameFile(origem, p) || Files.size(origem) != Files.size(p)) continue;
+                long tam = Files.size(p);
+                if (ligar(origem, p)) { liberado += tam; ligados++; }
+            } catch (Exception e) {
+                log.warn("Nao consegui juntar {}: {}", p, e.getMessage());
+            }
+        }
+        if (calculados > 0 || ligados > 0)
+            log.info("Midia: {} arquivos ganharam hash, {} copias viraram compartilhadas, {} MB liberados.",
+                    calculados, ligados, liberado / (1024 * 1024));
+        return liberado;
+    }
+
+    private static boolean semEspaco(Path pasta, long tamanho) {
+        try { return Files.getFileStore(pasta).getUsableSpace() < tamanho + FOLGA; }
+        catch (IOException e) { return false; }
+    }
+
+    /* o espaco pode acabar no meio da gravacao (outro envio ao mesmo tempo): a mensagem do
+       sistema operacional e o unico sinal, e muda de Linux para Windows */
+    private static boolean discoCheio(Throwable e) {
+        for (Throwable x = e; x != null; x = x.getCause()) {
+            String m = String.valueOf(x.getMessage()).toLowerCase();
+            if (m.contains("no space left") || m.contains("not enough space") || m.contains("disk full")
+                    || m.contains("espaço suficiente") || m.contains("espaco suficiente") || m.contains("quota")) return true;
+        }
+        return false;
+    }
+
+    private static String hashDe(InputStream in) throws IOException {
+        MessageDigest md = sha256();
+        try (InputStream din = new DigestInputStream(in, md)) {
+            din.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        return hex(md.digest());
+    }
+
+    private static String hashArquivo(Path p) throws IOException {
+        MessageDigest md = sha256();
+        try (InputStream in = new DigestInputStream(Files.newInputStream(p), md)) {
+            in.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        return hex(md.digest());
+    }
+
+    private static MessageDigest sha256() {
+        try { return MessageDigest.getInstance("SHA-256"); }
+        catch (Exception e) { throw new IllegalStateException(e); }
+    }
+
+    private static String hex(byte[] b) {
+        StringBuilder sb = new StringBuilder(b.length * 2);
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
     }
 
     private int contarPaginas(Path arquivo) {

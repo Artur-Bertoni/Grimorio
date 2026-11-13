@@ -158,7 +158,7 @@ function zera() {
              { id: 61, chave: 'luta', nome: 'Luta', cat: 'Combate', tamanho: 3145728 }],
     membros: [{ usuarioId: 1, nome: 'Mestre de teste', login: 'mestre', papel: 'MESTRE', dono: true },
               { usuarioId: 2, nome: 'Jogadora', login: 'jogadora', papel: 'JOGADOR', dono: false }],
-    convites: [], mural: [], notas: '', seq: 100,
+    convites: [], mural: [], notas: '', seq: 100, suporte: [], cheio: false,
   };
 }
 zera();
@@ -208,12 +208,19 @@ http.createServer(async (req, res) => {
       if (/^\/api\/campanhas\/\d+\/membros$/.test(p)) return envia(res, 200, ST.membros);
       if (/^\/api\/campanhas\/\d+\/convites$/.test(p)) return envia(res, 200, ST.convites);
       if (p === '/api/admin/config') return envia(res, 200, { iaConfigurada: false, iaModelo: '', registroAberto: true });
+      if (p === '/api/admin/sistema') return envia(res, 200, {
+        armazenamento: { links: true, livre: 8e9, total: 10e9, usado: 1.5e9, economizado: 3.2e8, compartilhados: 4,
+          porCampanha: [{ id: 1, nome: 'Campanha de teste', arquivos: 12, bytes: 9e8, compartilhados: 2 }, { id: 2, nome: 'Mesa em branco', arquivos: 3, bytes: 4e8, compartilhados: 2 }] },
+        sistema: { banco: 'H2 2.2.224', midiaDir: '/data/midia', java: '21.0.5', memoriaUsada: 2e8, memoriaMax: 5.12e8, noArDesde: Date.now() - 90000000,
+          contas: 3, campanhas: 3, suporteNaoEnviado: ST.suporte.length } });
+      if (p === '/api/admin/suporte') return envia(res, 200, ST.suporte.map((x, i) => ({ id: i + 1, autor: 'Mestre de teste (mestre)', ...x, enviado: false, em: Date.now() })));
       if (p === '/api/admin/usuarios' || p === '/api/admin/campanhas') return envia(res, 200, []);
       if (p.startsWith('/api/')) return envia(res, 200, {});
       if (/^\/midia\/c\d+\/pdf\/.+\.pdf$/.test(p)) return envia(res, 200, PDF3, 'application/pdf');
       if (p === '/__ficha.pdf') return envia(res, 200, PDF_FICHA, 'application/pdf');
       if (p === '/__ficha-imagem.pdf') return envia(res, 200, PDF_IMAGEM, 'application/pdf');
       if (p === '/__ultimport') return envia(res, 200, ST.ultImport || {});
+      if (p === '/__suporte') return envia(res, 200, ST.suporte);
       if ((m = p.match(/^\/midia\/c\d+\/img\/(.+)$/))) {
         const d = IMGS[decodeURIComponent(m[1])];
         return d ? envia(res, 200, d, 'image/png') : envia(res, 404, 'nao achei', 'text/plain');
@@ -224,6 +231,13 @@ http.createServer(async (req, res) => {
       return envia(res, 404, 'nao achei', 'text/plain');
     }
     const bruto = await lerCorpo(req), b = json(bruto);
+    if (p === '/__csrf') { ST.csrf = { falha: true, repetiu: 0 }; return envia(res, 200, { ok: true }); }
+    if (p === '/__csrf-estado') return envia(res, 200, ST.csrf || {});
+    /* recusa por CSRF simulada, uma vez: a tela tem de pedir token novo e repetir */
+    if (ST.csrf && p.startsWith('/api/')) {
+      if (ST.csrf.falha) { ST.csrf.falha = false; return envia(res, 403, { erro: 'a sessao de seguranca expirou, tente de novo', codigo: 'csrf' }); }
+      ST.csrf.repetiu++;
+    }
     if (M === 'PUT') {
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
         const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
@@ -255,6 +269,9 @@ http.createServer(async (req, res) => {
       return envia(res, 200, {});
     }
     if (M === 'POST') {
+      /* volume cheio simulado: vem antes das rotas de envio, como o 507 do servidor de verdade */
+      if (ST.cheio && /^\/api\/c\/\d+\/midia\/(img|pdf|audio)$/.test(p))
+        return envia(res, 507, { erro: 'o armazenamento está cheio', codigo: 'armazenamento-cheio' });
       if (/^\/api\/c\/\d+\/midia\/img$/.test(p)) {
         const nome = 'enviada-no-teste.png';
         IMGS[nome] ??= png(20, 160, 90);
@@ -302,6 +319,12 @@ http.createServer(async (req, res) => {
           { sec: 'Recursos', rot: 'PV', tipo: 'barra', val: '', max: '' }] });
       }
       if ((m = p.match(/^\/__ia\/(\d)$/))) { ST.perfil.iaConfigurada = m[1] === '1'; return envia(res, 200, { ok: true }); }
+      if (p === '/api/suporte') {
+        ST.suporte.push(b);
+        return envia(res, 200, { id: ST.suporte.length, enviado: false, motivo: 'o envio de e-mail não está configurado nesta instância' });
+      }
+      if ((m = p.match(/^\/__cheio\/(\d)$/))) { ST.cheio = m[1] === '1'; return envia(res, 200, { ok: true }); }
+      if (p === '/api/admin/armazenamento/juntar') return envia(res, 200, { liberado: 0 });
       if (/^\/api\/c\/\d+\/mural$/.test(p)) {
         ST.mural.unshift({ id: ++ST.seq, usuarioId: 1, autor: ST.perfil.nome, em: new Date().toISOString(), texto: b.texto || '' });
         return envia(res, 200, { ok: true });
