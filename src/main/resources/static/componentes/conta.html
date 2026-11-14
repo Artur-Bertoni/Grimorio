@@ -1,0 +1,34 @@
+<!-- Seletor de imagem (js/imagens.js) e Minha conta (js/conta.js) -->
+
+<template id="t-imagens">
+  <p class="sm muted" style="margin:0 0 .625rem">As imagens da {{ campanha }}. Envie uma nova se a que você quer ainda não está aqui.</p>
+  <div id="eiList"><p class="muted sm">carregando…</p></div>
+  <div class="addrow" style="margin-top:.875rem">
+    <button class="btn" id="eiUp">Enviar imagem nova</button>
+    <button class="btn sec" id="eiClr">Deixar sem imagem</button>
+  </div>
+</template>
+
+<template id="t-imagens-lista">
+  <p v-if="!figuras.length" class="empty">Nenhuma imagem nesta {{ campanha }} ainda.</p>
+  <div v-else class="eigrid">
+    <button v-for="x in figuras" type="button" :data-pick="x.rel" :class="x.rel === atual ? 'on' : null">
+      <img :src="x.url" alt="" loading="lazy"><span class="cap">{{ x.nome }}</span>
+    </button>
+  </div>
+</template>
+
+<template id="t-conta">
+  <div class="fld"><span class="flb">Login</span>
+    <p class="lead" style="margin:0"><b style="color:var(--gold)">{{ login }}</b></p>
+    <p class="sm muted">O login não muda: é a chave dos convites e de tudo que você já criou.</p></div>
+  <div class="fld"><span class="flb">Nome na mesa</span>
+    <div class="addrow"><input class="inp" id="cnNome" v-attr:value="nome" placeholder="como a mesa te vê">
+      <button class="btn" id="cnNomeOk">Salvar</button></div></div>
+  <div class="fld"><span class="flb">Trocar a senha</span>
+    <div class="addrow"><input class="inp" id="cnAtual" type="password" placeholder="senha atual" autocomplete="current-password">
+      <input class="inp" id="cnNova" type="password" placeholder="senha nova" autocomplete="new-password">
+      <input class="inp" id="cnNova2" type="password" placeholder="repita a nova" autocomplete="new-password">
+      <button class="btn" id="cnSenhaOk">Trocar</button></div>
+    <p class="sm muted">6 caracteres ou mais, com letra, número e caractere especial. Pedimos a atual de propósito: sessão esquecida aberta em navegador alheio não deve virar conta perdida.</p></div>
+</template>

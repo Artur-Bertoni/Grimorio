@@ -1,0 +1,50 @@
+<!-- Momentos de mesa e barra de iniciativa (js/momentos.js) -->
+
+<template id="t-sugere-tema">
+  <div class="sugprev" v-html="cartao"></div>
+  <div class="sugtxt"><span>Tema sugerido pelo {{ vmin('mestre') }}</span><b>{{ nome }} · {{ estilo }}</b>
+    <span v-if="igual" data-solta><p>É o que você está vendo agora. Dá para trocar em Configurações › Aparência.</p>
+      <div class="addrow"><button class="btn" data-s="ok">Entendi</button></div></span>
+    <span v-else data-solta><p>Você está com outro tema. Quer usar o sugerido nesta {{ vmin('campanha') }}?</p>
+      <div class="addrow"><button class="btn" data-s="usar">Usar nesta {{ vmin('campanha') }}</button><button class="btn sec" data-s="ok">Manter o meu</button></div></span>
+  </div>
+</template>
+
+<template id="t-critico"><i></i><i></i></template>
+
+<template id="t-pedido">
+  <span data-solta v-html="dado"></span>
+  <div><span>{{ autor }} pede um teste</span><b>{{ rotulo || formula }}</b><i v-if="rotulo">{{ formula }}</i></div>
+  <button class="btn" data-p="rolar">Rolar</button><button class="x" data-p="x" aria-label="Agora não">✕</button>
+</template>
+
+<template id="t-capitulo">
+  <div><span>{{ Vm('sessao') }} {{ numero }}</span><b>{{ titulo }}</b><i></i></div>
+</template>
+
+<template id="t-revela">
+  <div class="rvcarta"><div class="rvverso" v-html="dado"></div>
+    <div class="rvfrente">
+      <img v-if="img" :src="img" alt=""><div v-else class="rvsem" v-html="dado"></div>
+      <span>{{ tipo }} · agora na {{ vmin('mesa') }}</span><b>{{ nome }}</b>
+      <p v-if="desc">{{ desc }}</p>
+    </div></div>
+</template>
+
+<!-- lista: em ordem, [{id, v, nome, oc}] -->
+<template id="t-ini">
+  <div class="inibar"><span class="inirod">Rodada {{ rodada }}</span>
+    <div class="inilist">
+      <button v-for="x in lista" :class="'inichip' + (x.id === vez ? ' vez' : '')" :data-ini="x.id" title="Clique para editar"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span><i v-if="x.oc">oculto</i></button>
+      <span v-if="!lista.length" class="muted sm">Ninguém na ordem ainda.</span>
+    </div>
+    <button class="btn sec" id="iniProx" :disabled="!lista.length">Próximo ›</button>
+    <button class="tbtn" id="iniAdd">+ alguém</button><button class="tbtn" id="iniPux">puxar elenco</button>
+    <button class="tbtn" id="iniRol" :disabled="!lista.length">rolar quem falta</button>
+    <button class="tbtn d" id="iniFim">encerrar</button></div>
+</template>
+
+<template id="t-ini-pub">
+  <div class="inibar pub"><span class="inirod">Rodada {{ rodada }}</span>
+    <div class="inilist"><span v-for="(x, i) in lista" :class="'inichip' + (i === vez ? ' vez' : '')"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span></span></div></div>
+</template>

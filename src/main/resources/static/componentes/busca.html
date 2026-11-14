@@ -1,0 +1,60 @@
+<!-- Busca unificada, leitor de pagina e resposta da IA (js/busca.js) -->
+
+<!-- partes: [{t, m}]; m=true e o trecho que casou com a busca -->
+<template id="t-marcado"><span v-for="p in partes" data-solta><mark v-if="p.m">{{ p.t }}</mark><span v-else data-solta>{{ p.t }}</span></span></template>
+
+<!-- paragrafos: [[linha, linha...]]; cada linha depois da primeira ganha um <br> -->
+<template id="t-paragrafos"><p v-for="b in paragrafos"><span v-for="(l, i) in b" data-solta><br v-if="i"><span data-solta>{{ l }}</span></span></p></template>
+
+<template id="t-busca">
+  <div class="sfield"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--fg3)" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4 14 14"/></svg><input id="bq" placeholder="uma regra, um nome, uma cena, um item…" autocomplete="off" v-attr:value="q"><span class="kbd" title="Navegar">&#8597;</span><span class="kbd" title="Abrir">enter</span></div>
+  <div class="askrow"><button class="btn sec" id="askAI" hidden></button></div>
+  <div id="bf"></div><div class="res" id="br"></div>
+</template>
+
+<template id="t-busca-curta">
+  <p class="empty">Digite ao menos 2 letras. A busca varre a campanha, a consulta rápida e {{ paginas }} páginas dos livros de uma vez.</p>
+</template>
+
+<!-- livros: [{id, nome, on}]; assuntos: [{id, nome, on}], so aparecem se houver mais de um -->
+<template id="t-busca-filtros">
+  <div class="fchips"><span class="flbl">Livros</span><button class="fchip" data-fd="todos" :aria-pressed="String(todos)">todos</button><button v-for="d in livros" class="fchip" :data-fd="d.id" :aria-pressed="String(d.on)">{{ d.nome }}</button></div>
+  <div v-if="assuntos.length > 1" class="fchips"><span class="flbl">Assunto</span><button v-for="c in assuntos" class="fchip" :data-fc="c.id" :aria-pressed="String(c.on)">{{ c.nome }}</button></div>
+</template>
+
+<!-- n: o contador ao lado do titulo, null sem contador; carregando: contador "…" que a busca nos livros preenche -->
+<template id="t-busca-grupo">
+  <div class="grph"><span>{{ titulo }}</span><span v-if="carregando" class="grpn" id="bn">…</span><span v-else-if="n != null" class="grpn">{{ n }}</span></div>
+</template>
+
+<template id="t-busca-item">
+  <span :class="'rsrc ' + classe">{{ fonte }}</span><span><span class="rti" v-html="titulo"></span><span v-if="sub" class="rsub">{{ sub }}</span><div v-if="trecho" class="rsn" v-html="trecho"></div></span>
+</template>
+
+<template id="t-busca-livros-vazio">
+  <p class="empty" style="padding:.875rem">Nada nos livros com esse termo{{ filtrado ? ' dentro dos filtros atuais.' : '.' }}</p>
+</template>
+
+<template id="t-pagina-cabeca">
+  <button class="ibtn" id="pgPrev" title="Página anterior">&#8249;</button><span class="sm muted">{{ ref }}</span><button class="ibtn" id="pgNext" title="Próxima página">&#8250;</button>
+</template>
+
+<template id="t-pagina-texto">
+  <div class="pgtxt"><p v-for="b in paragrafos"><span v-for="p in b" data-solta><mark v-if="p.m">{{ p.t }}</mark><span v-else data-solta>{{ p.t }}</span></span></p></div>
+  <div class="addrow" style="margin-top:1rem"><button v-if="temPdf" class="btn" id="pgPdf">Abrir o PDF nesta página</button><span v-else class="sm muted">Conecte a pasta da campanha para ver a página original do PDF.</span></div>
+  <p class="sm muted" style="margin-top:.625rem">Texto extraído do PDF. Tabelas e colunas podem sair embaralhadas; o livro manda.</p>
+</template>
+
+<template id="t-ia-lendo">
+  <div id="aiTxt" class="pgtxt"><p class="muted">Lendo os livros e pensando…</p></div>
+</template>
+
+<template id="t-ia-resposta">
+  <span data-solta v-html="texto"></span>
+  <p class="sm muted" style="margin-top:1rem">Resposta montada por {{ ia }}{{ comTrechos ? ' a partir dos trechos dos seus livros. Confira a página citada antes de valer em mesa.' : '. Nada disso foi conferido nos seus livros.' }}</p>
+</template>
+
+<template id="t-ia-erro">
+  <p class="empty">{{ msg }}</p>
+  <div v-if="admin" style="text-align:center;margin-top:.75rem"><button class="btn sec" id="aiCfg">Configurar a chave da API</button></div>
+</template>

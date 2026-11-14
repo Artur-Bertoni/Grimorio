@@ -29,7 +29,7 @@ public class SessaoController {
         this.campanhas = campanhas;
     }
 
-    /** Aberto: o login.html usa para pegar o cookie de CSRF antes de postar. */
+    /** Aberto: a tela de login (paginas/login.html) usa para pegar o cookie de CSRF antes de postar. */
     @GetMapping("/ping")
     public Map<String, Object> ping(CsrfToken csrf) {
         Map<String, Object> m = new LinkedHashMap<>();

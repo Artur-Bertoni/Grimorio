@@ -11,9 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -39,7 +40,7 @@ public class SuporteService {
        SMTP (portas 25/465/587), e ai nenhuma senha resolve. Brevo e Resend falam HTTPS. */
     public static final Set<String> PROVEDORES = Set.of("smtp", "brevo", "resend");
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-    private final ObjectMapper om = new ObjectMapper();
+    private final ObjectMapper om = JsonMapper.builder().build();
     private static final int POR_HORA = 8;
     private static final DateTimeFormatter QUANDO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("America/Sao_Paulo"));
 
@@ -201,7 +202,7 @@ public class SuporteService {
         HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (r.statusCode() / 100 != 2) {
             String detalhe = r.body();
-            try { JsonNode n = om.readTree(r.body()); detalhe = n.path("message").asText(n.path("error").asText(r.body())); } catch (Exception ignore) { }
+            try { JsonNode n = om.readTree(r.body()); detalhe = n.path("message").asString(n.path("error").asString(r.body())); } catch (Exception ignore) { }
             throw new IllegalStateException("o provedor respondeu " + r.statusCode() + ": " + limpa(detalhe, 200));
         }
     }

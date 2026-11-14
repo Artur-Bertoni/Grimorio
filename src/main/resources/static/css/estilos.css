@@ -1,0 +1,105 @@
+/* =============== ESTILOS =============== */
+
+/* TERROR: canto seco, brasa subindo e um vermelho que respira embaixo */
+html[data-estilo="terror"]{--r:.1875rem;--rc:.3125rem;--rb:.1875rem;--gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 15L6 1M7 15l3-14M11 15l3-14' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  --faixa:linear-gradient(90deg,var(--blood-dim),var(--blood2) 50%,var(--blood-dim));
+  --po-cor:var(--blood2);--po-op:.55;--po-t:46s}
+html[data-estilo="terror"] .atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 38%,var(--vin) 105%),
+  radial-gradient(100% 55% at 50% 112%,color-mix(in srgb,var(--blood) 30%,transparent),transparent 70%),
+  radial-gradient(80% 50% at 50% -15%,color-mix(in srgb,var(--blood) 13%,transparent),transparent 70%)}
+html[data-estilo="terror"] .atmo .nev{display:block;animation:respira 7s ease-in-out infinite;
+  background:radial-gradient(90% 45% at 50% 108%,color-mix(in srgb,var(--blood2) 24%,transparent),transparent 70%)}
+@keyframes respira{0%,100%{opacity:.2}50%{opacity:1}}
+html[data-estilo="terror"] h1.page{text-shadow:0 0 1.5rem color-mix(in srgb,var(--blood2) 55%,transparent),0 2px 0 var(--blood-dim)}
+html[data-estilo="terror"] :is(.ccard,.cad,.pc,.evcard):hover{border-color:var(--blood2);
+  box-shadow:0 1.25rem 2rem -1.1rem var(--sh),0 0 0 1px color-mix(in srgb,var(--blood2) 40%,transparent),
+    0 0 2rem -.375rem color-mix(in srgb,var(--blood2) 55%,transparent)}
+
+/* FANTASIA: letra de iluminura, moldura dupla e poeira dourada a luz de vela */
+html[data-estilo="fantasia"]{--r:.375rem;--rc:.625rem;--rb:.375rem;--gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 0l8 8-8 8-8-8zM8 3.2L3.2 8 8 12.8 12.8 8z'/%3E%3Cpath d='M8 5.6L10.4 8 8 10.4 5.6 8z'/%3E%3C/svg%3E");
+  --po-cor:var(--gold2);--po-op:.6;--po-t:95s}
+html[data-estilo="fantasia"] .atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 50%,var(--vin) 112%),
+  radial-gradient(70% 55% at 50% -12%,color-mix(in srgb,var(--gold) 20%,transparent),transparent 70%),
+  radial-gradient(60% 50% at 0% 105%,color-mix(in srgb,var(--blood) 16%,transparent),transparent 70%),
+  radial-gradient(60% 50% at 100% 105%,color-mix(in srgb,var(--blood) 16%,transparent),transparent 70%)}
+html[data-estilo="fantasia"] .atmo .grao{opacity:.1}
+html[data-estilo="fantasia"] :is(.seccols>.sec-wrap,.caixa,.sheet){
+  outline:1px solid color-mix(in srgb,var(--gold) 28%,transparent);outline-offset:-.3125rem}
+html[data-estilo="fantasia"] :is(.ccard,.pc,.cad,.evcard){position:relative}
+html[data-estilo="fantasia"] :is(.ccard,.pc,.cad,.evcard)::after{content:"";position:absolute;inset:.3125rem;z-index:1;pointer-events:none;
+  border:1px solid color-mix(in srgb,var(--gold2) 45%,transparent);border-radius:calc(var(--rc) - .25rem)}
+html[data-estilo="fantasia"] .btn:not(.sec):not(.dang){
+  box-shadow:inset 0 0 0 2px var(--bg2),inset 0 0 0 3px color-mix(in srgb,var(--gold) 45%,transparent)}
+html[data-estilo="fantasia"] .btn:not(.sec):not(.dang):hover{
+  box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 3px var(--sobre-gold),0 .3rem 1.1rem -.3rem color-mix(in srgb,var(--gold) 70%,transparent)}
+html[data-estilo="fantasia"] h1.page{text-shadow:0 0 2rem color-mix(in srgb,var(--gold) 35%,transparent)}
+
+/* MISTERIO: tudo curvo e translucido, nevoa que deriva e estrelas piscando */
+html[data-estilo="misterio"]{--r:.75rem;--rc:1.25rem;--rb:62rem;--gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'/%3E%3C/svg%3E");
+  --faixa:linear-gradient(90deg,transparent,var(--blood2) 30%,var(--gold) 50%,var(--blood2) 70%,transparent);
+  --po-cor:var(--fg);--po-op:.7}
+html[data-estilo="misterio"] .atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 50%,var(--vin) 112%),
+  radial-gradient(90% 60% at 50% -15%,color-mix(in srgb,var(--blood) 22%,transparent),transparent 70%)}
+html[data-estilo="misterio"] .atmo .nev{display:block;inset:-20%;animation:deriva 48s ease-in-out infinite alternate;background:
+  radial-gradient(40% 35% at 25% 35%,color-mix(in srgb,var(--blood) 28%,transparent),transparent 70%),
+  radial-gradient(45% 40% at 78% 70%,color-mix(in srgb,var(--blood2) 15%,transparent),transparent 70%),
+  radial-gradient(30% 30% at 62% 15%,color-mix(in srgb,var(--gold) 9%,transparent),transparent 70%)}
+@keyframes deriva{from{transform:translate3d(-4%,-2%,0) scale(1)}to{transform:translate3d(5%,4%,0) scale(1.12)}}
+html[data-estilo="misterio"] .atmo .po{animation:cintila 5s ease-in-out infinite alternate}
+html[data-estilo="misterio"] .atmo .po.b{animation-duration:8s;animation-delay:-3s}
+@keyframes cintila{from{opacity:.12}to{opacity:.7}}
+html[data-estilo="misterio"] :is(.seccols>.sec-wrap,.caixa,.ccard,.cad,.pc,.scn,.panel,.idx .doc){
+  background-color:color-mix(in srgb,var(--bg2) 78%,transparent)}
+html[data-estilo="misterio"] :is(.seccols>.sec-wrap,.caixa){backdrop-filter:blur(.5rem)}
+html[data-estilo="misterio"] .btn{padding-inline:1.25rem}
+html[data-estilo="misterio"] h1.page{font-weight:700;text-shadow:0 0 2.25rem color-mix(in srgb,var(--blood2) 55%,transparent)}
+html[data-estilo="misterio"] .x{border-radius:50%}
+
+/* INVESTIGACAO: maquina de escrever, foto presa com fita, carimbo e papel pautado */
+html[data-estilo="investigacao"]{--r:.1875rem;--rc:.25rem;--rb:.1875rem;--gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='4.5' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='M8 0v5M8 11v5M0 8h5M11 8h5' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E");
+  --faixa:repeating-linear-gradient(90deg,var(--gold) 0 .5rem,transparent .5rem .875rem)}
+html[data-estilo="investigacao"] :is(.seccols>.sec-wrap,.caixa,.sbody>.blk){background-size:100% 2px}
+html[data-estilo="investigacao"] .atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 45%,var(--vin) 110%),
+  radial-gradient(70% 90% at 12% -10%,color-mix(in srgb,var(--gold) 17%,transparent),transparent 65%),
+  repeating-linear-gradient(0deg,transparent 0 1.9rem,color-mix(in srgb,var(--fg) 4%,transparent) 1.9rem calc(1.9rem + 1px))}
+html[data-estilo="investigacao"] .atmo .grao{opacity:.11}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard){padding:.5rem .5rem 0;background-color:var(--bg3);overflow:visible;position:relative}
+html[data-estilo="investigacao"] :is(.ccard .ccimg,.cad .ci,.pc .por,.evcard img){border:1px solid var(--line2);border-radius:1px}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard)::after{content:"";position:absolute;z-index:3;top:-.4375rem;left:50%;
+  width:3.25rem;height:.9375rem;translate:-50% 0;rotate:-2deg;pointer-events:none;
+  background:color-mix(in srgb,var(--gold) 38%,transparent);box-shadow:0 1px 2px var(--sh)}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(3n+1){rotate:-.5deg}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(3n+2){rotate:.4deg}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(4n){rotate:-.25deg}
+html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):hover{rotate:0deg}
+html[data-estilo="investigacao"] .chip{border-radius:2px;border-width:1.5px;font-family:var(--disp);letter-spacing:.05em;rotate:-1.2deg}
+html[data-estilo="investigacao"] h1.page{text-shadow:none;letter-spacing:.03em}
+html[data-estilo="investigacao"] h1.page::after{
+  background:linear-gradient(var(--gold),var(--gold)) left/1.2rem 100% no-repeat,
+    repeating-linear-gradient(90deg,var(--gold) 0 .5rem,transparent .5rem .875rem)}
+
+/* FICCAO CIENTIFICA: canto cortado em diagonal, grade, luz de neon e uma varredura lenta */
+html[data-estilo="ficcao"]{--r:.25rem;--rc:1.125rem .25rem 1.125rem .25rem;--rb:.625rem .125rem .625rem .125rem;--gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2l6 6-6 6M9 2l6 6-6 6' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  --faixa:linear-gradient(90deg,var(--gold),var(--blood2) 60%,transparent)}
+html[data-estilo="ficcao"] .atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 50%,var(--vin) 112%),
+  radial-gradient(60% 55% at 92% -10%,color-mix(in srgb,var(--blood2) 20%,transparent),transparent 70%),
+  radial-gradient(55% 50% at 0% 108%,color-mix(in srgb,var(--gold) 11%,transparent),transparent 70%)}
+html[data-estilo="ficcao"] .atmo .nev{display:block;
+  background:linear-gradient(color-mix(in srgb,var(--blood2) 9%,transparent) 1px,transparent 1px) 0 0/3rem 3rem,
+    linear-gradient(90deg,color-mix(in srgb,var(--blood2) 9%,transparent) 1px,transparent 1px) 0 0/3rem 3rem;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 0,#000 15%,transparent 80%);mask-image:radial-gradient(ellipse at 50% 0,#000 15%,transparent 80%)}
+html[data-estilo="ficcao"] .atmo .nev::after{content:"";position:absolute;left:0;right:0;top:-24vh;height:24vh;
+  background:linear-gradient(transparent,color-mix(in srgb,var(--gold) 10%,transparent),transparent);animation:varre 9s linear infinite}
+@keyframes varre{to{transform:translateY(130vh)}}
+html[data-estilo="ficcao"] .atmo .grao{display:none}
+html[data-estilo="ficcao"] h1.page{text-shadow:0 0 1.25rem color-mix(in srgb,var(--blood2) 65%,transparent)}
+html[data-estilo="ficcao"] :is(.ccard,.cad,.pc,.evcard):hover{border-color:var(--blood2);
+  box-shadow:0 1.25rem 2rem -1.1rem var(--sh),0 0 0 1px color-mix(in srgb,var(--blood2) 45%,transparent),
+    0 0 1.75rem -.25rem color-mix(in srgb,var(--blood2) 60%,transparent)}
+html[data-estilo="ficcao"] .tab::after{background:linear-gradient(90deg,var(--gold),var(--blood2));box-shadow:0 0 .5rem var(--gold)}
+html[data-estilo="ficcao"] .btn:hover{box-shadow:0 0 1.25rem -.125rem color-mix(in srgb,var(--gold) 75%,transparent)}

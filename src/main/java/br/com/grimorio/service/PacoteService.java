@@ -2,9 +2,10 @@ package br.com.grimorio.service;
 
 import br.com.grimorio.model.Campanha;
 import br.com.grimorio.repo.CampanhaRepo;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ import br.com.grimorio.model.Ficha;
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.repo.FichaRepo;
 import br.com.grimorio.repo.UsuarioRepo;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ArrayNode;
 
 /**
  * Pacote de campanha: um zip com o guia, a mesa, os indices de busca e as
@@ -47,7 +48,7 @@ public class PacoteService {
     private final IndiceService indice;
     private final FichaRepo fichas;
     private final UsuarioRepo usuarios;
-    private final ObjectMapper om = new ObjectMapper();
+    private final ObjectMapper om = JsonMapper.builder().build();
 
     public PacoteService(CampanhaRepo campanhas, DocumentoService docs,
                          MidiaService midia, IndiceService indice,
@@ -142,7 +143,7 @@ public class PacoteService {
 
                 if (nome.equals("campanha.json")) {
                     JsonNode n = om.readTree(dados);
-                    nomeCampanha = n.path("nome").asText("");
+                    nomeCampanha = n.path("nome").asString("");
                     aplicarCampanha(campanhaId, n);
                     nFichas = importarFichas(campanhaId, usuarioId, n.path("fichas"));
                     if (substituirGuia && n.has("guia") && !n.get("guia").isNull()) {
@@ -192,9 +193,9 @@ public class PacoteService {
         int n = 0;
         for (JsonNode o : lista) {
             if (n >= 200) break;
-            String nome = o.path("nome").asText("").trim();
+            String nome = o.path("nome").asString("").trim();
             if (nome.isEmpty()) nome = "Sem nome";
-            String dono = o.path("dono").asText("").trim();
+            String dono = o.path("dono").asString("").trim();
             if (!dono.isEmpty()) nome += " (" + dono + ")";
             if (nome.length() > 120) nome = nome.substring(0, 120);
             if (!tem.add(nome)) continue;
@@ -217,15 +218,15 @@ public class PacoteService {
     private void aplicarCampanha(Long campanhaId, JsonNode n) {
         campanhas.findById(campanhaId).ifPresent(c -> {
             if (c.getSistema() == null || c.getSistema().isBlank())
-                c.setSistema(n.path("sistema").asText(""));
+                c.setSistema(n.path("sistema").asString(""));
             if (c.getDescricao() == null || c.getDescricao().isBlank())
-                c.setDescricao(n.path("descricao").asText(""));
+                c.setDescricao(n.path("descricao").asString(""));
             /* a capa e uma imagem do pacote, que entra junto em img/ */
             if (c.getCapa() == null || c.getCapa().isBlank()) {
-                try { c.setCapa(CampanhaService.capaValida(n.path("capa").asText(""))); }
+                try { c.setCapa(CampanhaService.capaValida(n.path("capa").asString(""))); }
                 catch (IllegalArgumentException e) { /* pacote com capa estranha: ignora */ }
             }
-            String tema = n.path("tema").asText("");
+            String tema = n.path("tema").asString("");
             if (!tema.isBlank()) c.setTema(tema);
             campanhas.save(c);
         });

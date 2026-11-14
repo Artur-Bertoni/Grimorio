@@ -25,7 +25,7 @@ public class AdminAutorizacao implements AuthorizationManager<RequestAuthorizati
     }
 
     @Override
-    public AuthorizationDecision check(Supplier<Authentication> auth, RequestAuthorizationContext ctx) {
+    public AuthorizationDecision authorize(Supplier<? extends Authentication> auth, RequestAuthorizationContext ctx) {
         Authentication a = auth.get();
         if (a == null || !a.isAuthenticated() || a.getName() == null) return new AuthorizationDecision(false);
         boolean ok = usuarios.findByLoginIgnoreCase(a.getName())

@@ -31,7 +31,7 @@ const pg = await ctx.newPage();
 pg.on('pageerror', e => console.log('ERRO DE PAGINA: ' + e.message));
 const foto = n => pg.screenshot({ path: join(FOTOS, n + '.png') });
 for (const t of temas) {
-  await pg.goto(B + '/login.html');
+  await pg.goto(B + '/paginas/login.html');
   await pg.evaluate(x => { localStorage.setItem('grim_tema', x); localStorage.setItem('grim_cid', '1');
     localStorage.setItem('grim_tour_mestre_1', '1'); localStorage.setItem('grim_tour_jogador_1', '1'); }, t);
   await pg.goto(B + '/');
@@ -45,7 +45,7 @@ for (const t of temas) {
   await pg.click('#brandHome');
   await pg.waitForTimeout(900);
   await foto(t + '-4-home');
-  await pg.goto(B + '/login.html');
+  await pg.goto(B + '/paginas/login.html');
   await pg.waitForTimeout(700);
   await foto(t + '-5-login');
   console.log('ok ' + t);

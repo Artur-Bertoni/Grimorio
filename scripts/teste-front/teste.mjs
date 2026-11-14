@@ -12,7 +12,7 @@
  * existe, seletor que mudou, e imagem que nao carrega.
  */
 import { chromium } from 'playwright-core';
-import { existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const B = process.env.BASE || 'http://127.0.0.1:8099';
@@ -56,7 +56,26 @@ pg.on('console', m => {
 });
 pg.on('dialog', d => d.accept());
 const espera = ms => pg.waitForTimeout(ms);
-const foto = async n => { if (FOTOS) await pg.screenshot({ path: join(FOTOS, n + '.png'), fullPage: false }); };
+/* DOM=pasta grava, junto de cada foto, um retrato da estrutura da pagina (elementos, classes,
+   atributos e texto). Comparar dois retratos acusa mudanca de HTML que nenhum teste percebe. */
+const DOM = process.env.DOM || '';
+if (DOM) mkdirSync(DOM, { recursive: true });
+const retrato = () => pg.evaluate(() => {
+  const fora = new Set(['TEMPLATE', 'SCRIPT', 'STYLE']), linhas = [];
+  const volatil = /^(data-(id|eled|elver|ellib|ses|ficha|resp|ini|mres|mresd|mdel|lib|pick|cenaid)|id|style|aria-pressed|title)$/;
+  (function anda(n, p) {
+    if (n.nodeType === 3) { const t = n.data.replace(/\s+/g, ' ').trim(); if (t) linhas.push(p + '"' + t.slice(0, 80) + '"'); return; }
+    if (n.nodeType !== 1 || fora.has(n.tagName) || n.id === 'templates' || n.classList.contains('atmo') || n.classList.contains('toast')) return;
+    const at = [...n.attributes].filter(a => a.name !== 'class').map(a => volatil.test(a.name) ? a.name : a.name + '=' + a.value.slice(0, 60)).sort();
+    linhas.push(p + n.tagName.toLowerCase() + ([...n.classList].sort().map(c => '.' + c).join('')) + (at.length ? ' [' + at.join(' ') + ']' : ''));
+    for (const c of n.childNodes) anda(c, p + ' ');
+  })(document.body, '');
+  return linhas.join('\n');
+});
+const foto = async n => {
+  if (FOTOS) await pg.screenshot({ path: join(FOTOS, n + '.png'), fullPage: false });
+  if (DOM) writeFileSync(join(DOM, n + '.txt'), await retrato());
+};
 const aba = async rot => { await pg.locator('#tabs .tab', { hasText: rot }).first().click(); await espera(450); };
 const guia = async cid => JSON.parse((await (await ctx.request.get(B + '/api/c/' + cid + '/guia')).json()).json);
 const mesa = async cid => JSON.parse((await (await ctx.request.get(B + '/api/c/' + cid + '/mesa')).json()).json);
@@ -77,6 +96,13 @@ const salvar = async () => { await pg.locator('.ov [data-ok]').last().click(); a
 
 await ctx.request.get(B + '/api/zerar');
 await pg.addInitScript(() => { try { if (!localStorage.getItem('grim_cid')) localStorage.setItem('grim_cid', '1'); } catch (e) {} });
+/* com DOM= ligado, o sorteio da pagina vira sempre a mesma sequencia: dois retratos so diferem
+   se o HTML mudou, nao porque o d20 caiu em outro numero */
+if (DOM) await pg.addInitScript(() => {
+  let s = 12345; const prox = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  Math.random = prox;
+  crypto.getRandomValues = a => { for (let i = 0; i < a.length; i++) a[i] = Math.floor(prox() * 4294967296); return a; };
+});
 
 titulo('campanha de teste abre');
 await pg.goto(B + '/', { waitUntil: 'networkidle' });
@@ -103,6 +129,7 @@ await pg.click('#btnAjustes');
 await espera(400);
 await pg.locator('[data-aj="tour"]').click();
 await espera(300);
+if (DOM) await foto('r001-aj-tour');
 await pg.locator('#tourMestre').click();
 const tm = await andaTour();
 ok(tm.faltas.length === 0 && tm.n >= 20, 'tour do mestre revisto pelos ajustes acha todos os ' + tm.n + ' passos' + (tm.faltas.length ? ': ' + tm.faltas.join(' | ') : ''));
@@ -176,6 +203,7 @@ ok(!/NOME ERRADO/.test(await pg.locator('#view').innerText()), 'cancelado nao mu
 
 titulo('elenco: personagens e fotos');
 await aba('Elenco');
+if (DOM) await foto('r002-aba-Elenco');
 ok((await pg.locator('article.pc').count()) === 3, 'tres personagens');
 const fotos = await pg.evaluate(() => [...document.querySelectorAll('article.pc .por img')]
   .map(i => ({ mk: i.classList.contains('mk'), src: i.getAttribute('src'), w: i.naturalWidth })));
@@ -186,6 +214,7 @@ await foto('02-elenco-personagens');
 titulo('elenco: criar NPC com imagem, liberar, editar');
 await pg.locator('[data-el="npcs"]').click();
 await espera(350);
+if (DOM) await foto('r003-el-npcs');
 await pg.locator('#elNovo').click();
 await espera(300);
 await pg.locator('.ov [data-f="nome"]').fill('Delegado Rocha');
@@ -217,6 +246,7 @@ await foto('03-elenco-npcs');
 
 titulo('sessoes: lista, criar, cena e bloco');
 await aba('Sess');
+if (DOM) await foto('r004-aba-Sess');
 ok((await pg.locator('[data-ses]').count()) === 2, 'duas sessoes na lista');
 await foto('04-sessoes');
 await pg.locator('#sesNova').click();
@@ -285,6 +315,7 @@ ok(Math.abs(p4.x - p0.x) < 2 && Math.abs(p4.width - p0.width) < 2, 'clique duplo
 titulo('roteiro: a cena continua aberta depois de editar');
 await pg.locator('[data-vm="roteiro"]').click();
 await espera(400);
+if (DOM) await foto('r005-vm-roteiro');
 ok((await pg.locator('details.scn[open]').count()) === 1, 'a cena recem-criada ja vem aberta no roteiro');
 await pg.locator('details.scn[open] [data-act="blk-ed"]').first().click();
 await espera(300);
@@ -314,6 +345,7 @@ await pg.locator('[data-ses]').first().click();
 await espera(500);
 await pg.locator('[data-vm="roteiro"]').click();
 await espera(300);
+if (DOM) await foto('r006-vm-roteiro');
 await pg.locator('details.scn summary').first().click();
 await espera(250);
 const cenaAntiga = await pg.locator('details.scn[open]').innerText();
@@ -344,6 +376,7 @@ ok((await mesa(1)).resumos.length === 1, 'resumo publicado para a mesa');
 titulo('biblioteca');
 await aba('Biblioteca');
 await espera(400);
+if (DOM) await foto('r007-aba-Biblioteca');
 ok(/Livro de regras/.test(await pg.locator('#bbList').innerText()), 'lista o livro');
 ok(/não veem/i.test(await pg.locator('[data-pub]').innerText()), 'livro comeca privado');
 await pg.locator('[data-pub]').click();
@@ -444,11 +477,13 @@ await pg.mouse.move(rpBox.x - 240, rpBox.y + 120, { steps: 6 }); await pg.mouse.
 const rpG = await pg.evaluate(() => JSON.parse(localStorage.getItem('grim_rolp_g') || 'null'));
 ok(!!rpG && Math.abs(rpG.x - (rpBox.x - 300)) < 40, 'o painel de rolagens se move e lembra o lugar');
 await aba('Elenco');
+if (DOM) await foto('r008-aba-Elenco');
 ok(await pg.locator('#rolPainel').isVisible(), 'o painel continua aberto ao trocar de aba');
 await pg.locator('#rpX').click();
 ok(!(await pg.locator('#rolPainel').isVisible()), 'fecha o painel');
 await aba('Biblioteca');
 await espera(300);
+if (DOM) await foto('r009-aba-Biblioteca');
 await pg.locator('[data-ren]').click();
 await espera(300);
 await pg.locator('.ov [data-f="nome"]').fill('Manual do jogador');
@@ -457,6 +492,7 @@ await espera(500);
 ok(/Manual do jogador/.test(await pg.locator('#bbList').innerText()), 'da para renomear o livro');
 await pg.locator('[data-bib="trilha"]').click();
 await espera(500);
+if (DOM) await foto('r010-bib-trilha');
 ok((await pg.locator('#bbList [data-toca]').count()) === 2, 'duas faixas');
 await pg.locator('[data-cated="Ambiente"]').click();
 await espera(300);
@@ -476,6 +512,7 @@ await espera(700);
 ok(/CLIMA \(2\)/i.test(await pg.locator('#bbList').innerText()), 'faixa mudou de categoria');
 await pg.locator('[data-bib="imagens"]').click();
 await espera(500);
+if (DOM) await foto('r011-bib-imagens');
 ok((await pg.locator('#bbList img').count()) >= 8, 'imagens listadas');
 ok(await pg.locator('#bbList img').first().evaluate(i => i.naturalWidth > 0), 'miniatura carregou');
 
@@ -494,6 +531,7 @@ await espera(300);
 await foto('09-ajustes');
 await pg.locator('[data-aj="suporte"]').click();
 await espera(300);
+if (DOM) await foto('r012-aj-suporte');
 await pg.locator('#suM').fill('O mapa nao abre quando clico.');
 await pg.locator('#suC').fill('jogador@exemplo.com');
 await pg.locator('#suGo').click();
@@ -505,6 +543,7 @@ ok(/registrada/i.test(await pg.locator('#suSt').innerText()), 'sem e-mail config
 await ctx.request.post(B + '/__cheio/1');
 await pg.locator('[data-aj="campanha"]').click();
 await espera(400);
+if (DOM) await foto('r013-aj-campanha');
 ok(!/cópia bruta/i.test(await pg.locator('#ajBody').innerText()) && (await pg.locator('#mE, #mI').count()) === 0, 'a copia bruta do guia saiu: o pacote cobre tudo');
 await pg.locator('#caCapaEsc').click();
 await espera(600);
@@ -523,6 +562,7 @@ await espera(300);
 await ctx.request.post(B + '/__cheio/0');
 await pg.locator('[data-aj="admin"]').click();
 await espera(500);
+if (DOM) await foto('r014-aj-admin');
 const arm = await pg.locator('#adArm').innerText();
 ok(/compartilhados: 4 cópias evitadas, economizando 305\.2 MB/i.test(arm) && /Campanha de teste/.test(arm), 'administracao mostra o armazenamento e o uso por campanha');
 ok(/H2/.test(await pg.locator('#adSis').innerText()) && /1 dia/.test(await pg.locator('#adSis').innerText()), 'administracao mostra banco e tempo no ar');
@@ -556,6 +596,7 @@ ok(await pg.locator('#smSmtp').isHidden() && await pg.locator('#smKey').isVisibl
 await pg.locator('#smV').selectOption('smtp');
 await pg.locator('[data-aj="mesa"]').click();
 await espera(500);
+if (DOM) await foto('r015-aj-mesa');
 ok(/Jogadora/.test(await pg.locator('#ajBody').innerText()), 'lista quem esta na mesa');
 await pg.click('#cvGo');
 await espera(500);
@@ -569,28 +610,31 @@ await pg.locator('[data-rol="1"]').click();
 await espera(500);
 await pg.locator('[data-aj="vocab"]').click();
 await espera(400);
+if (DOM) await foto('r016-aj-vocab');
 await pg.locator('[data-voc="sessoes"]').fill('Capítulos');
 await pg.click('#vcGo');
 await espera(500);
 ok(/CAP[ÍI]TULOS/i.test((await pg.locator('#tabs .tab').allInnerTexts()).join(' ')), 'vocabulario muda o nome da aba');
 await pg.locator('[data-aj="conta"]').click();
 await espera(400);
+if (DOM) await foto('r017-aj-conta');
 await pg.fill('#cnNome', 'Outro nome');
 await pg.click('#cnNomeOk');
 await espera(400);
 await pg.fill('#cnAtual', 'errada');
-await pg.fill('#cnNova', 'novasenha1');
-await pg.fill('#cnNova2', 'novasenha1');
+await pg.fill('#cnNova', 'nova-senha1');
+await pg.fill('#cnNova2', 'nova-senha1');
 await pg.click('#cnSenhaOk');
 await espera(400);
 ok((await pg.locator('#cnAtual').inputValue()) === 'errada', 'senha errada nao limpa os campos');
 await pg.fill('#cnAtual', 'segredo123');
 await pg.click('#cnSenhaOk');
 await espera(400);
-ok((await pg.locator('#cnAtual').inputValue()) === 'novasenha1' && (await pg.locator('#cnNova').inputValue()) === 'novasenha1'
+ok((await pg.locator('#cnAtual').inputValue()) === 'nova-senha1' && (await pg.locator('#cnNova').inputValue()) === 'nova-senha1'
   && (await pg.locator('#cnAtual').getAttribute('type')) === 'password', 'senha trocada continua nos campos, em bolinhas');
 await pg.locator('[data-aj="campanha"]').click();
 await espera(400);
+if (DOM) await foto('r018-aj-campanha');
 await pg.click('#caCapaEsc');
 await espera(600);
 await pg.locator('.eigrid button[data-pick]').first().click();
@@ -600,6 +644,7 @@ ok(/^img\//.test(camps.find(c => c.id === 1).capa || ''), 'capa escolhida nos aj
 ok(await pg.locator('#caCapa img').evaluate(i => i.naturalWidth > 0), 'previa da capa carrega nos ajustes');
 await pg.locator('[data-aj="aparencia"]').click();
 await espera(300);
+if (DOM) await foto('r019-aj-aparencia');
 ok((await pg.locator('button[data-tema]').count()) === 11, 'onze temas');
 ok((await pg.locator('.temagen').count()) === 5, 'temas agrupados em cinco estilos');
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'sangue', 'html sabe o tema em uso');
@@ -620,27 +665,32 @@ await espera(700);
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-estilo')) === 'terror', 'voltar ao tema da mesa desfaz o estilo');
 await pg.locator('[data-aj="campanha"]').click();
 await espera(400);
+if (DOM) await foto('r020-aj-campanha');
 await pg.locator('#caTema').selectOption('veu');
 await espera(1200);
 ok((await mesa(1)).tema === 'veu', 'mestre define o tema sugerido da campanha');
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'veu', 'sem tema pessoal, a sugestao ja veste a tela');
 await pg.locator('[data-aj="aparencia"]').click();
 await espera(400);
+if (DOM) await foto('r021-aj-aparencia');
 ok((await pg.locator('.temacard[data-tema="veu"] .tsug').count()) === 1 && (await pg.locator('.tsug').count()) === 1, 'o tema sugerido leva a etiqueta na lista');
 await pg.locator('[data-som="1"]').click();
 ok(await pg.evaluate(() => localStorage.getItem('grim_som')) === '1', 'da para ligar os sons');
 await pg.locator('[data-som="0"]').click();
 await pg.locator('[data-aj="campanha"]').click();
 await espera(400);
+if (DOM) await foto('r022-aj-campanha');
 await pg.locator('#caTema').selectOption('');
 await espera(1200);
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'sangue', 'tirar a sugestao volta ao padrao');
 await pg.locator('[data-aj="aparencia"]').click();
 await espera(300);
+if (DOM) await foto('r023-aj-aparencia');
 
 titulo('busca configuravel');
 await pg.locator('[data-aj="busca"]').click();
 await espera(300);
+if (DOM) await foto('r024-aj-busca');
 await pg.click('#bsCat');
 await espera(300);
 await pg.locator('.ov [data-addr="l"]').click();
@@ -670,6 +720,7 @@ ok((await mesa(1)).categoriasBusca.length === 1, 'assuntos vao para a mesa do jo
 
 titulo('indice dos livros editavel');
 await aba('Campanha');
+if (DOM) await foto('r025-aba-Campanha');
 await pg.locator('[data-cp="sec-add"]').click();
 await espera(300);
 await pg.locator('.ov [data-v="indice"]').click();
@@ -702,8 +753,10 @@ ok((await pg.locator('.ov').count()) === 0, 'Esc fecha');
 
 titulo('mesa na visao do mestre');
 await aba('Mesa');
+if (DOM) await foto('r026-aba-Mesa');
 await pg.locator('[data-msec="quem"]').click();
 await espera(400);
+if (DOM) await foto('r027-msec-quem');
 ok(await pg.locator('.qcard img').first().evaluate(i => i.naturalWidth > 0), 'foto do NPC liberado carrega na mesa');
 await pg.click('#mLib');
 await espera(350);
@@ -713,6 +766,7 @@ await espera(300);
 ok(await pg.locator('.qcard').first().evaluate(c => getComputedStyle(c, '::before').content !== 'none'), 'bloco de pessoa na mesa recebe o efeito do tema');
 await pg.locator('[data-msec="resumos"]').click();
 await espera(300);
+if (DOM) await foto('r028-msec-resumos');
 await pg.locator('#mAddRes').click();
 await espera(300);
 ok(/^\d{2}\/\d{2}\/\d{4}$/.test(await pg.locator('#rD').inputValue()), 'resumo novo ja vem com a data de hoje');
@@ -778,9 +832,11 @@ await foto('13-iniciativa');
 
 titulo('fichas');
 await aba('Mesa');
+if (DOM) await foto('r029-aba-Mesa');
 ok((await pg.locator('#mIni .inichip').count()) === nIni, 'a mesa mostra a ordem de iniciativa');
 await pg.locator('[data-msec="fichas"]').click();
 await espera(600);
+if (DOM) await foto('r030-msec-fichas');
 await pg.locator('#fxNova').click();
 await espera(700);
 await pg.locator('.ov [data-f="nome"]').fill('Aria');
@@ -824,8 +880,10 @@ await ctx.request.post(B + '/__ia/1');
 await pg.reload();
 await espera(1600);
 await aba('Mesa');
+if (DOM) await foto('r031-aba-Mesa');
 await pg.locator('[data-msec="fichas"]').click();
 await espera(700);
+if (DOM) await foto('r032-msec-fichas');
 await pg.locator('#fxArq').setInputFiles({ name: 'escaneada.pdf', mimeType: 'application/pdf', buffer: pdfImg });
 await espera(3000);
 const imp = await (await ctx.request.get(B + '/__ultimport')).json();
@@ -871,8 +929,10 @@ await pg.locator('.ov [data-f="nome"]').fill('Heroína');
 await salvar();
 ok((await pg.locator('article.pc').count()) === 1 && (await pg.locator('article.pc .semfoto').count()) === 1, 'personagem criado, sem foto');
 await aba('Campanha');
+if (DOM) await foto('r033-aba-Campanha');
 ok((await pg.locator('.passo.ok').count()) === feitos + 1, 'o passo dos personagens ficou marcado');
 await aba('Sess');
+if (DOM) await foto('r034-aba-Sess');
 ok(/Nenhuma/.test(await pg.locator('#view').innerText()), 'lista de sessoes vazia tem explicacao');
 
 titulo('guia em formato antigo fica protegido');
@@ -920,11 +980,13 @@ ok(!(await pg.locator('#btnTrilha').isVisible()), 'sem trilha para o jogador');
 ok(/Aconteceu muita coisa/.test(await pg.locator('#view').innerText()), 've o resumo');
 await pg.locator('[data-msec="quem"]').click();
 await espera(400);
+if (DOM) await foto('r035-msec-quem');
 const qimg = await pg.locator('.qcard img').first().evaluate(i => ({ src: i.getAttribute('src'), w: i.naturalWidth }));
 ok(/^\/midia\/c3\/img\//.test(qimg.src) && qimg.w > 0, 'foto do NPC passa pelo IMG() e carrega: ' + qimg.src);
 ok((await pg.locator('#view .cad.mloc').count()) === 1 && await pg.locator('#view .cad.mloc img').evaluate(i => i.naturalWidth > 0), 'lugares viram cartao com imagem');
 await pg.locator('[data-msec="notas"]').click();
 await espera(500);
+if (DOM) await foto('r036-msec-notas');
 const nota = pg.locator('#mNotas');
 const nb = await nota.boundingBox();
 await pg.mouse.move(nb.x + nb.width - 3, nb.y + nb.height - 3); await pg.mouse.down();
@@ -934,16 +996,40 @@ const tam = await pg.evaluate(() => JSON.parse(localStorage.getItem('grim_notas_
 ok(!!tam && Math.abs(tam.h - (nb.height + 120)) < 25, 'anotacoes mudam de tamanho pelo canto: ' + JSON.stringify(tam));
 await pg.locator('[data-msec="resumos"]').click();
 await espera(300);
+if (DOM) await foto('r037-msec-resumos');
 await pg.locator('[data-msec="notas"]').click();
 await espera(500);
+if (DOM) await foto('r038-msec-notas');
 ok(Math.abs((await pg.locator('#mNotas').boundingBox()).height - tam.h) < 6, 'e voltam no tamanho escolhido');
 await pg.locator('#mNotaTam').click();
 ok(await pg.evaluate(() => localStorage.getItem('grim_notas_tam')) === null, 'tamanho padrao desfaz');
 await pg.locator('[data-msec="resumos"]').click();
 await espera(300);
+if (DOM) await foto('r039-msec-resumos');
 await pg.click('#btnAjustes');
 await espera(400);
 ok((await pg.locator('[data-aj]').count()) === 5 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, tour, conta, suporte, admin');
+
+titulo('cadastro: regras de senha');
+await pg.goto(B + '/paginas/login.html');
+await espera(600);
+await pg.locator('#alt').click();
+await espera(200);
+ok(await pg.locator('#regras').isHidden(), 'a lista de regras so aparece ao comecar a digitar');
+await pg.locator('#login').fill('nova.conta');
+await pg.locator('#nome').fill('Nova');
+await pg.locator('#senha').pressSequentially('abc');
+const okR = async () => (await pg.locator('#regras li.ok').evaluateAll(l => l.map(x => x.dataset.r))).join(',');
+ok(await pg.locator('#regras').isVisible() && (await okR()) === 'letra', 'digitando, so o que ja foi cumprido fica verde: ' + await okR());
+await pg.locator('#b').click();
+await espera(300);
+ok(await pg.locator('#aviso').isVisible() && /senha fraca/i.test(await pg.locator('#aviso').innerText()) && /um número/.test(await pg.locator('#aviso').innerText()), 'senha fraca mostra um aviso em destaque com o que falta');
+await pg.locator('#senha').pressSequentially('1!x');
+ok((await okR()) === 'tam,letra,num,esp', 'cumprindo tudo, a lista fica toda verde');
+await pg.locator('#avisoX').click();
+ok(await pg.locator('#aviso').isHidden(), 'o aviso fecha no X');
+await pg.goto(B + '/');
+await espera(1500);
 
 titulo('celular');
 await pg.setViewportSize({ width: 390, height: 800 });
@@ -957,6 +1043,7 @@ for (const a of ['Campanha', 'Elenco', 'Biblioteca', 'Mesa']) {
   ok(sobra <= 1, a + ' nao estoura a largura (' + sobra + 'px)');
 }
 await aba('Campanha');
+if (DOM) await foto('r040-aba-Campanha');
 await foto('11-celular-campanha');
 await pg.locator('[data-cp="cp-ed"]').click();
 await espera(350);

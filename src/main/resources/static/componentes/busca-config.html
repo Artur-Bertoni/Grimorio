@@ -1,0 +1,29 @@
+<!-- Dados de busca da campanha e textos de envio de livros e trilha (js/busca-config.js) -->
+
+<template id="t-ajustes-busca">
+  <h2 class="sec" style="margin-bottom:1rem">Busca</h2>
+  <p class="lead">A busca varre a {{ campanha }} e o texto dos livros. Aqui você ensina a ela o jeito do seu sistema. Nada vem pronto.</p>
+  <div v-for="b in blocos" class="fld" style="margin-top:1rem"><span class="flb">{{ b.titulo }} ({{ b.n }})</span>
+    <p class="sm muted" style="margin:0">{{ b.texto }}</p>
+    <div class="addrow"><button class="btn sec" :id="b.id">Editar</button></div></div>
+</template>
+
+<template id="t-texto-livros">
+  <p><b>Para que serve.</b> Buscar uma regra no meio da {{ sessao }} (tecla <span class="kbd">/</span>) e abrir o livro direto na página, citar página em {{ fichas }} e no índice, e dar contexto às perguntas para a IA.</p>
+  <p><b>O que acontece ao enviar.</b> O PDF fica guardado no servidor e o texto de cada página entra na busca. Se o PDF tiver sumário interno (os marcadores), os capítulos são lidos e servem aos filtros de assunto. PDF escaneado, que é só imagem, abre normalmente mas não entra na busca.</p>
+  <p><b>Quem vê.</b> Livro novo entra só para você. Depois de enviado, troque para “{{ jogadores }} veem” nos que a mesa pode consultar.</p>
+  <p v-if="aviso">Arquivo grande demora: deixe esta página aberta até a barra terminar.</p>
+</template>
+
+<template id="t-texto-trilha">
+  <p><b>Para que serve.</b> Tocar música e ambiência durante a {{ sessao }} pelo botão {{ trilha }} no topo, com troca suave entre faixas, e amarrar uma faixa a uma {{ cena }} com um bloco de trilha.</p>
+  <p><b>O que acontece ao enviar.</b> As faixas ficam guardadas no servidor, agrupadas por categoria. Enviando uma pasta, cada subpasta vira uma categoria; arquivo solto entra em “Sem categoria” e pode ser movido depois.</p>
+  <p><b>Quem ouve.</b> Só você. O áudio toca no seu aparelho e nunca é enviado aos {{ jogadores }}.</p>
+</template>
+
+<template id="t-confirma-faixas">
+  <div class="aviso" v-html="texto"></div>
+  <div class="fld" style="margin-top:.875rem"><span class="flb">Como vão entrar</span>
+    <ul class="fl"><li v-for="c in categorias"><b style="color:var(--fg)">{{ c.nome }}</b> · {{ c.n }} {{ c.n === 1 ? 'faixa' : 'faixas' }}</li></ul></div>
+  <div class="formft"><button class="btn" id="cfOk">Enviar</button><button class="btn sec" id="cfNo">Cancelar</button></div>
+</template>

@@ -1,0 +1,38 @@
+<!-- Fichas de personagem: secao, lista e ficha aberta (js/fichas.js) -->
+
+<template id="t-fichas">
+  <p class="lead"><span v-if="mestre" data-solta>Você vê as fichas de todo mundo. Cada {{ vmin('jogador') }} vê só as dele.</span><span v-else data-solta>Só você e o {{ vmin('mestre') }} veem as suas fichas.</span></p>
+  <div class="addrow"><button class="btn" id="fxNova">+ ficha</button><button class="btn sec" id="fxPdf">Importar de PDF</button><input type="file" id="fxArq" accept="application/pdf,.pdf" hidden><button v-if="mestre" class="btn sec" id="fxModelo">Modelo da ficha</button></div>
+  <p class="sm muted" style="margin:.5rem 0 0">O PDF é lido no seu navegador{{ ia ? ' e a IA organiza os campos' : '' }}. Funciona melhor com ficha preenchível; PDF que é só foto escaneada não tem texto para ler.</p>
+  <div id="fxList" class="cadgrid" style="margin-top:.875rem"><p class="empty">Carregando…</p></div>
+</template>
+
+<!-- fichas: [{id, nome, dono (vazio quando nao precisa aparecer), campos, barras:[{rot, val, max}]}] -->
+<template id="t-fichas-lista">
+  <button v-for="f in fichas" class="cad fxcard" :data-ficha="f.id"><div class="cb"><b>{{ f.nome }}</b>
+    <p>{{ f.dono ? 'de ' + f.dono + ' · ' : '' }}{{ f.campos }} campos</p>
+    <div class="ct2"><span v-for="x in f.barras" class="chip">{{ x.rot }} {{ x.val || 0 }}/{{ x.max }}</span></div></div></button>
+  <p v-if="!fichas.length" class="empty" style="grid-column:1/-1">Nenhuma ficha ainda. Crie uma ou importe um PDF.</p>
+</template>
+
+<!-- secoes: [{nome, resto:[{x, i, pc}], nums:[{x, i}]}]; i e o indice do campo na ficha -->
+<template id="t-ficha-corpo">
+  <p v-if="!secoes.length" class="empty">Ficha vazia. Use Editar para pôr os campos.</p>
+  <div v-else class="fxsecs">
+    <section v-for="s in secoes" class="fxsec"><h4>{{ s.nome }}</h4>
+      <span v-for="o in s.resto" data-solta>
+        <div v-if="o.x.tipo === 'barra'" class="fxbar"><span>{{ o.x.rot }}</span><div class="fxtrilho"><i :style="'width:' + o.pc + '%'"></i></div><button class="tbtn" :data-fb="o.i" data-d="-1" aria-label="Menos">−</button><b>{{ o.x.val || 0 }}{{ parseFloat(o.x.max) ? ' / ' + o.x.max : '' }}</b><button class="tbtn" :data-fb="o.i" data-d="1" aria-label="Mais">+</button></div>
+        <label v-else-if="o.x.tipo === 'check'" class="fxck"><input type="checkbox" :data-fc="o.i" v-attr:checked="!!o.x.val && o.x.val !== '0'"> {{ o.x.rot }}</label>
+        <div v-else-if="o.x.tipo === 'area'" class="fxarea"><span>{{ o.x.rot }}</span><p>{{ o.x.val }}</p></div>
+        <div v-else class="fxtxt"><span>{{ o.x.rot }}</span><b>{{ o.x.val }}</b></div>
+      </span>
+      <div v-if="s.nums.length" class="fxnums"><span v-for="o in s.nums" data-solta>
+        <button v-if="rola" class="fxnum" :data-fn="o.i" title="Clique para rolar"><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button>
+        <button v-else class="fxnum" :data-fn="o.i" disabled><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button></span></div>
+    </section>
+  </div>
+</template>
+
+<template id="t-ficha-cabeca">
+  <button v-if="mestre" class="ibtn" id="fxMod" title="Os campos desta ficha viram o modelo das próximas">Usar como modelo</button><button class="ibtn" id="fxEd">Editar</button>
+</template>

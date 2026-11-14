@@ -25,7 +25,7 @@ public class BancoConfig {
     private static final Logger log = LoggerFactory.getLogger(BancoConfig.class);
 
     @Bean
-    public DataSource dataSource(Environment env, AppProps props) throws Exception {
+    DataSource dataSource(Environment env, AppProps props) throws Exception {
         HikariConfig cfg = new HikariConfig();
         cfg.setPoolName("grimorio");
         cfg.setMaximumPoolSize(Integer.parseInt(primeiroOu(env, "5", "DB_POOL")));

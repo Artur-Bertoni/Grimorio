@@ -1,9 +1,10 @@
 package br.com.grimorio.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,7 @@ public class IaService {
     private static final Logger log = LoggerFactory.getLogger(IaService.class);
 
     private final ConfigService config;
-    private final ObjectMapper om = new ObjectMapper();
+    private final ObjectMapper om = JsonMapper.builder().build();
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -185,7 +186,7 @@ public class IaService {
                 String msg = "a API respondeu " + res.statusCode();
                 try {
                     JsonNode err = om.readTree(res.body()).path("error").path("message");
-                    if (!err.isMissingNode()) msg += ": " + err.asText();
+                    if (!err.isMissingNode()) msg += ": " + err.asString();
                 } catch (Exception ignore) { }
                 log.warn("IA falhou: {} / {}", res.statusCode(), recorta(res.body()));
                 throw new IllegalStateException(msg);
@@ -194,7 +195,7 @@ public class IaService {
             JsonNode n = om.readTree(res.body());
             StringBuilder out = new StringBuilder();
             for (JsonNode bloco : n.path("content")) {
-                if ("text".equals(bloco.path("type").asText())) out.append(bloco.path("text").asText());
+                if ("text".equals(bloco.path("type").asString())) out.append(bloco.path("text").asString());
             }
             return out.toString().trim();
 

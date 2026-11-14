@@ -1,10 +1,11 @@
 package br.com.grimorio.service;
 
 import br.com.grimorio.config.AppProps;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,7 @@ public class IndiceService {
     private static final String VAZIO = "{\"docs\":[],\"pages\":[]}";
 
     private final AppProps props;
-    private final ObjectMapper om = new ObjectMapper();
+    private final ObjectMapper om = JsonMapper.builder().build();
 
     private final Map<String, String> cache = new ConcurrentHashMap<>();
 
@@ -104,7 +105,7 @@ public class IndiceService {
 
     private String texto(JsonNode n, String campo) {
         JsonNode v = n.get(campo);
-        return v == null || v.isNull() ? "" : v.asText();
+        return v == null || v.isNull() ? "" : v.asString();
     }
 
     private List<String> arquivos(Long campanhaId) {

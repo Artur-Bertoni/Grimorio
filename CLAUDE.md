@@ -1,7 +1,7 @@
 # Grimório
 
 Painel de mesa de RPG, agnóstico de sistema. Uma instância serve várias campanhas e
-vários mestres. Spring Boot 3.3.5 / Java 21 no backend, HTML + JS puro no front,
+vários mestres. Spring Boot 4.1 / Java 25 no backend, HTML + JS puro no front,
 PostgreSQL em produção e H2 em arquivo no local, deploy no Railway por Dockerfile.
 
 O `README.md` é para quem vai subir uma instância. Este arquivo é para quem mexe no
@@ -21,7 +21,7 @@ Sem `DATABASE_URL` ele cai para H2 em arquivo dentro de `./dados`. Nenhuma conta
 criada no boot: abra o site e clique em **Criar uma conta**, e a primeira vira a
 administradora da instância.
 
-Não existe suíte de testes automatizados. O que existe é descrito em "Como testar".
+Não existe suíte JUnit. O que existe (teste de API contra o jar de verdade e teste de tela) é descrito em "Como testar".
 
 ## Mapa do código
 
@@ -31,24 +31,68 @@ src/main/java/br/com/grimorio/
   config/     SecurityConfig, BancoConfig, MidiaAutorizacao, AjusteEsquema,
               Inicializacao, WebConfig, AppProps
   model/      Usuario, Campanha, Membro, Convite, Documento, Anotacao,
-              MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado,
-              + Doc e Nota (legado)
+              MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado
   repo/       um repositório Spring Data por entidade
   service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
               PacoteService, UsuarioService, ConfigService, IaService,
-              RolagemService, SuporteService, MigracaoService
+              RolagemService, SuporteService
   web/        um controller por área, todos sob /api
 src/main/resources/
-  static/index.html   O APP INTEIRO: ~200 KB de HTML, CSS e JS num arquivo só
-  static/login.html   login e cadastro
-  static/vendor/      pdf.js e as fontes, para não depender de CDN
+  static/index.html   a casca: marcação fixa, e a lista ordenada de css/ e js/
+  static/paginas/     templates HTML das páginas (campanha, sessoes, sessao, elenco,
+                      biblioteca, mesa, configuracoes) e login.html, a única página
+                      inteira dali: é pública, aberta em SecurityConfig, e /login.html
+                      redireciona para ela (WebConfig)
+  static/componentes/ templates HTML dos componentes (janelas, formulário, busca, dados,
+                      fichas, momentos, logo, estados de carregando/vazio…)
+  static/css/         folhas de estilo, na ordem da cascata (pele.css em diante: tema)
+  static/js/          o JS que preenche e liga cada página ou componente (nucleo,
+                      componentes, tema, tour, cena, pagina-*, configuracoes, render…)
+  static/vendor/      pdf.js (módulos .mjs), petite-vue e as fontes, para não depender de CDN
   application.yml
 ```
 
-`static/index.html` não é um esqueleto com scripts separados: é o app. Um `<style>`
-grande, um `<script>` grande, tudo em JS de navegador antigo (`var`, `function`, sem
-módulos, sem build). Não introduza bundler, framework nem TypeScript sem combinar: o
-ponto do arquivo único é que o jar sobe sem passo de build de front.
+O front é JS de navegador sem build: `var`, `function`, sem módulos. Não introduza
+bundler, framework nem TypeScript sem combinar: o jar sobe sem passo de build de front.
+Três regras seguram a divisão em arquivos:
+
+- **A ordem das tags em `index.html` é a ordem de execução.** Todo arquivo é script
+  clássico (a única exceção é o pdf.js, que só existe como módulo ES: um `<script type="module">` inline
+  põe `window.pdfjsLib` e o worker; ele roda depois dos clássicos, então só use `pdfjsLib` dentro de função) com `"use strict"` no topo, e os nomes de topo de todos eles dividem o mesmo
+  escopo global. Código que *roda ao carregar* só pode usar o que arquivos anteriores
+  declararam; dentro de funções, qualquer nome serve. `inicio.js` é o último e dá a partida.
+- **Nome de topo novo não pode repetir nome do navegador** (`name`, `status`, `open`,
+  `print`…): virou global, e colidir quebra em silêncio.
+- **A ordem dos `<link>` de CSS é a cascata.** `pele.css`, `estilos.css`, `imersao.css`
+  e `momentos.css` vêm depois das folhas de layout de propósito, e `movimento.css`
+  (quem pediu menos movimento) é sempre a última.
+
+### Templates: o HTML mora em arquivo .html, não no JS
+
+Nenhum JS monta marcação em string. A marcação fica em `<template id="t-…">` dentro de
+`paginas/*.html` e `componentes/*.html`; o JS só junta os dados e liga os eventos.
+`componentes.js` lê todos esses arquivos uma vez antes da partida (lista `TEMPLATES`:
+**arquivo novo de template entra nela**) e `htmlDe("t-x", dados)` devolve o HTML pronto,
+preenchido pelo petite-vue (`vendor/petite-vue.js`, 6 KB, sem build). É só motor de
+template: ninguém usa reatividade nem `@click`. O fluxo de sempre continua: `viewX()`
+devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id e `data-*`.
+
+- `{{ }}` escapa sozinho. `v-html` só para encaixar **outro template já preenchido** (a
+  logo, o corpo de uma janela), nunca texto vindo de pessoa.
+- `<span data-solta v-html="…">` encaixa sem deixar o `<span>`: `htmlDe` tira o envoltório.
+  Também serve com `v-if`/`v-for` para repetir ou condicionar texto solto sem elemento.
+- **`v-attr:nome` para `value`, `checked`, `selected`, `placeholder`, `title` opcional.**
+  O `:nome` do petite-vue escreve na *propriedade* quando ela existe: propriedade não vai
+  para o `innerHTML` (o campo chegaria vazio) e `null` vira o texto `"null"`. `v-attr`
+  grava o atributo; `null`/`false` tiram. Conteúdo de `<textarea>` vai como `{{ }}`.
+- Dentro de `<svg>`, nada de `<template v-for>`: o parser cria um elemento SVG chamado
+  template. Ponha o `v-for` no próprio elemento.
+- O template enxerga as funções globais (`V`, `Vm`, `vmin`, `IMG`, `mb`, `catColor`…).
+  `vmin(k)` é o rótulo do vocabulário em minúscula. Conta, comparação de identidade com
+  objeto do guia e regra de negócio ficam no JS: o petite-vue embrulha os dados em proxy.
+- Recuo com quebra de linha some do HTML final (`limpaAncoras`); espaço na mesma linha
+  (`</b> <span>`) fica. Entre botões inline, quebre a linha para não criar vão.
+- Para criar só a casca de um elemento (toast, janela), use `el()`.
 
 ## Modelo de dados
 
@@ -63,8 +107,9 @@ com versão otimista.
   `{versao:3, campanha:{titulo, sistema, apresentacao, secoes:[…], vocab, referencia},
   elenco:{personagens:[], npcs:[], locais:[], pistas:[]}, sessoes:[…]}`. Cada sessão
   guarda `cenas`, `territorios` e os **ids** do elenco que usa (`npcIds`, `localIds`,
-  `pistaIds`). A rota exige MESTRE. Guia v2 é convertido por `migrarV3()` ao abrir, e
-  os campos antigos ficam no JSON de propósito.
+  `pistaIds`). A rota exige MESTRE. Só existe esse formato (`FORMATO_GUIA` em
+  `nucleo.js`): guia gravado num formato anterior abre a tela de erro e **não é regravado**,
+  para nunca sobrescrever conteúdo que o código atual não entende.
 - **mesa** (`chave = "mesa"`): o recorte que o jogador vê. Resumos, evidências
   liberadas, quem é quem, locais, vocabulário, referência, tema, nome da IA.
 
@@ -103,7 +148,7 @@ Antes de gravar, o servidor confere o espaço livre. Sem espaço, ainda aceita c
 existe (o link não ocupa nada); senão responde **507** com `codigo: "armazenamento-cheio"`,
 e a tela mostra `avisoArmazenamento()` com o caminho para o suporte.
 
-**Suporte** (`/api/suporte`, Ajustes › Suporte): a mensagem é gravada na tabela `chamado`
+**Suporte** (`/api/suporte`, Configurações › Suporte): a mensagem é gravada na tabela `chamado`
 sempre e enviada por SMTP quando ele está configurado em Administração (`smtp.*` na tabela
 `config`; a senha nunca volta para o navegador). O destino padrão é `grimorio.suporte-email`.
 A biblioteca de e-mail entra direto (`jakarta.mail` + `angus-mail`), sem o starter, com
@@ -174,7 +219,8 @@ ela lá.** Não há Flyway de propósito: migração não testada é mais arrisc
 **3. `index.html` precisa de `<!doctype html>` e `<meta charset="utf-8">`.** Sem isso
 o navegador adivinha Windows-1252, corrompe a regex de normalização de acento
 (`[̀-ͯ]` em `norm()`) e o SyntaxError mata o script inteiro: tela branca
-depois do login. Existe também o filtro `charsetDeTexto` em `WebConfig`.
+depois do login. Os `.js` e `.css` dependem do filtro `charsetDeTexto` em `WebConfig`,
+que manda `charset=utf-8`: arquivo de front com outra extensão precisa entrar nele.
 
 **4. Caminho de imagem sempre passa por `IMG()`.** O guia guarda caminho relativo
 (`img/foo.webp`), nunca URL. `IMG()` prefixa com `MIDIABASE` (`/midia/c{cid}/`).
@@ -211,17 +257,17 @@ fantasia, terror, mistério, investigação, ficção científica), e é o estil
 letra dos títulos, o arredondamento, o ornamento e o fundo. `aplicarTema()` grava os
 tokens e põe `data-estilo` e `data-esquema` no `<html>`.
 
-Tudo isso mora na última folha de estilo do `index.html`, marcada `PELE`. Ela vem por
-último de propósito: veste o que as folhas de cima desenharam. Regra nova de forma,
+Tudo isso mora em `css/pele.css` e nas folhas seguintes (`estilos.css`, `imersao.css`,
+`momentos.css`), que vêm depois das de layout de propósito: veste o que as folhas de cima desenharam. Regra nova de forma,
 sombra, transição ou animação vai para lá; diferença entre estilos vai em
 `html[data-estilo="…"]`, com os tokens `--rc` (canto de bloco), `--rb` (canto de
 botão), `--gli` (glifo do ornamento, usado como máscara) e `--faixa` (a faixa do topo
 dos blocos). `--rc` e `--rb` podem ter quatro valores: só servem em `border-radius`
 inteiro. Tema novo é uma entrada em `TEMAS`; estilo novo é uma entrada em `ESTILOS`, um
-bloco na PELE e, se a fonte for nova, os `.woff2` em `vendor/fonts` com a regra em
+bloco em `estilos.css` e, se a fonte for nova, os `.woff2` em `vendor/fonts` com a regra em
 `vendor/fontes.css`.
 
-Além do estilo, **cada tema tem um efeito próprio** (bloco "IMERSAO" da PELE, por
+Além do estilo, **cada tema tem um efeito próprio** (`css/imersao.css`, por
 `html[data-tema="…"]`): o que acontece no bloco quando o mouse passa (sangue escorre,
 vinha cresce, LED corre na borda), o desenho da barra da música (tokens `--sk-*`) e, por
 estilo, a virada de página do PDF e o jeito de o dado rolar. Três convenções seguram isso:
@@ -245,7 +291,7 @@ Movimento tem três regras que já evitaram defeito:
 - **Janela que fecha sai do DOM na hora.** O `Voltar` e os testes contam com isso. Quem
   desaparece devagar é uma cópia inerte (`fantasma()`, classe `ovg`, dentro de
   `#fantasmas`), sem id e sem clique.
-- **Tudo desliga.** `prefers-reduced-motion` e Ajustes › Aparência › Movimento
+- **Tudo desliga.** `prefers-reduced-motion` e Configurações › Aparência › Movimento
   (`grim_fx`, `html[data-fx="off"]`) zeram animação e transição. Animação nova não pode
   terminar num estado escondido, senão quem desligou fica sem ver o elemento.
 
@@ -259,7 +305,7 @@ O tema ativo se resolve em `temaAtivo()`: "nesta campanha sigo o mestre"
 
 **Tour guiado** (`iniciarTour(p)`, `passosTour(p)`): um roteiro para mestre e outro para
 jogador, disparado na primeira entrada com aquele papel (`grim_tour_{papel}_{id}`) e revisto em
-Ajustes › Tour guiado. Cada passo é `{a: seletor, ir: troca de tela, t, x}`. Funcionalidade
+Configurações › Tour guiado. Cada passo é `{a: seletor, ir: troca de tela, t, x}`. Funcionalidade
 nova que aparece na tela ganha um passo, e o teste anda pelos dois tours e falha se algum
 seletor não achar o elemento. Atalho de teclado novo precisa respeitar `TOUR` aberto.
 
@@ -297,7 +343,8 @@ formulario("Editar · npc", [
 - **Remoção não pergunta "tem certeza?": faz e oferece desfazer** (`comDesfazer`), que
   guarda o guia e a mesa inteiros por 7 segundos. A exceção é arquivo no servidor
   (Biblioteca) e apagar a campanha: aí não tem volta, então a confirmação é de verdade.
-- `E(obj, chave)` continua existindo, mas é só um `esc()`.
+- Um campo é o template `t-campo` (`componentes/formulario.html`); tipo novo de campo
+  é um ramo `v-else-if` lá, e o grupo monta as linhas por dentro chamando `campoHtml`.
 - `escolherImagem(atual)` é o único seletor de imagem: devolve o caminho relativo,
   `""` para tirar, ou `null` se fechou sem escolher.
 
@@ -307,10 +354,10 @@ fazia cada "adicionar" jogar a pessoa para o começo da página. Cena aberta
 
 As abas do mestre são Campanha (`home`), Sessões (`sessoes` é a lista, `sessao` é uma
 aberta), Elenco, Biblioteca e Mesa; a engrenagem abre `ajustes`. Quem renderiza uma
-aba nova: devolva string de HTML numa `viewX()`, ligue os eventos numa `hydrateX(v)`,
-e registre as duas no `render()` e em `renderTabs()`.
+aba nova: escreva o template em `paginas/`, devolva `htmlDe(...)` numa `viewX()`, ligue
+os eventos numa `hydrateX(v)` e registre as duas no `render()` e em `renderTabs()`.
 
-As seções de Ajustes reaproveitam as funções `abrirMembros`, `abrirCampanha`,
+As seções de Configurações (a engrenagem; no código, `S.view="ajustes"` e `viewAjustes`) reaproveitam as funções `abrirMembros`, `abrirCampanha`,
 `abrirVocabulario`, `abrirReferencia`, `abrirAdmin` e `abrirConta`: o segundo
 parâmetro (`mk`) troca o overlay por `emPagina(alvo)`, que monta o mesmo HTML dentro
 da página.
@@ -328,15 +375,32 @@ node teste.mjs                             # FOTOS=pasta grava capturas das tela
 FOTOS=pasta node fotos-temas.mjs           # as telas principais em um tema de cada estilo
 ```
 
-O stub gera a campanha de teste e as imagens na hora, então roda em qualquer máquina
-sem conteúdo por perto. **A campanha 1 do stub nasce no formato antigo (v2) de
-propósito**: é ela que prova que a migração para a v3 funciona. Mexeu no front, rode
+O stub gera as imagens na hora e lê a campanha de teste de `campanha-teste.json`, no
+formato do guia de verdade, então roda em qualquer máquina sem conteúdo por perto. O
+roteiro também grava um guia em formato antigo e confere que ele abre com aviso e não é
+regravado. Mexeu no front, rode
 isso antes de dar por pronto: `node --check` pega sintaxe, não pega `função is not
 defined`, seletor que mudou de nome, nem imagem que não carrega. Mexeu em layout,
 rode com `FOTOS=` e olhe as capturas: teste nenhum avalia se ficou bom de usar.
 
 Cuidado ao conferir texto com `innerText`: ele devolve o texto já com o
 `text-transform` do CSS aplicado, então rótulo em caixa alta só casa com regex `/i`.
+
+**Teste de API (`scripts/teste-api/teste.mjs`)**: bate no jar de verdade, sem stub: cadastro e senha, login e
+CSRF, guia com versão, separação mestre/jogador (guia, mídia, PDF, índice, ficha, admin, rolagem fechada),
+upload, PDF no PDFBox, pacote (exportar e importar) e suporte. Precisa de uma instância **sem contas** e
+de um `java` do JDK 25 (o do PATH pode ser mais velho que o do Maven):
+
+```bash
+mvn -DskipTests package
+cd pasta-vazia && PORT=8123 "$JAVA_HOME/bin/java" -jar /caminho/target/grimorio.jar &
+BASE=http://127.0.0.1:8123 node scripts/teste-api/teste.mjs
+# contra Postgres: DATABASE_URL=postgresql://postgres:pg@localhost:55432/grim (docker run postgres)
+```
+
+Mexeu em controller, segurança, entidade ou dependência: rode isto além do teste de tela. Foi ele que pegou
+o `AuthorizationManager` quebrado na migração para o Spring Security 7 (`check` virou `authorize`; sem
+isso `/api/admin` e `/midia` davam 500 e o app compilava e subia normal).
 
 SQL de schema vale testar contra um Postgres de verdade, não por leitura. As duas
 armadilhas do `ddl-auto` acima foram confirmadas assim.

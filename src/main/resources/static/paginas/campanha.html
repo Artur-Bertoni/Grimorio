@@ -1,0 +1,61 @@
+<!-- Lista de campanhas, primeira entrada e aba Campanha (js/pagina-campanha.js) -->
+
+<template id="t-guia-falhou">
+  <div class="panel" style="padding:1.375rem;margin-top:1.625rem;max-width:80ch">
+    <span class="eyebrow">Guia não carregado</span>
+    <h1 class="page" style="margin:.375rem 0 .625rem">Seus dados não vieram</h1>
+    <p class="lead">O app está em modo mestre, mas não conseguiu ler o guia no banco. Nada foi perdido: o conteúdo continua salvo, só não chegou nesta sessão.</p>
+    <p v-if="motivo" class="sm muted" style="margin-top:.5rem">Motivo: {{ motivo }}</p>
+    <div class="addrow" style="margin-top:.875rem"><button class="btn" id="vwRetry">Tentar de novo</button></div></div>
+</template>
+
+<!-- capa: url da imagem, ou vazio para mostrar a inicial -->
+<template id="t-capa">
+  <div class="ccimg"><img v-if="capa" :src="capa" alt="" loading="lazy"><span v-else class="ccini">{{ inicial }}</span></div>
+</template>
+
+<!-- campanhas: [{id, nome, sistema, mestre, arquivada, capa (HTML)}]; sem campanhas, a tela de primeira entrada -->
+<template id="t-campanhas">
+  <p class="eyebrow">Grimório</p>
+  <span v-if="campanhas" data-solta><h1 class="page">Suas campanhas</h1>
+    <div class="campgrid">
+      <button v-for="c in campanhas" :class="'ccard' + (c.arquivada ? ' arq' : '')" :data-entrar="c.id"><span data-solta v-html="c.capa"></span>
+        <div class="ccb"><b>{{ c.nome }}</b><span class="ccsis">{{ c.sistema || 'sem sistema definido' }}</span>
+          <div class="ccft"><span :class="'chip' + (c.mestre ? ' g' : '')">{{ c.mestre ? 'você mestra' : 'você joga' }}</span><span v-if="c.arquivada" class="chip">arquivada</span><span class="go">abrir ›</span></div></div></button>
+    </div></span>
+  <span v-else data-solta><h1 class="page">Comece pela sua campanha</h1>
+    <p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou entre numa com a chave que quem mestra te passou.</p></span>
+  <div class="campforms">
+    <div class="caixa"><span class="flb">Criar uma campanha</span>
+      <div class="addrow"><input class="inp" id="ncNome" placeholder="nome da campanha"><input class="inp" id="ncSis" placeholder="sistema de regras (opcional)"><button class="btn" id="ncGo">Criar</button></div>
+      <div class="addrow" style="align-items:center"><button class="btn sec" id="ncPac">Escolher pacote (.zip)</button><span class="sm muted" id="ncPacNome">Nenhum pacote escolhido</span></div>
+      <p class="sm muted">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar e ele entra junto, com guia, índices de busca e imagens.</p></div>
+    <div class="caixa"><span class="flb">Entrar numa campanha existente</span>
+      <div class="addrow"><input class="inp" id="ncChave" placeholder="cole aqui a chave ou o link do convite"><button class="btn" id="ncEntrar">Entrar</button></div>
+      <p class="sm muted">Quem mestra gera essa chave em Configurações › Mesa e convites.</p></div>
+  </div>
+</template>
+
+<!-- passos: so vem quando ainda falta algum dos tres primeiros; proxima: HTML da linha da sessao;
+     secoes: [{i, titulo, tipo, texto, itens}]; indice: [{nome, linhas:[{cls, t, ref, p}]}] -->
+<template id="t-home">
+  <div class="pagehd"><div><p class="eyebrow">{{ c.sistema || 'sistema não definido' }}</p><h1 class="page">{{ c.titulo || 'Sem título' }}</h1></div><button class="edb" data-cp="cp-ed">editar</button></div>
+  <p v-if="c.apresentacao" class="lead sectxt" style="margin-top:.625rem">{{ c.apresentacao }}</p>
+  <div class="seccols">
+    <div v-if="passos" class="sec-wrap"><div class="sechd"><h2 class="sec">Primeiros passos</h2><button class="tbtn" data-cp="cp-semp">dispensar</button></div>
+      <div class="passos"><div v-for="(p, i) in passos" :class="'passo' + (p.ok ? ' ok' : '')"><span class="pn">{{ p.ok ? '✓' : i + 1 }}</span><div><b>{{ p.t }}</b><p>{{ p.d }}</p></div><button class="btn sec" :data-cp="p.a">{{ p.b }}</button></div></div></div>
+    <div v-if="nSessoes" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ proxima ? 'Próxima ' + vmin('sessao') : Vm('sessoes') }}</h2><button class="tbtn" data-cp="ir-sessoes">ver todas ({{ nSessoes }})</button></div>
+      <div v-if="proxima" class="eps" v-html="proxima"></div>
+      <p v-else class="muted sm" style="margin:0">Todas as {{ vmin('sessoes') }} estão encerradas.</p></div>
+    <div v-for="s in secoes" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ s.titulo || 'Sem título' }}</h2>
+        <span class="blktools"><button class="edb" :data-sec="s.i">editar</button><button class="tbtn" :data-secmv="s.i + ':-1'" title="Subir">↑</button><button class="tbtn" :data-secmv="s.i + ':1'" title="Descer">↓</button></span></div>
+      <p v-if="s.texto" class="lead sectxt" style="margin:0">{{ s.texto }}</p>
+      <ul v-if="s.tipo === 'lista' && s.itens.length" class="fl"><li v-for="x in s.itens">{{ x }}</li></ul>
+      <div v-if="s.tipo === 'cartoes' && s.itens.length" class="grid met"><div v-for="m in s.itens" class="c"><b>{{ m.t }}</b><p class="sectxt">{{ m.d }}</p></div></div>
+      <p v-if="s.vazia" class="muted sm" style="margin:0">Seção vazia.</p></div>
+  </div>
+  <div class="addrow" style="margin-top:1.75rem"><button class="btn sec" data-cp="sec-add">+ seção</button></div>
+  <div v-if="indice.length" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ c.indiceTitulo || 'Índice dos livros' }}</h2><span class="blktools"><button class="edb" data-cp="idx-ed">editar</button></span></div>
+    <p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p>
+    <div class="grid idx"><div v-for="d in indice" class="doc"><b>{{ d.nome }}</b><ul><li v-for="l in d.linhas" :class="l.cls">{{ l.t }}<span v-if="l.p" data-solta> <span class="pg" :data-open="l.ref + ':' + l.p">p{{ l.p }}</span></span></li></ul></div></div></div>
+</template>

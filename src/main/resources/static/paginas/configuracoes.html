@@ -1,0 +1,194 @@
+<!-- Configuracoes (a engrenagem) e as janelas que ela monta dentro da pagina (js/configuracoes.js) -->
+
+<template id="t-ajustes">
+  <span data-solta v-html="cabeca"></span>
+  <div style="margin-top:1rem" v-html="abas"></div><div id="ajBody" class="ajbody"></div>
+</template>
+
+<!-- a janela de ajuste montada dentro da pagina, no lugar do overlay -->
+<template id="t-em-pagina">
+  <h2 class="sec" style="margin-bottom:1rem">{{ titulo }}</h2><span data-solta v-html="corpo"></span>
+</template>
+
+<template id="t-aj-tour">
+  <h2 class="sec" style="margin-bottom:1rem">Tour guiado</h2>
+  <p class="lead">Um passeio por todas as partes do Grimório, passo a passo. Dá para pular a qualquer momento.</p>
+  <div class="tourajuste"><span v-if="mestre" data-solta><button class="btn" id="tourMestre">Rever o tour do mestre</button><button class="btn sec" id="tourJog">Ver o tour do jogador</button></span><button v-else class="btn" id="tourJog">Rever o tour</button></div>
+</template>
+
+<template id="t-aj-sair">
+  <div class="fld" style="margin-top:1.125rem"><span class="flb">Sair</span><div class="addrow"><button v-if="sairCampanha" class="btn sec" id="mSaiCamp">Sair desta {{ vmin('campanha') }}</button><button class="btn sec" id="mSair">Sair da conta</button></div></div>
+</template>
+
+<!-- temas: HTML da escolha de tema; ia: mostra o nome da IA (mestre, dentro de uma campanha) -->
+<template id="t-aj-aparencia">
+  <h2 class="sec" style="margin-bottom:1rem">Aparência</h2><span data-solta v-html="temas"></span>
+  <div v-if="ia" class="fld" style="margin-top:1rem"><span class="flb">Nome da IA</span>
+    <div class="addrow" style="align-items:center"><select id="iaA" class="selmini"><option value="ao">ao</option><option value="à">à</option><option value="a">a</option></select><input id="iaN" class="inp" placeholder="Claude" v-attr:value="iaNome"><button class="btn sec" id="iaOk">Salvar</button></div>
+    <p class="sm muted">Fica assim no botão da busca: <b id="iaPrev" style="color:var(--gold)"></b>. Vazio volta para Claude.</p></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Atalhos</span><ul class="fl sm">
+    <li><span class="kbd">/</span> ou <span class="kbd">Ctrl</span>+<span class="kbd">K</span> abre a busca</li>
+    <li><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> salva o formulário aberto</li>
+    <li><span class="kbd">Esc</span> fecha a janela de cima</li>
+    <li>No visor de PDF e na {{ vmin('cena') }} aberta: setas passam para a próxima</li></ul></div>
+</template>
+
+<!-- ---------- mesa e convites ---------- -->
+
+<template id="t-membros">
+  <div id="mbList"><p class="muted sm">carregando…</p></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Rolagens dos {{ vmin('jogadores') }}</span>
+    <div class="fchips" style="margin:0"><button class="fchip" data-rol="1">Abertas para a mesa</button><button class="fchip" data-rol="0">Só quem rolou e o {{ vmin('mestre') }}</button></div>
+    <p class="sm muted">Vale para os dados que os {{ vmin('jogadores') }} rolam pelo botão Dados. As suas, você escolhe na hora de rolar.</p></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Convidar</span>
+    <div class="addrow"><input class="inp" id="cvRot" placeholder="para quem (opcional)"><select id="cvPap" class="selmini"><option value="JOGADOR">jogador</option><option value="MESTRE">mestre</option></select><input class="inp" id="cvUsos" type="number" min="1" max="50" value="1" style="max-width:5.625rem" title="quantas pessoas podem usar"><input class="inp" id="cvDias" type="number" min="1" max="365" value="30" style="max-width:5.625rem" title="dias de validade"><button class="btn" id="cvGo">Gerar link</button></div>
+    <p class="sm muted">O link leva direto para a campanha. Quem ainda não tem conta cria uma na hora.</p></div>
+  <div id="cvList" style="margin-top:.75rem"></div>
+</template>
+
+<template id="t-membros-lista">
+  <div v-for="m in membros" class="npcrow" style="justify-content:space-between"><div><b>{{ m.nome }}</b> <span class="muted sm">{{ m.login }} · {{ m.papel === 'MESTRE' ? 'mestre' : 'jogador' }}{{ m.dono ? ' · dono' : '' }}</span></div>
+    <div v-if="!m.dono" style="display:flex;gap:.375rem"><button class="tbtn" :data-pap="m.usuarioId" :data-v="m.papel === 'MESTRE' ? 'JOGADOR' : 'MESTRE'">{{ m.papel === 'MESTRE' ? 'tornar jogador' : 'tornar mestre' }}</button><button class="tbtn d" :data-rm="m.usuarioId">tirar</button></div></div>
+  <p v-if="!membros.length" class="empty">Só você por enquanto.</p>
+</template>
+
+<!-- convites: [{id, rotulo, papel, usos, usosMax, valido, url}] -->
+<template id="t-convites-lista">
+  <span v-if="convites.length" data-solta><span class="flb">Links ativos</span>
+    <div v-for="c in convites" class="npcrow" style="justify-content:space-between"><div style="min-width:0"><b>{{ c.rotulo || 'convite' }}</b> <span class="muted sm">{{ c.papel === 'MESTRE' ? 'mestre' : 'jogador' }} · {{ c.usos }}/{{ c.usosMax }}{{ c.valido ? '' : ' · expirado' }}</span>
+      <p class="sm muted" style="overflow-wrap:anywhere">{{ c.url }}</p></div>
+      <div style="display:flex;gap:.375rem"><button class="tbtn" :data-cp="c.url">copiar</button><button class="tbtn d" :data-cvdel="c.id">apagar</button></div></div></span>
+</template>
+
+<!-- ---------- configuracoes da campanha ---------- -->
+
+<!-- capa: HTML da capa; estilos: [{nome, temas:[{k, nome}]}] -->
+<template id="t-campanha-config">
+  <div class="fld"><span class="flb">Identificação</span>
+    <div class="addrow"><input class="inp" id="caNome" placeholder="nome" v-attr:value="nome"><input class="inp" id="caSis" placeholder="sistema de regras" v-attr:value="sistema"><button class="btn" id="caGo">Salvar</button></div>
+    <p class="sm muted">O sistema entra no contexto que a IA recebe.</p></div>
+  <div class="fld"><span class="flb">Capa</span>
+    <div class="capapick"><span id="caCapa" v-html="capa"></span><div class="addrow"><button class="btn sec" id="caCapaEsc">Escolher imagem</button><button class="btn sec" id="caCapaTira" v-attr:hidden="!temCapa">Tirar a capa</button></div></div>
+    <p class="sm muted">Aparece no cartão da {{ vmin('campanha') }} na lista de {{ vmin('campanhas') }}, para você e para os {{ vmin('jogadores') }}. Formato largo (16:9) fica melhor.</p></div>
+  <div class="fld"><span class="flb">Tema sugerido</span>
+    <select id="caTema" class="selmini" style="max-width:22rem"><option value="">sem sugestão</option><optgroup v-for="e in estilos" :label="e.nome"><option v-for="t in e.temas" v-attr:value="t.k" v-attr:selected="t.k === tema">{{ t.nome }}</option></optgroup></select>
+    <p class="sm muted">Quem entra na {{ vmin('campanha') }} pela primeira vez vê a sugestão e escolhe se usa. Na lista de temas ela aparece marcada como sugerida.</p></div>
+  <div class="fld"><span class="flb">Pacote da campanha</span>
+    <div class="addrow"><a class="btn sec" id="caExp" href="#">Exportar pacote</a><button class="btn sec" id="caImp">Importar pacote</button><label class="sm muted" style="display:flex;align-items:center;gap:.375rem"><input type="checkbox" id="caSub"> substituir guia e mesa</label></div>
+    <p class="sm muted">O pacote leva guia, mesa, índices de busca e imagens. PDFs e trilha ficam de fora: são grandes e cada mestre tem os seus. Sem marcar a caixa, a importação só traz índices e imagens.</p></div>
+  <div class="fld"><span class="flb">Zona de risco</span>
+    <div class="addrow"><button class="btn dang" id="caDel">Apagar esta campanha</button></div>
+    <p class="sm muted">Apaga guia, mesa, recados, anotações e toda a mídia. Não dá para desfazer.</p></div>
+</template>
+
+<!-- ---------- vocabulario e consulta rapida ---------- -->
+
+<!-- termos: [{k, padrao, valor}] -->
+<template id="t-vocabulario">
+  <p class="lead">Troque os nomes para o vocabulário do seu sistema. Vazio volta ao padrão.</p>
+  <div class="grid met"><div v-for="t in termos" class="c"><b class="sm muted">{{ t.padrao }}</b><input class="inp" :data-voc="t.k" v-attr:placeholder="t.padrao" v-attr:value="t.valor"></div></div>
+  <div class="addrow" style="margin-top:.875rem"><button class="btn" id="vcGo">Salvar</button></div>
+</template>
+
+<template id="t-referencia">
+  <p class="lead">O resumo de regras que fica na aba {{ Vm('mesa') }}, visível para os jogadores. Nada aqui vem pronto: é a sua mesa que escreve.</p>
+  <div id="rfBody" v-html="corpo"></div>
+</template>
+
+<template id="t-referencia-grupos">
+  <div v-for="(g, i) in grupos" class="fld"><span class="flb">Grupo {{ i + 1 }}</span>
+    <div class="addrow"><input class="inp" :data-rt="i" placeholder="título do grupo" v-attr:value="g.t || ''"><button class="tbtn d" :data-rdel="i">remover</button></div>
+    <textarea class="inp" :data-ri="i" rows="5" style="width:100%;margin-top:.375rem" placeholder="uma linha por item">{{ (g.itens || []).join('\n') }}</textarea></div>
+  <div class="addrow"><button class="btn sec" id="rfAdd">Adicionar grupo</button><button class="btn" id="rfGo">Salvar</button></div>
+</template>
+
+<!-- ---------- administracao da instancia ---------- -->
+
+<template id="t-admin">
+  <div class="fld"><span class="flb">Chave da IA</span>
+    <div class="addrow"><input class="inp" id="iaK" type="password" placeholder="sk-ant-..." autocomplete="off"><input class="inp" id="iaM" placeholder="claude-sonnet-4-5"><button class="btn" id="iaKs">Salvar</button></div>
+    <p class="sm muted" id="iaKst">…</p></div>
+  <div class="fld"><span class="flb">Armazenamento</span><div id="adArm" class="sm"><p class="muted sm">carregando…</p></div>
+    <div class="addrow" style="margin-top:.5rem"><button class="btn sec" id="adJunta">Juntar arquivos iguais agora</button></div>
+    <p class="sm muted">O servidor já faz isso sozinho a cada inicialização. Use depois de subir arquivos direto no volume.</p></div>
+  <div class="fld"><span class="flb">Sistema</span><div id="adSis" class="sm"><p class="muted sm">carregando…</p></div></div>
+  <div class="fld"><span class="flb">E-mail do suporte</span>
+    <div class="addrow"><input class="inp" id="smD" type="email" placeholder="para onde vão as mensagens"></div>
+    <div class="addrow"><select id="smV" class="selmini"><option value="smtp">SMTP (Gmail, Outlook…)</option><option value="resend">Resend (HTTPS, grátis)</option><option value="brevo">Brevo (HTTPS, grátis)</option></select></div>
+    <div class="addrow" id="smKey" hidden><input class="inp" id="smK" type="password" placeholder="chave de API do provedor" autocomplete="new-password"></div>
+    <div id="smSmtp"><div class="addrow"><input class="inp" id="smH" placeholder="servidor SMTP, ex.: smtp.gmail.com"><input class="inp" id="smP" type="number" placeholder="porta" style="max-width:6.5rem"></div>
+      <div class="addrow"><input class="inp" id="smU" placeholder="usuário do SMTP" autocomplete="off"><input class="inp" id="smS" type="password" placeholder="senha do SMTP" autocomplete="new-password"></div></div>
+    <div class="addrow"><input class="inp" id="smR" placeholder="remetente (e-mail que envia)"></div>
+    <div class="addrow"><button class="btn" id="smOk">Salvar</button><button class="btn sec" id="smT">Enviar e-mail de teste</button></div>
+    <p class="sm muted" id="smDica"></p><p class="sm muted" id="smSt">…</p></div>
+  <div class="fld"><span class="flb">Mensagens de suporte</span><div id="adSup" class="suplist"><p class="muted sm">carregando…</p></div></div>
+  <div class="fld"><span class="flb">Cadastro</span>
+    <label class="sm" style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="adReg"> Habilitar a criação de contas.</label>
+    <p class="sm muted">Desligado, só entra quem receber um link de convite.</p></div>
+  <div class="fld"><span class="flb">Contas</span><div id="adUs"><p class="muted sm">carregando…</p></div>
+    <div class="addrow" style="margin-top:.5rem"><input class="inp" id="auL" placeholder="login"><input class="inp" id="auN" placeholder="nome"><input class="inp" id="auS" type="password" placeholder="senha"><button class="btn sec" id="auGo">Criar</button></div></div>
+  <div class="fld"><span class="flb">Campanhas na instância</span><div id="adCa"></div></div>
+</template>
+
+<!-- a: o bloco armazenamento de /api/admin/sistema -->
+<template id="t-admin-armazenamento">
+  <ul class="fl"><li v-if="a.total > 0">Livre no volume: <b>{{ mb(a.livre) }}</b> de {{ mb(a.total) }}</li>
+    <li>Arquivos de mídia ocupam <b>{{ mb(a.usado || 0) }}</b>.</li>
+    <li v-if="a.links">Arquivos iguais são compartilhados: <b>{{ a.compartilhados || 0 }}</b> cópias evitadas, economizando <b>{{ mb(a.economizado || 0) }}</b>.</li>
+    <li v-else><span style="color:var(--blood2)">Este volume não aceita compartilhar arquivos iguais</span>: cada arquivo repetido ocupa espaço próprio.</li></ul>
+  <span v-if="(a.porCampanha || []).length" data-solta><table class="admtab"><thead><tr><th>{{ Vm('campanha') }}</th><th>Arquivos</th><th>Referencia</th><th>Compartilhados</th></tr></thead>
+    <tbody><tr v-for="c in a.porCampanha"><td>{{ c.nome }}</td><td>{{ c.arquivos }}</td><td>{{ mb(c.bytes) }}</td><td>{{ c.compartilhados }}</td></tr></tbody></table>
+    <p class="sm muted">"Referencia" é o tamanho de tudo que a {{ vmin('campanha') }} usa, contando arquivos compartilhados com outras.</p></span>
+</template>
+
+<!-- s: o bloco sistema; noAr: ha quanto tempo, ja escrito -->
+<template id="t-admin-sistema">
+  <ul class="fl"><li>Banco: <b>{{ s.banco || '?' }}</b></li>
+    <li>Pasta de mídia: <code>{{ s.midiaDir || '?' }}</code></li>
+    <li>Java {{ s.java || '?' }} · memória {{ mb(s.memoriaUsada || 0) }} de {{ mb(s.memoriaMax || 0) }}</li>
+    <li>No ar há {{ noAr }}</li>
+    <li>{{ s.contas || 0 }} conta(s), {{ s.campanhas || 0 }} {{ vmin('campanhas') }}</li>
+    <li v-if="s.suporteNaoEnviado" style="color:var(--blood2)">{{ s.suporteNaoEnviado }} mensagem(ns) de suporte não saíram por e-mail (veja abaixo)</li></ul>
+</template>
+
+<template id="t-admin-suporte">
+  <article v-for="x in mensagens" class="supit"><header><b>{{ x.assunto }}</b><span class="muted sm">{{ x.autor }} · {{ quando2(x.em) }}</span><span :class="'chip' + (x.enviado ? ' ok' : '')">{{ x.enviado ? 'enviado' : 'só registrado' }}</span></header>
+    <p v-if="x.contato" class="sm">Responder para: {{ x.contato }}</p>
+    <p>{{ x.mensagem }}</p><p v-if="x.contexto" class="sm muted">{{ x.contexto }}</p>
+    <p v-if="x.erro" class="sm" style="color:var(--blood2)">{{ x.erro }}</p></article>
+  <p v-if="!mensagens.length" class="empty">Nenhuma mensagem ainda.</p>
+</template>
+
+<template id="t-admin-usuarios">
+  <div v-for="u in usuarios" class="npcrow" style="justify-content:space-between"><div><b>{{ u.nome }}</b> <span class="muted sm">{{ u.login }} · {{ u.campanhas }} campanha(s){{ u.admin ? ' · admin' : '' }}{{ u.ativo ? '' : ' · desativado' }}</span></div>
+    <div style="display:flex;gap:.375rem"><button class="tbtn" :data-pw="u.id">senha</button><button class="tbtn" :data-ad="u.id" :data-v="String(!u.admin)">{{ u.admin ? 'tirar admin' : 'tornar admin' }}</button><button v-if="!u.admin" class="tbtn d" :data-ur="u.id">remover</button></div></div>
+  <p v-if="!usuarios.length" class="empty">Nenhuma conta.</p>
+</template>
+
+<template id="t-admin-campanhas">
+  <div v-for="c in campanhas" class="npcrow" style="justify-content:space-between"><div><b>{{ c.nome }}</b> <span class="muted sm">{{ c.sistema || 'sem sistema' }} · {{ c.membros }} membro(s)</span></div></div>
+  <p v-if="!campanhas.length" class="empty">Nenhuma campanha.</p>
+</template>
+
+<!-- ---------- aparencia: temas, movimento e sons ---------- -->
+
+<!-- t: o tema; e: o estilo dele; sugerido: e o tema que o mestre sugeriu -->
+<template id="t-tema-card">
+  <button class="temacard" :data-tema="k" :aria-pressed="String(ativo)" :style="'--p-bg:' + t.v.bg + ';--p-fg:' + t.v.fg + ';--p-fg2:' + t.v.fg2 + ';--p-line:' + t.v.line2 + ';--p-blood:' + t.v.blood + ';--p-gold:' + t.v.gold"><b :style="'font-family:' + e.disp">{{ t.nome }}</b><span class="tex" :style="'font-family:' + (e.body || CORPO)">A porta range e a sala fica em silêncio.</span><span class="tsw"><i :style="'background:' + t.v.blood"></i><i :style="'background:' + t.v.blood2"></i><i :style="'background:' + t.v.gold"></i><i :style="'background:' + t.v.fg2"></i></span><span v-if="sugerido" class="tsug">sugerido pelo {{ vmin('mestre') }}</span></button>
+</template>
+
+<!-- estilos: [{nome, cartoes (HTML)}], so os que tem tema -->
+<template id="t-temas">
+  <div class="fld"><span class="flb">Tema</span>
+    <p class="sm muted" style="margin:0 0 .5rem">O tema muda as cores, a letra dos títulos, o formato dos blocos e o clima de fundo.</p>
+    <div class="temas"><div v-for="e in estilos"><span class="temagen">{{ e.nome }}</span><div class="temalist" v-html="e.cartoes"></div></div></div>
+    <div class="addrow" style="margin-top:.875rem"><button v-if="mestre" class="btn sec" id="temaMesa">Usar este na mesa inteira</button><button class="btn sec" id="temaLimpa">Voltar ao tema da mesa</button></div>
+    <p class="sm muted">A escolha vale só para você neste aparelho{{ mestre ? ', até você mandar aplicar na mesa.' : '. O mestre define o tema padrão.' }}</p></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Movimento</span>
+    <div class="fchips" style="margin:0"><button class="fchip" data-mov="1" :aria-pressed="String(fx)">Com animações</button><button class="fchip" data-mov="0" :aria-pressed="String(!fx)">Sem animações</button></div>
+    <p class="sm muted">Desliga as transições e o fundo animado neste aparelho. Bom para máquina fraca ou para quem se incomoda com movimento.</p></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Sons</span>
+    <div class="fchips" style="margin:0"><button class="fchip" data-som="0" :aria-pressed="String(!som)">Desligados</button><button class="fchip" data-som="1" :aria-pressed="String(som)">Ligados</button></div>
+    <div class="volrow" style="margin-top:.5rem"><span>Volume</span><input type="range" id="somVol" min="0" max="100" v-attr:value="volume" aria-label="Volume dos sons"></div>
+    <p class="sm muted">Dado rolando, página virando, janela abrindo, revelação. O timbre muda com o estilo do tema. Vale só neste aparelho e não mexe na trilha.</p></div>
+</template>

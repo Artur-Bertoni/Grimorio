@@ -3,7 +3,7 @@
 Painel de mesa para RPG, agnóstico de sistema, com backend em Java.
 Cada pessoa sobe a própria instância, cria campanhas e convida a mesa.
 
-Java 21 · Spring Boot 3.3 · PostgreSQL (ou H2 local) · front em HTML/JS puro, sem framework.
+Java 25 · Spring Boot 4.1 · PostgreSQL (ou H2 local) · front em HTML/JS puro, sem framework.
 
 ## O que ele faz
 
@@ -55,15 +55,15 @@ administradora.
    liberar aparece na Mesa dos jogadores.
 4. Aba **Biblioteca**: envie os PDFs dos livros (e ligue “jogadores veem” nos que
    a mesa pode consultar), a trilha sonora e as imagens.
-5. **Ajustes** (a engrenagem) → **Mesa e convites**: gere um link de convite por
+5. **Configurações** (a engrenagem) → **Mesa e convites**: gere um link de convite por
    jogador. Quem abre o link entra na campanha, criando conta na hora se precisar.
-6. **Ajustes** → **Vocabulário** e **Consulta rápida**: ajuste os nomes e escreva o
+6. **Configurações** → **Vocabulário** e **Consulta rápida**: ajuste os nomes e escreva o
    resumo de regras do seu sistema. Em **Aparência** ficam as seis paletas: cada um
    escolhe a sua, o mestre define a padrão da mesa.
 
 ### Pacote de campanha
 
-**Ajustes → Campanha → Exportar pacote** gera um zip com guia, mesa, índices de
+**Configurações → Campanha → Exportar pacote** gera um zip com guia, mesa, índices de
 busca e imagens. **Importar pacote** faz o caminho de volta, em qualquer instância.
 PDFs e áudio ficam de fora porque são grandes e cada mestre tem os seus.
 

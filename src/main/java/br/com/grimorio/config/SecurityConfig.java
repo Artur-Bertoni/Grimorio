@@ -1,9 +1,7 @@
 package br.com.grimorio.config;
 
-import br.com.grimorio.service.UsuarioService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,6 +15,8 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @Configuration
 public class SecurityConfig {
 
+    private static final String JSON_UTF8 = "application/json;charset=UTF-8";
+
     private final MidiaAutorizacao midiaAutorizacao;
     private final AdminAutorizacao adminAutorizacao;
 
@@ -26,50 +26,42 @@ public class SecurityConfig {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public DaoAuthenticationProvider authProvider(UsuarioService svc, PasswordEncoder enc) {
-        DaoAuthenticationProvider p = new DaoAuthenticationProvider();
-        p.setUserDetailsService(svc);
-        p.setPasswordEncoder(enc);
-        return p;
-    }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
 
         http
             .csrf(c -> c
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()) // NOSONAR: o front le o cookie XSRF-TOKEN e o devolve no cabecalho (padrao double-submit)
                 .csrfTokenRequestHandler(csrfHandler))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .httpBasic(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(a -> a
                 /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
-                .requestMatchers("/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
+                .requestMatchers("/login.html", "/paginas/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
                                  "/api/ping", "/api/registrar", "/api/publico").permitAll()
                 /* conferido no banco a cada pedido, nao no papel congelado no login (ver AdminAutorizacao) */
                 .requestMatchers("/api/admin/**").access(adminAutorizacao)
                 .requestMatchers("/midia/**").access(midiaAutorizacao)
                 .anyRequest().authenticated())
             .formLogin(f -> f
-                .loginPage("/login.html")
+                .loginPage("/paginas/login.html")
                 .loginProcessingUrl("/api/login")
                 .usernameParameter("login")
                 .passwordParameter("senha")
                 .successHandler((req, res, auth) -> {
                     res.setStatus(200);
-                    res.setContentType("application/json;charset=UTF-8");
+                    res.setContentType(JSON_UTF8);
                     res.getWriter().write("{\"ok\":true}");
                 })
                 .failureHandler((req, res, ex) -> {
                     res.setStatus(401);
-                    res.setContentType("application/json;charset=UTF-8");
+                    res.setContentType(JSON_UTF8);
                     res.getWriter().write("{\"erro\":\"login ou senha invalidos\"}");
                 }))
             .logout(l -> l
@@ -81,7 +73,7 @@ public class SecurityConfig {
                    permissao. Antes os dois chegavam iguais, sem corpo, e nao dava para saber qual era. */
                 .accessDeniedHandler((req, res, ex) -> {
                     res.setStatus(403);
-                    res.setContentType("application/json;charset=UTF-8");
+                    res.setContentType(JSON_UTF8);
                     res.getWriter().write(ex instanceof CsrfException
                         ? "{\"erro\":\"a sessao de seguranca expirou, tente de novo\",\"codigo\":\"csrf\"}"
                         : "{\"erro\":\"sem permissao para isso\",\"codigo\":\"proibido\"}");
@@ -89,7 +81,7 @@ public class SecurityConfig {
                 .defaultAuthenticationEntryPointFor(
                     (req, res, ex) -> {
                         res.setStatus(401);
-                        res.setContentType("application/json;charset=UTF-8");
+                        res.setContentType(JSON_UTF8);
                         res.getWriter().write("{\"erro\":\"nao autenticado\"}");
                     },
                     r -> {

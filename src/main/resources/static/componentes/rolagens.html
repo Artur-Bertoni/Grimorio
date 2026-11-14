@@ -1,0 +1,32 @@
+<!-- Dados: janela, painel de rolagens, aviso e historico (js/rolagens.js) -->
+
+<template id="t-painel-rolagens">
+  <div class="rphd" id="rpHd"><span data-solta v-html="dado"></span><span>Rolagens da {{ vmin('mesa') }}</span><button class="x" id="rpX" aria-label="Fechar o painel">✕</button></div>
+  <div class="rpbody"><div class="ddfeed" id="rpFeed" aria-live="polite"></div></div>
+  <form class="rpform" id="rpForm"><input class="inp" id="rpF" placeholder="1d20+3" autocomplete="off" spellcheck="false" aria-label="Rolar daqui"><button class="btn sec" id="rpGo">Rolar</button></form>
+  <span class="rpgrip" id="rpGrip" title="Arraste para redimensionar"></span>
+</template>
+
+<template id="t-aviso-rolagem">
+  <span data-solta v-html="dado"></span><span>{{ autor }} rolou {{ rotulo ? rotulo + ' (' + formula + ')' : formula }}: <b>{{ valor }}</b>{{ publica ? '' : ' · fechada' }}</span>
+</template>
+
+<!-- itens: [{id, quem, pedido, rotulo, formula, detalhe, mestre, publica, valor, nova, classe}] -->
+<template id="t-rolagens-feed">
+  <span v-for="r in itens" data-solta>
+    <div v-if="r.pedido" class="ddit ped"><span class="ddq">{{ r.quem }} pede<em>{{ r.rotulo || r.formula }}</em><i v-if="r.rotulo">{{ r.formula }}</i></span><button class="tbtn" :data-resp="r.id">rolar</button></div>
+    <div v-else :class="'ddit' + (r.nova ? ' nova' : '')" :title="r.detalhe == null ? '' : r.detalhe"><span class="ddq">{{ r.quem }}<em v-if="r.rotulo">{{ r.rotulo }}</em><i v-if="r.mestre">{{ vmin('mestre') }}</i><i v-if="!r.publica">fechada</i></span><span class="ddd">{{ r.formula }}</span><b :class="r.classe">{{ r.valor }}</b></div>
+  </span>
+</template>
+
+<template id="t-dados">
+  <div class="dados"><div class="dadoface" id="ddFace"><span data-solta v-html="dado"></span><b id="ddN">–</b></div>
+    <p class="ddleg" id="ddLeg">Escolha um dado ou escreva a rolagem</p><p class="dddet" id="ddDet"></p>
+    <div class="ddrow"><button v-for="l in [4, 6, 8, 10, 12, 20, 100]" class="btn sec" :data-dado="l">d{{ l }}</button></div>
+    <form class="ddform" id="ddForm"><input class="inp" id="ddF" placeholder="2d6+3" autocomplete="off" spellcheck="false" aria-label="Rolagem por extenso"><button class="btn" id="ddGo">Rolar</button></form>
+    <div class="ddatalhos"><button class="fchip" data-f="2d20kh1">2d20, fica o maior</button><button class="fchip" data-f="2d20kl1">2d20, fica o menor</button><button class="fchip" data-f="4d6dl1">4d6, sai o menor</button></div>
+    <div v-if="mestre" class="fchips ddvis"><button class="fchip" data-vis="1" :aria-pressed="String(publica)">Mesa toda vê</button><button class="fchip" data-vis="0" :aria-pressed="String(!publica)">Só eu vejo</button></div>
+    <p v-else class="sm muted" style="margin:0">{{ abertas ? 'Suas rolagens aparecem para a mesa toda.' : 'Suas rolagens aparecem só para você e para o ' + vmin('mestre') + '.' }}</p>
+    <button v-if="mestre" class="tbtn" id="ddPedir">pedir teste à {{ vmin('mesa') }}</button>
+    <div class="ddfeed" id="ddFeed" aria-live="polite"></div></div>
+</template>

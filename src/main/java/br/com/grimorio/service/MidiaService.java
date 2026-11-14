@@ -3,9 +3,10 @@ package br.com.grimorio.service;
 import br.com.grimorio.config.AppProps;
 import br.com.grimorio.model.Midia;
 import br.com.grimorio.repo.MidiaRepo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -39,7 +40,7 @@ public class MidiaService {
     private final AppProps props;
     private final MidiaRepo repo;
     private final IndiceService indice;
-    private final ObjectMapper om = new ObjectMapper();
+    private final ObjectMapper om = JsonMapper.builder().build();
 
     public MidiaService(AppProps props, MidiaRepo repo, IndiceService indice) {
         this.props = props;

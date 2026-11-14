@@ -1,0 +1,42 @@
+<!-- Formulario generico (js/formulario.js) -->
+
+<!-- campos: o HTML dos campos, ja preenchido; faixas: nomes para a lista de sugestao das faixas -->
+<template id="t-formulario">
+  <div id="fmBody" v-html="corpo"></div>
+</template>
+
+<template id="t-formulario-corpo">
+  <div class="form"><div v-if="intro" class="aviso" v-html="intro"></div><span data-solta v-html="campos"></span>
+    <div class="formft"><button type="button" class="btn" data-ok>{{ rotSalvar }}</button><button type="button" class="btn sec" data-no>Cancelar</button><span class="esp"></span><button v-if="rotRemover" type="button" class="btn dang" data-del>{{ rotRemover }}</button></div></div>
+  <datalist id="dlFaixas"><option v-for="f in faixas" v-attr:value="f"></option></datalist>
+</template>
+
+<!-- c: a definicao do campo; p: o caminho dele na copia; v: o valor atual.
+     No grupo, linhas traz o HTML dos campos de cada linha, montado pelo JS (o grupo se repete por dentro). -->
+<template id="t-campo">
+  <label v-if="c.tipo === 'area'">{{ c.rot }}<textarea :data-f="p" :rows="c.linhas || 5" v-attr:placeholder="c.ph || null">{{ v || '' }}</textarea><span v-if="c.dica" class="dica">{{ c.dica }}</span></label>
+
+  <label v-else-if="c.tipo === 'linhas'">{{ c.rot }}<textarea :data-f="p" data-t="linhas" :rows="c.linhas || 5" v-attr:placeholder="c.ph || null">{{ (Array.isArray(v) ? v : []).join('\n') }}</textarea><span class="dica">{{ c.dica || 'Um item por linha.' }}</span></label>
+
+  <label v-else-if="c.tipo === 'num'">{{ c.rot }}<input :data-f="p" data-t="num" type="number" step="1" v-attr:value="v == null ? '' : String(v)"><span v-if="c.dica" class="dica">{{ c.dica }}</span></label>
+
+  <label v-else-if="c.tipo === 'sel'">{{ c.rot }}<select :data-f="p"><option v-for="op in c.ops" v-attr:value="String(op[0])" v-attr:selected="String(op[0]) === String(v == null ? '' : v)">{{ op[1] }}</option></select><span v-if="c.dica" class="dica">{{ c.dica }}</span></label>
+
+  <label v-else-if="c.tipo === 'check'" class="ck"><input type="checkbox" :data-f="p" data-t="check" v-attr:checked="!!v">{{ c.rot }}</label>
+
+  <label v-else-if="c.tipo === 'faixa'">{{ c.rot }}<input :data-f="p" list="dlFaixas" v-attr:value="v || ''" v-attr:placeholder="c.ph || null"><span v-if="c.dica" class="dica">{{ c.dica }}</span></label>
+
+  <div v-else-if="c.tipo === 'img'" class="fgrp"><span class="frot">{{ c.rot }}</span>
+    <div class="pick"><img v-if="v" :src="IMG(v)" alt=""><span v-else class="semimg">sem imagem</span><button type="button" class="btn sec" :data-pk="p">{{ v ? 'Trocar' : 'Escolher imagem' }}</button><button v-if="v" type="button" class="tbtn d" :data-pkx="p">tirar</button></div>
+    <span v-if="c.dica" class="dica">{{ c.dica }}</span></div>
+
+  <div v-else-if="c.tipo === 'imgs'" class="fgrp"><span class="frot">{{ c.rot }}</span>
+    <div class="pick"><span v-for="(x, i) in (Array.isArray(v) ? v : [])" class="pkit"><img :src="IMG(x)" alt=""><span class="addrow" style="gap:.1875rem;margin-top:.1875rem"><button type="button" class="tbtn" :data-mvr="p + ':' + i + ':-1'" title="antes">←</button><button type="button" class="tbtn" :data-mvr="p + ':' + i + ':1'" title="depois">→</button><button type="button" class="tbtn d" :data-rmr="p + ':' + i" title="tirar">✕</button></span></span><button type="button" class="btn sec" :data-pka="p">+ imagem</button></div>
+    <span v-if="c.dica" class="dica">{{ c.dica }}</span></div>
+
+  <div v-else-if="c.tipo === 'grupo'" class="fgrp"><span class="frot">{{ c.rot }}</span><span v-if="c.dica" class="dica">{{ c.dica }}</span>
+    <div v-for="(l, i) in linhas" class="rowed"><div class="rowhd"><span>{{ c.um || 'item' }} {{ i + 1 }}</span><button type="button" class="tbtn" :data-mvr="p + ':' + i + ':-1'" title="subir">↑</button><button type="button" class="tbtn" :data-mvr="p + ':' + i + ':1'" title="descer">↓</button><button type="button" class="tbtn d" :data-rmr="p + ':' + i">remover</button></div><span data-solta v-html="l"></span></div>
+    <div v-if="!c.fixo" class="addrow"><button type="button" class="btn sec" :data-addr="p">+ {{ c.um || 'item' }}</button></div></div>
+
+  <label v-else>{{ c.rot }}<input :data-f="p" v-attr:value="v == null ? '' : String(v)" v-attr:placeholder="c.ph || null" v-attr:readonly="!!c.ro" v-attr:tabindex="c.ro ? '-1' : null"><span v-if="c.dica" class="dica">{{ c.dica }}</span></label>
+</template>
