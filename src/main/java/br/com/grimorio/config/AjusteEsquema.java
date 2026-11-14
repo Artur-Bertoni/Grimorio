@@ -28,32 +28,38 @@ import java.util.stream.Collectors;
 public class AjusteEsquema {
 
     private static final Logger log = LoggerFactory.getLogger(AjusteEsquema.class);
+    private static final String COLUNA_PAPEL = "papel";
+    private static final java.util.regex.Pattern IDENTIFICADOR = java.util.regex.Pattern.compile("[a-z_][a-z0-9_]*");
 
     @Bean
     @Order(0)
-    public ApplicationRunner realinhaChecks(JdbcTemplate jdbc) {
+    ApplicationRunner realinhaChecks(JdbcTemplate jdbc) {
         return args -> {
-            int ok = 0;
-            ok += realinhar(jdbc, "midia", "tipo", Midia.Tipo.values());
-            ok += realinhar(jdbc, "membro", "papel", Papel.values());
-            ok += realinhar(jdbc, "convite", "papel", Papel.values());
-            ok += realinhar(jdbc, "usuario", "papel", Papel.values());
+            realinhar(jdbc, "midia", "tipo", Midia.Tipo.values());
+            realinhar(jdbc, "membro", COLUNA_PAPEL, Papel.values());
+            realinhar(jdbc, "convite", COLUNA_PAPEL, Papel.values());
+            realinhar(jdbc, "usuario", COLUNA_PAPEL, Papel.values());
         };
     }
 
     private int realinhar(JdbcTemplate jdbc, String tabela, String coluna, Enum<?>[] valores) {
+        /* DDL nao aceita parametro: nome de tabela e coluna entram no texto. Vem de constantes
+           deste arquivo, e a conferencia abaixo garante que nunca seja outra coisa. */
+        if (!IDENTIFICADOR.matcher(tabela).matches() || !IDENTIFICADOR.matcher(coluna).matches())
+            throw new IllegalArgumentException("identificador invalido: " + tabela + "." + coluna);
         String nome = tabela + "_" + coluna + "_check";
         String lista = Arrays.stream(valores)
                 .map(v -> "'" + v.name() + "'")
                 .collect(Collectors.joining(", "));
         try {
-            jdbc.execute("alter table " + tabela + " drop constraint if exists " + nome);
+            jdbc.execute("alter table " + tabela + " drop constraint if exists " + nome); // NOSONAR: identificadores validados acima
         } catch (Exception e) {
             log.warn("Nao consegui remover {}: {}", nome, e.getMessage());
             return 0;
         }
         try {
-            jdbc.execute("alter table " + tabela + " add constraint " + nome
+            // a lista vem de Enum.name(); identificadores validados acima
+            jdbc.execute("alter table " + tabela + " add constraint " + nome // NOSONAR
                     + " check (" + coluna + " in (" + lista + "))");
             return 1;
         } catch (Exception e) {

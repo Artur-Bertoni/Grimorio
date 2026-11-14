@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Path;
@@ -24,6 +25,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     public WebConfig(AppProps props) {
         this.props = props;
+    }
+
+    /* A tela de login mora em paginas/. O endereco antigo continua valendo para favorito e
+       link ja compartilhado (inclusive com ?convite=, que o redirect preserva). */
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addRedirectViewController("/login.html", "/paginas/login.html").setKeepQueryParams(true);
     }
 
     @Override
@@ -44,13 +52,13 @@ public class WebConfig implements WebMvcConfigurer {
      * caractere fora do ASCII). Nao toca em PDF nem audio de proposito.
      */
     @Bean
-    public FilterRegistrationBean<Filter> charsetDeTexto() {
+    FilterRegistrationBean<Filter> charsetDeTexto() {
         FilterRegistrationBean<Filter> reg = new FilterRegistrationBean<>();
         reg.setFilter((pedido, resposta, cadeia) -> {
-            String caminho = (pedido instanceof HttpServletRequest)
-                    ? ((HttpServletRequest) pedido).getRequestURI() : "";
+            String caminho = (pedido instanceof HttpServletRequest http)
+                    ? http.getRequestURI() : "";
             if (caminho.endsWith("/") || caminho.endsWith(".html")
-                    || caminho.endsWith(".js") || caminho.endsWith(".css")) {
+                    || caminho.endsWith(".js") || caminho.endsWith(".mjs") || caminho.endsWith(".css")) {
                 resposta.setCharacterEncoding("UTF-8");
             }
             cadeia.doFilter(pedido, resposta);

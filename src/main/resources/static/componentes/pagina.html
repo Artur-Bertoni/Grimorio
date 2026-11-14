@@ -1,0 +1,12 @@
+<!-- Pedacos comuns das paginas: cabecalho e sub-abas -->
+
+<!-- botao: {id, texto, sec} opcional, a acao principal da pagina; sec deixa o botao secundario -->
+<template id="t-cabeca">
+  <div class="pagehd"><div><p class="eyebrow">{{ eyebrow }}</p><h1 class="page">{{ titulo }}</h1></div>
+    <button v-if="botao" :class="'btn' + (botao.sec ? ' sec' : '')" :id="botao.id">{{ botao.texto }}</button></div>
+</template>
+
+<!-- itens: [{attrs:{"data-x":valor}, texto, on}] -->
+<template id="t-subnav">
+  <nav class="mesanav"><button v-for="x in itens" v-bind="x.attrs" :aria-pressed="String(x.on)">{{ x.texto }}</button></nav>
+</template>

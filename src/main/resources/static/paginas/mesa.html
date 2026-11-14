@@ -1,0 +1,84 @@
+<!-- Aba Mesa, a area dos jogadores (js/pagina-mesa.js) -->
+
+<!-- ini: barra publica da iniciativa; abas: sub-abas; corpo: a secao aberta, ja preenchida -->
+<template id="t-mesa">
+  <div class="mesahd"><div><span class="eyebrow">{{ titulo }} · área dos jogadores</span><h1 class="page">Mesa</h1></div></div>
+  <div v-if="mestre" class="gmstrip"><b>Visão do mestre.</b> Isto é exatamente o que os jogadores veem. Use <button class="btn sec" id="mLib">Liberar conteúdo</button> para escolher o que aparece aqui.</div>
+  <div id="mIni" v-html="ini"></div>
+  <span data-solta v-html="abas"></span>
+  <div id="mbody" class="mesabody" v-html="corpo"></div>
+</template>
+
+<!-- resumos: [{i, n, titulo, data, tem, linhas}] na ordem de exibicao; aberto: o indice do que nasce aberto -->
+<template id="t-mesa-resumos">
+  <div v-if="mestre" class="addrow" style="margin-bottom:.75rem"><button class="btn sec" id="mAddRes">+ resumo de sessão</button></div>
+  <div v-if="resumos.length" class="reslist">
+    <details v-for="r in resumos" class="resitem" :data-res="r.i" v-attr:open="aberto === r.i"><summary><span class="rnum">{{ Vm('sessao') }} {{ r.n || '?' }}</span><b>{{ r.titulo || 'Sem título' }}</b><span v-if="r.data" class="rsdata">{{ r.data }}</span></summary>
+      <div class="resbody"><div class="restxt"><span v-if="r.tem" data-solta><span v-for="(l, k) in r.linhas" data-solta><br v-if="k">{{ l }}</span></span><span v-else class="muted">Sem texto.</span></div>
+        <div v-if="mestre" class="resacts"><button class="tbtn" :data-mres="r.i">editar</button><button class="tbtn d" :data-mresd="r.i">remover</button></div></div></details>
+  </div>
+  <p v-else class="empty">Nenhum resumo publicado ainda.</p>
+</template>
+
+<template id="t-mesa-ev">
+  <div v-if="ev.length" class="evgrid">
+    <figure v-for="(x, i) in ev" class="evcard" v-attr:data-mev="x.img ? i : null"><img v-if="x.img" :src="IMG(x.img)" alt="" loading="lazy"><div v-else class="evno">sem imagem</div>
+      <figcaption><b>{{ x.nome }}</b><p v-if="x.texto">{{ x.texto }}</p></figcaption></figure>
+  </div>
+  <p v-else class="empty">Nada encontrado ainda. O que vocês acharem na mesa aparece aqui.</p>
+</template>
+
+<template id="t-mesa-quem">
+  <h2 class="sec">Pessoas</h2>
+  <div v-if="npcs.length" class="qgrid"><div v-for="x in npcs" class="qcard"><img v-if="x.img" :src="IMG(x.img)" alt="" loading="lazy"><div><b>{{ x.nome }}</b><p>{{ x.desc || '' }}</p></div></div></div>
+  <p v-else class="empty">Ninguém conhecido ainda.</p>
+  <h2 class="sec" style="margin-top:1.5rem">Lugares</h2>
+  <div v-if="locais.length" class="cadgrid">
+    <article v-for="(x, i) in locais" class="cad mloc" v-attr:data-mloc="x.img ? i : null" v-attr:title="x.img ? 'Clique para ver a imagem' : null"><div class="ci"><img v-if="x.img" :src="IMG(x.img)" alt="" loading="lazy"><span v-else data-solta>sem imagem</span></div>
+      <div class="cb"><b>{{ x.nome }}</b><p v-if="x.desc">{{ x.desc }}</p></div></article>
+  </div>
+  <p v-else class="empty">Nenhum lugar registrado ainda.</p>
+</template>
+
+<template id="t-mesa-regras">
+  <p v-if="!grupos.length" class="empty">Nada aqui ainda.<span v-if="mestre" data-solta> Use <b>{{ Vm('referencia') }}</b> em Configurações para escrever o resumo de regras da sua mesa.</span></p>
+  <span v-else data-solta><p class="lead">Resumo das mecânicas para não travar a mesa. Em caso de dúvida, o livro manda.<span v-if="mestre" data-solta> <button class="tbtn" id="refEd">editar</button></span></p>
+    <div class="reggrid"><section v-for="g in grupos" class="regblk"><h3>{{ g.t }}</h3><ul class="fl"><li v-for="x in (g.itens || [])">{{ x }}</li></ul></section></div></span>
+</template>
+
+<template id="t-mesa-notas">
+  <p class="lead">Só você vê isto. Fica guardado na sua conta, nem o mestre consegue ler.</p>
+  <textarea id="mNotas" class="nota" placeholder="Teorias, nomes, números de telefone, o que for…"></textarea>
+  <div class="notaft"><button class="btn" id="mNotaSave">Salvar</button><span class="muted sm" id="mNotaSt"></span><span style="flex:1"></span><button class="tbtn" id="mNotaTam" title="Arraste o canto da caixa para mudar o tamanho">tamanho padrão</button></div>
+</template>
+
+<template id="t-mesa-mural">
+  <p class="lead">Visível para todo mundo da mesa, inclusive o mestre.</p>
+  <div class="composer"><textarea id="mPost" placeholder="Uma teoria, uma pergunta, um lembrete…"></textarea><button class="btn" id="mPostGo">Publicar</button></div>
+  <div id="mural" class="mural"><p class="empty">Carregando…</p></div>
+</template>
+
+<!-- posts: [{id, autor, quando, meu, linhas}] -->
+<template id="t-mural-posts">
+  <article v-for="p in posts" class="post"><header><b>{{ p.autor }}</b><span class="muted sm">{{ p.quando }}</span><button v-if="p.meu" class="tbtn d" :data-mdel="p.id">apagar</button></header>
+    <p><span v-for="(l, k) in p.linhas" data-solta><br v-if="k">{{ l }}</span></p></article>
+  <p v-if="!posts.length" class="empty">Nenhum recado ainda. Começa você.</p>
+</template>
+
+<template id="t-resumo-form">
+  <div class="form"><label>{{ Vm('sessao') }}<input id="rN" type="number" min="1" v-attr:value="n"></label>
+    <label>Título<input id="rT" v-attr:value="titulo"></label>
+    <label>Data<input id="rD" placeholder="dd/mm/aaaa" v-attr:value="data"><span class="dica">Só os números: 12012026 vira 12/01/2026.</span></label>
+    <label>O que aconteceu<textarea id="rX" rows="10"></textarea></label>
+    <div class="addrow"><button class="btn" id="rOk">Publicar para a mesa</button></div></div>
+</template>
+
+<!-- grupos: [{tipo, nome, itens:[{id, nome, on, daSessao}]}] -->
+<template id="t-liberar">
+  <p class="lead">Marque o que os {{ vmin('jogadores') }} podem ver. Nada é liberado sozinho: só aparece na {{ Vm('mesa') }} o que você marcar.</p>
+  <div v-for="g in grupos" class="fld" style="margin-top:.875rem"><span class="flb">{{ g.nome }}</span>
+    <div class="libgrid"><button v-for="x in g.itens" :class="'libit' + (x.on ? ' on' : '')" :data-lib="g.tipo" :data-id="x.id"><span class="libck">{{ x.on ? '✓' : '' }}</span><span style="flex:1;min-width:0">{{ x.nome }}</span><span v-if="x.daSessao" class="mini">nesta {{ vmin('sessao') }}</span></button></div></div>
+  <p v-if="!grupos.length" class="empty">Ainda não há nada no Elenco para liberar. Cadastre lá os {{ vmin('npcs') }}, {{ vmin('locais') }} e {{ vmin('evidencias') }}.</p>
+</template>
+
+<template id="t-lib-botao"><button class="btn sec libbtn" :id="id"></button></template>

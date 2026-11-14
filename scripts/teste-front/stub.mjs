@@ -56,6 +56,8 @@ const CAMPS = [
   { id: 3, nome: 'Onde eu jogo', sistema: 'Outro sistema', papel: 'JOGADOR', arquivada: false },
 ];
 let ST = {};
+/* SEMENTE=n deixa o sorteio do stub previsivel, para comparar retratos de duas rodadas */
+if (process.env.SEMENTE) { let s = Number(process.env.SEMENTE) || 1; Math.random = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648; }
 /* PDF minimo de tres paginas, com a tabela xref calculada: o pdf.js recusa offset errado */
 function pdfDeTeste(n, linhas) {
   const objs = ['<< /Type /Catalog /Pages 2 0 R >>', ''], kids = [];
@@ -123,7 +125,7 @@ function zera() {
 }
 zera();
 
-const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
+const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.webp': 'image/webp', '.woff2': 'font/woff2',
   '.json': 'application/json; charset=utf-8', '.map': 'application/json' };
 

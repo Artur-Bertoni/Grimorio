@@ -1,0 +1,34 @@
+<!-- Aba Sessoes: lista, encerrar e o resultado do encerramento (js/sessoes.js) -->
+
+<template id="t-sessoes">
+  <span data-solta v-html="cabeca"></span>
+  <p v-if="!linhas" class="empty">Nenhuma {{ vmin('sessao') }} ainda. Crie a primeira: ela nasce com um quadro vazio para você montar as {{ vmin('cenas') }}.</p>
+  <div v-else class="sec-wrap" style="margin-top:1.125rem"><div class="eps" v-html="linhas"></div></div>
+</template>
+
+<template id="t-sessao-linha">
+  <button :class="'ep' + (encerrada ? ' done' : '')" :data-ses="id"><span class="n">{{ numero }}</span>
+    <div><b>{{ titulo || 'Sem título' }}</b><p v-if="resumo">{{ resumo }}</p></div>
+    <span class="go">{{ estado }} ›</span></button>
+</template>
+
+<!-- prox: {numero, titulo} da sessao que ja existe, ou null para uma nova -->
+<template id="t-encerrar">
+  <p class="lead">A <b>{{ Um }} {{ numero }}</b> vai ser marcada como encerrada.<span v-if="pendentes.length" data-solta> O que não foi marcado como feito passa para
+    <span v-if="prox" data-solta>a <b>{{ Um }} {{ prox.numero }} · {{ prox.titulo }}</b></span><span v-else data-solta>uma <b>{{ Um }} {{ numero + 1 }}</b> nova</span>, na mesma ordem.</span></p>
+  <p v-if="!pendentes.length" class="sm muted" style="margin-top:.625rem">Todas as {{ total }} {{ vmin('cenas') }} estão feitas. Nada passa adiante.</p>
+  <div v-else class="fld" style="margin-top:.875rem"><span class="flb">Passam adiante {{ pendentes.length }} de {{ total }}</span>
+    <ul class="fl"><li v-for="c in pendentes"><b style="color:var(--fg)">{{ c.n }}</b> · {{ c.titulo }}</li></ul>
+    <p class="sm muted">Os {{ vmin('territorios') }} delas vão junto, e o elenco desta {{ vmin('sessao') }} fica disponível lá também.</p></div>
+  <div class="addrow" style="margin-top:1rem"><button class="btn" id="encOk">Encerrar</button><button class="btn sec" id="encNo">Cancelar</button></div>
+</template>
+
+<!-- blocos: [{titulo, itens:[texto]}], so os que tem itens -->
+<template id="t-encerrada">
+  <p class="lead">{{ Um }} {{ numero }} encerrada.<span v-if="prox" data-solta> Você está agora na {{ Um }} {{ prox }}.</span></p>
+  <div v-for="b in blocos" class="fld" style="margin-top:.75rem"><span class="flb">{{ b.titulo }} ({{ b.itens.length }})</span>
+    <ul class="fl"><li v-for="x in b.itens">{{ x }}</li></ul></div>
+  <div class="fld" style="margin-top:1rem"><span class="flb">Resumo para os {{ vmin('jogadores') }}</span>
+    <p class="sm muted">É o que eles leem na {{ Vm('mesa') }} para lembrar o que aconteceu.</p>
+    <div class="addrow"><button class="btn" id="encRes">Escrever o resumo agora</button><button class="btn sec" id="encDep">Depois</button></div></div>
+</template>

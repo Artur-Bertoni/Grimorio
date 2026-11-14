@@ -1,0 +1,31 @@
+<!-- Aba Elenco (js/pagina-elenco.js) -->
+
+<!-- itens: os personagens como estao no guia, ou [{id, nome, img, texto, on}] para os demais -->
+<template id="t-elenco">
+  <span data-solta v-html="cabeca"></span>
+  <p class="lead" style="margin:.5rem 0 1rem">Cadastre uma vez e use em qualquer {{ vmin('sessao') }}. O que você liberar aparece na {{ Vm('mesa') }} dos {{ vmin('jogadores') }}.</p>
+  <span data-solta v-html="abas"></span>
+  <p v-if="!itens.length" class="empty">Nada aqui ainda. Use “+ {{ um }}” para criar o primeiro.</p>
+  <div v-else-if="tipo === 'personagens'" class="grid pcs">
+    <article v-for="p in itens" class="pc"><div class="por">
+      <img v-if="p.img" :src="IMG(p.img)" :alt="p.nome" loading="lazy"><div v-else class="semfoto">sem foto</div>
+      <img v-if="p.img && p.imgAlt" class="mk" :src="IMG(p.imgAlt)" alt="" loading="lazy"></div>
+      <div class="bd"><b>{{ p.nome }}</b><span v-if="p.subtitulo" class="alc">{{ p.subtitulo }}</span>
+        <span v-if="p.jogador" class="sm" style="color:var(--fg2)">{{ Vm('jogador') }}: {{ p.jogador }}</span>
+        <span v-if="p.etiquetas" class="termos">{{ p.etiquetas }}</span>
+        <span v-if="p.notas" class="termos sectxt">{{ p.notas }}</span>
+        <div class="row">
+          <button v-if="p.ref" class="chip g btn" :data-doc="p.ref">{{ refLivro(p.ref) }}</button>
+          <button v-if="(p.fichas || []).length" class="chip btn" :data-fichas="p.id">{{ vmin('fichas') }} ({{ p.fichas.length }})</button>
+          <button class="edb" :data-eled="p.id" style="margin-left:auto">editar</button></div>
+      </div></article>
+  </div>
+  <div v-else class="cadgrid">
+    <article v-for="x in itens" class="cad" :data-elver="x.id" tabindex="0">
+      <div class="ci"><img v-if="x.img" :src="IMG(x.img)" alt="" loading="lazy"><span v-else data-solta>sem imagem</span></div>
+      <div class="cb"><b>{{ x.nome }}</b><p v-if="x.texto">{{ x.texto }}</p>
+        <div class="ct2"><button :class="'chip btn' + (x.on ? ' g' : '')" :data-ellib="x.id"
+            :title="x.on ? 'Os jogadores veem. Clique para tirar.' : 'Os jogadores não veem. Clique para liberar.'">{{ x.on ? '✓ na mesa' : 'liberar' }}</button>
+          <span style="flex:1"></span><button class="edb" :data-eled="x.id">editar</button></div></div></article>
+  </div>
+</template>

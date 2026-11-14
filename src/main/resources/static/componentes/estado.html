@@ -1,0 +1,27 @@
+<!-- Estados da tela principal: carregando, abrindo uma campanha, aba que falhou (js/nucleo.js, js/render.js) -->
+
+<template id="t-carregando">
+  <p class="empty" style="padding:4.5rem 0">Carregando…</p>
+</template>
+
+<!-- mensagem de lista vazia ou de erro, usada pelo app todo -->
+<template id="t-vazio">
+  <p class="empty">{{ texto }}</p>
+</template>
+
+<!-- espera curta dentro de uma janela ou caixa; texto troca o "carregando…" por um aviso discreto -->
+<template id="t-carregando-sm">
+  <p class="muted sm">{{ texto || 'carregando…' }}</p>
+</template>
+
+<template id="t-abrindo">
+  <div class="abrindo"><span data-solta v-html="logo"></span><b>{{ nome }}</b><span>Carregando…</span></div>
+</template>
+
+<template id="t-aba-falhou">
+  <div class="panel" style="padding:1.125rem;margin-top:1.25rem">
+    <h2 class="sec">Falhou ao montar esta aba</h2>
+    <p class="lead">{{ mensagem }}</p>
+    <p class="sm muted">{{ pilha }}</p>
+  </div>
+</template>

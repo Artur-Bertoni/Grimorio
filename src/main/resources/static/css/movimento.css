@@ -1,0 +1,8 @@
+/* ---- quem pediu menos movimento (no sistema ou em Configurações > Aparencia) ---- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .atmo .po,.atmo .nev::after{display:none!important}
+}
+html[data-fx="off"] *,html[data-fx="off"] *::before,html[data-fx="off"] *::after{
+  animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+html[data-fx="off"] .atmo .po,html[data-fx="off"] .atmo .nev::after{display:none!important}

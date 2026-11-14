@@ -1,0 +1,23 @@
+<!-- Contato com o suporte e aviso de armazenamento cheio (js/suporte.js) -->
+
+<template id="t-aviso-cheio">
+  <div class="cheio">
+    <div class="cheioicone" v-html="logo"></div>
+    <h4>O espaço do servidor acabou</h4>
+    <p>O armazenamento desta instância está cheio, então não dá para subir arquivos novos agora. Nada do que já estava salvo foi perdido.</p>
+    <div class="addrow" style="justify-content:center;margin-top:.5rem">
+      <button class="btn" id="chSup">Falar com o suporte</button>
+      <button class="btn sec" id="chOk">Entendi</button>
+    </div>
+  </div>
+</template>
+
+<template id="t-suporte">
+  <p class="lead">Conte o que aconteceu. A mensagem vai para quem cuida deste Grimório, junto com a {{ campanha }} e a tela em que você estava, para facilitar.</p>
+  <div class="form" style="max-width:48rem">
+    <label>Assunto<select id="suA"><option v-for="o in assuntos" v-attr:selected="o === assunto">{{ o }}</option></select></label>
+    <label>O que aconteceu<textarea id="suM" rows="7" placeholder="O que você estava fazendo, o que esperava e o que apareceu."></textarea></label>
+    <label>Seu e-mail para resposta (opcional)<input id="suC" type="email" placeholder="voce@exemplo.com" autocomplete="email"></label>
+    <div class="addrow"><button class="btn" id="suGo">Enviar</button><span class="muted sm" id="suSt"></span></div>
+  </div>
+</template>

@@ -1,0 +1,46 @@
+<!-- Aba Biblioteca (js/pagina-biblioteca.js) -->
+
+<!-- aba: livros | trilha | imagens; texto: o texto de ajuda da aba, ja preenchido -->
+<template id="t-biblioteca">
+  <span data-solta v-html="cabeca"></span>
+  <p class="lead" style="margin:.5rem 0 1rem">Fica tudo no servidor: enviou uma vez, abre de qualquer aparelho.</p>
+  <span data-solta v-html="abas"></span>
+  <div class="addrow"><button class="btn" id="bbUp">{{ aba === 'livros' ? 'Enviar PDFs' : (aba === 'trilha' ? 'Enviar faixas' : 'Enviar imagens') }}</button><button class="btn sec" id="bbPasta">Enviar uma pasta inteira</button></div>
+  <div v-if="aba !== 'imagens'" class="aviso" style="margin-top:.75rem" v-html="texto"></div>
+  <p v-else class="sm muted" style="max-width:96ch">Retratos, mapas e {{ vmin('evidencias') }}. Os {{ vmin('jogadores') }} só veem as que estiverem em algo que você liberou.</p>
+  <div id="bbProg" hidden style="margin:.75rem 0"><div class="prog"><span id="bbN"></span><span class="bar" style="width:13.75rem"><i id="bbB" style="width:0%"></i></span></div></div>
+  <div id="bbList" style="margin-top:.875rem"><p class="muted sm">carregando…</p></div>
+  <details v-if="aba === 'livros'" style="margin-top:1.5rem"><summary class="sm muted" style="cursor:pointer">Avançado</summary>
+    <div style="margin-top:.625rem"><button class="btn sec" id="bbScan">Reescanear o volume</button>
+      <p class="sm muted" style="max-width:96ch">Para arquivo grande demais para subir por aqui, que você colocou direto no volume do servidor.</p></div></details>
+</template>
+
+<template id="t-bib-livros">
+  <div v-if="docs.length" class="alist">
+    <div v-for="x in docs" class="arow">
+      <div style="flex:1;min-width:11.25rem"><b>{{ x.nome }}</b> <span class="muted sm">Abreviação {{ x.abrev }}</span> <button class="tbtn" :data-ren="x.id" :data-nome="x.nome">renomear</button> <button class="tbtn" :data-reidx="x.id" title="Refaz o índice de busca deste livro, lendo os capítulos do sumário do PDF">reler capítulos</button>
+        <p class="muted sm" style="margin:0">{{ x.paginas || 0 }} páginas · {{ mb(x.tamanho) }}</p></div>
+      <button :class="'chip btn' + (x.publico ? ' g' : '')" :data-pub="x.id" :data-v="x.publico ? '0' : '1'" title="Clique para trocar">{{ jogadores }}{{ x.publico ? ' Veem' : ' Não veem' }}</button>
+      <button class="tbtn" :data-abrir="x.abrev">abrir</button>
+      <button class="tbtn d" :data-del="x.id" :data-nome="x.nome">remover</button></div>
+  </div>
+  <p v-else class="empty">Nenhum livro ainda.</p>
+</template>
+
+<!-- categorias: [{nome, cor, faixas}] em ordem alfabetica -->
+<template id="t-bib-trilha">
+  <div v-for="c in categorias" class="fld" style="margin-bottom:1rem">
+    <div class="sechd"><span class="flb" style="flex:1"><i :style="'width:.5rem;height:.5rem;border-radius:50%;flex:0 0 auto;background:' + c.cor"></i>{{ c.nome }} ({{ c.faixas.length }})</span><button class="edb" :data-cated="c.nome">Editar categoria</button></div>
+    <div class="alist"><div v-for="f in c.faixas" class="arow"><div style="flex:1;min-width:10rem"><b>{{ f.nome }}</b> <span class="muted sm">{{ mb(f.tamanho) }}</span></div>
+      <button class="tbtn" :data-fxcat="f.id" :data-cat="c.nome" :data-nome="f.nome">mudar categoria</button>
+      <button class="tbtn" :data-toca="f.nome">tocar</button>
+      <button class="tbtn d" :data-del="f.id" :data-nome="f.nome">remover</button></div></div>
+  </div>
+  <p v-if="!categorias.length" class="empty">Nenhuma faixa ainda.</p>
+</template>
+
+<template id="t-bib-imagens">
+  <span v-if="imagens.length" data-solta><p class="sm muted">{{ imagens.length }} imagens</p>
+    <div class="eigrid"><span v-for="x in imagens" class="pkit"><img :src="x.url" alt="" loading="lazy" :data-ver="x.arquivo || ('img/' + x.nome)" :data-cap="x.nome" style="cursor:zoom-in"><span class="cap">{{ x.nome }}</span><button class="tbtn d" :data-del="x.id" :data-nome="x.nome" style="margin-top:.1875rem">remover</button></span></div></span>
+  <p v-else class="empty">Nenhuma imagem ainda.</p>
+</template>

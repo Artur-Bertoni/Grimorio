@@ -1,0 +1,387 @@
+/* =============== IMERSAO ===============
+   Cada tema reage do seu jeito. O ::before de todo bloco e reservado para o efeito do TEMA
+   (sangue escorre, vinha cresce, LED corre); o ::after fica para o ESTILO (moldura, fita). */
+@property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --fase{syntax:'<length>';inherits:true;initial-value:0px}
+:root{--d20:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1.5 21.1 6.75v10.5L12 22.5 2.9 17.25V6.75z'/%3E%3Cpath d='M7 8.5h10l-5 8.7z'/%3E%3Cpath d='M12 1.5 7 8.5M12 1.5l5 7M2.9 6.75 7 8.5M21.1 6.75 17 8.5M2.9 17.25 7 8.5M2.9 17.25l9.1-.05M21.1 17.25 17 8.5M21.1 17.25l-9.1-.05M12 22.5v-5.3'/%3E%3C/g%3E%3C/svg%3E");--hex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5 21.1 6.75v10.5L12 22.5 2.9 17.25V6.75z'/%3E%3C/svg%3E");--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1.5 21.1 6.75v10.5L12 22.5 2.9 17.25V6.75z'/%3E%3Cpath d='M7 8.5h10l-5 8.7z'/%3E%3Cpath d='M12 1.5 7 8.5M12 1.5l5 7M2.9 6.75 7 8.5M21.1 6.75 17 8.5M2.9 17.25 7 8.5M2.9 17.25l9.1-.05M21.1 17.25 17 8.5M21.1 17.25l-9.1-.05M12 22.5v-5.3'/%3E%3C/g%3E%3C/svg%3E")}
+:is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem){position:relative}
+:is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;opacity:0;transition:opacity .35s}
+.seccols>.sec-wrap,.caixa,.sbody>.blk{transition:box-shadow .3s,border-color .25s}
+@media (hover:hover){
+  :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{opacity:1}
+  .seccols>.sec-wrap:hover,.caixa:hover,.sbody>.blk:hover{border-color:color-mix(in srgb,var(--gold) 40%,var(--line2))}
+}
+
+/* Sangue: o topo do bloco escorre */
+html[data-tema="sangue"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{inset:0 0 auto 0;height:2rem;border-radius:0;border-top-left-radius:inherit;border-top-right-radius:inherit;
+  background:linear-gradient(var(--blood2),var(--blood));mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 224 32'%3E%3Crect width='224' height='4'/%3E%3Crect x='18' y='0' width='6' height='14' rx='3'/%3E%3Ccircle cx='21' cy='13' r='4.4'/%3E%3Crect x='52' y='0' width='4' height='7' rx='2'/%3E%3Ccircle cx='54' cy='6' r='3.4'/%3E%3Crect x='83' y='0' width='6' height='22' rx='3'/%3E%3Ccircle cx='86' cy='21' r='4.4'/%3E%3Crect x='120' y='0' width='4' height='10' rx='2'/%3E%3Ccircle cx='122' cy='9' r='3.4'/%3E%3Crect x='151' y='0' width='5' height='17.5' rx='2.5'/%3E%3Ccircle cx='153.5' cy='16.5' r='3.9'/%3E%3Crect x='190' y='0' width='4' height='6' rx='2'/%3E%3Ccircle cx='192' cy='5' r='3.4'/%3E%3Crect x='207' y='0' width='6' height='12' rx='3'/%3E%3Ccircle cx='210' cy='11' r='4.4'/%3E%3C/svg%3E") 0 0/14rem 2rem repeat-x;
+  transform-origin:top;transform:scaleY(.1);transition:opacity .25s,transform 1.7s cubic-bezier(.35,0,.25,1)}
+html[data-tema="sangue"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{transform:scaleY(1)}
+
+/* Abismo: a mare sobe pelo pe do bloco */
+html[data-tema="abismo"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{inset:auto 0 0 0;height:2.5rem;border-radius:0;border-bottom-left-radius:inherit;border-bottom-right-radius:inherit;
+  background:linear-gradient(transparent,color-mix(in srgb,var(--blood2) 62%,transparent));mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 40' preserveAspectRatio='none'%3E%3Cpath d='M0 10Q24 0 48 10T96 10T144 10T192 10V40H0Z'/%3E%3C/svg%3E") 0 100%/12rem 100% repeat-x;
+  transform-origin:bottom;transform:scaleY(0);transition:opacity .3s,transform 1.2s var(--ease)}
+html[data-tema="abismo"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{transform:scaleY(1);animation:mare 3.4s linear infinite}
+@keyframes mare{to{mask-position:12rem 100%}}
+
+/* Floresta: vinhas crescem a partir de dois cantos */
+html[data-tema="floresta"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{background:linear-gradient(135deg,var(--blood2),var(--gold) 50%,var(--blood2));
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 120C3 96 9 78 5 58S8 28 5 8'/%3E%3Cpath d='M0 115C24 117 42 111 62 115S98 111 112 115'/%3E%3Cpath d='M5 58c8-2 12 4 8 8s-8 0-5-4'/%3E%3Cpath d='M62 115c2-8 9-10 12-5s-3 8-6 4'/%3E%3C/g%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(6 96) rotate(-30)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(7 70) rotate(-50)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(4 46) rotate(-25)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(6 24) rotate(-55)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(5 9) rotate(-90)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(22 115) rotate(-60)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(45 113) rotate(-40)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(70 115) rotate(-65)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(90 113) rotate(-35)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(110 115) rotate(-5)'/%3E%3C/svg%3E") left bottom/0 0 no-repeat,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cg transform='rotate(180 60 60)'%3E%3Cg fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 120C3 96 9 78 5 58S8 28 5 8'/%3E%3Cpath d='M0 115C24 117 42 111 62 115S98 111 112 115'/%3E%3Cpath d='M5 58c8-2 12 4 8 8s-8 0-5-4'/%3E%3Cpath d='M62 115c2-8 9-10 12-5s-3 8-6 4'/%3E%3C/g%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(6 96) rotate(-30)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(7 70) rotate(-50)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(4 46) rotate(-25)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(6 24) rotate(-55)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(5 9) rotate(-90)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(22 115) rotate(-60)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(45 113) rotate(-40)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(70 115) rotate(-65)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(90 113) rotate(-35)'/%3E%3Cpath d='M0 0C3-5 10-5 13 0 10 5 3 5 0 0Z' transform='translate(110 115) rotate(-5)'/%3E%3C/g%3E%3C/svg%3E") right top/0 0 no-repeat;
+  transition:opacity .3s,mask-size 1.4s var(--ease)}
+html[data-tema="floresta"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{mask-size:11rem 11rem,11rem 11rem}
+
+/* Pergaminho: um selo de cera bate no canto */
+html[data-tema="pergaminho"] :is(.ccard,.cad,.pc,.evcard){overflow:visible}
+html[data-tema="pergaminho"] :is(.ccard .ccimg,.cad .ci,.pc .por,.evcard img){border-radius:calc(var(--rc) - 1px) calc(var(--rc) - 1px) 0 0}
+html[data-tema="pergaminho"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{inset:-.875rem auto auto -.875rem;width:2.75rem;height:2.75rem;
+  border-radius:47% 53% 50% 50%/52% 48% 53% 47%;--cera:color-mix(in srgb,var(--blood) 62%,var(--fg));
+  background:linear-gradient(var(--cera),var(--cera)) center/2px 34% no-repeat,linear-gradient(var(--cera),var(--cera)) center/34% 2px no-repeat,
+    radial-gradient(closest-side,transparent 0 62%,var(--cera) 63% 70%,transparent 71%),
+    radial-gradient(circle at 35% 30%,var(--blood2),var(--blood) 70%);
+  box-shadow:0 .1875rem .375rem var(--sh),inset 0 -.125rem .25rem color-mix(in srgb,var(--fg) 35%,transparent);
+  transform:scale(1.8) rotate(-24deg);transition:opacity .14s,transform .32s cubic-bezier(.3,1.6,.5,1)}
+html[data-tema="pergaminho"] :is(.seccols>.sec-wrap,.caixa,.sbody>.blk,.resitem)::before{inset:auto .625rem .625rem auto}
+html[data-tema="pergaminho"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{transform:scale(1) rotate(-8deg)}
+
+/* Taverna: a luz da lareira treme no bloco */
+html[data-tema="taverna"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{background:radial-gradient(120% 85% at 50% 108%,color-mix(in srgb,var(--blood2) 34%,transparent),
+  color-mix(in srgb,var(--gold) 9%,transparent) 45%,transparent 70%)}
+html[data-tema="taverna"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{animation:some .4s ease-out,chama 2.3s .4s ease-in-out infinite}
+html[data-tema="taverna"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover{box-shadow:0 0 2.25rem -.5rem color-mix(in srgb,var(--blood2) 55%,transparent),0 .875rem 1.75rem -1.25rem var(--sh)}
+@keyframes chama{0%,100%{opacity:1}18%{opacity:.7}31%{opacity:.95}47%{opacity:.58}63%{opacity:.9}80%{opacity:.68}}
+
+/* Veu: um circulo arcano gira por tras do texto */
+html[data-tema="veu"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem){isolation:isolate}
+html[data-tema="veu"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{inset:auto .5rem .5rem auto;width:7.5rem;height:7.5rem;z-index:-1;border-radius:0;background:var(--gold);
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='48'/%3E%3Ccircle cx='50' cy='50' r='41'/%3E%3Ccircle cx='50' cy='50' r='15'/%3E%3Cpath d='M50 9 85.5 70.5h-71zM50 91 14.5 29.5h71z'/%3E%3Cpath d='M50 2v7M50 91v7M2 50h7M91 50h7'/%3E%3Ccircle cx='50' cy='9' r='2.5'/%3E%3Ccircle cx='85.5' cy='70.5' r='2.5'/%3E%3Ccircle cx='14.5' cy='70.5' r='2.5'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;transform:scale(.55) rotate(-60deg);transition:opacity .5s,transform 1s var(--ease)}
+html[data-tema="veu"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{opacity:.36;transform:scale(1) rotate(0deg);animation:orbita 32s linear 1s infinite}
+@keyframes orbita{to{transform:scale(1) rotate(360deg)}}
+
+/* Luar: um raio de lua atravessa o bloco */
+html[data-tema="luar"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{background:linear-gradient(115deg,transparent 38%,color-mix(in srgb,var(--gold) 20%,transparent) 48%,
+  color-mix(in srgb,var(--gold) 6%,transparent) 55%,transparent 64%) 100% 0/260% 100% no-repeat;
+  transition:opacity .3s,background-position 1.3s var(--ease)}
+html[data-tema="luar"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{background-position:-25% 0}
+
+/* Noir: a lanterna acompanha o mouse (o JS grava --mx e --my no bloco) */
+html[data-tema="noir"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{background:radial-gradient(15rem circle at var(--mx,50%) var(--my,0%),
+  color-mix(in srgb,var(--gold) 24%,transparent),transparent 70%)}
+
+/* Dossie: carimbo no canto */
+html[data-tema="dossie"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{inset:-.75rem -.625rem auto auto;width:3.25rem;height:3.25rem;border-radius:50%;background:var(--blood2);
+  mask:radial-gradient(closest-side,transparent 0 76%,#000 77% 84%,transparent 85% 89%,#000 90% 99%,transparent 100%),var(--gli) center/44% 44% no-repeat;
+  transform:scale(1.9) rotate(32deg);transition:opacity .12s,transform .26s cubic-bezier(.3,1.5,.5,1)}
+html[data-tema="dossie"] :is(.seccols>.sec-wrap,.caixa,.sbody>.blk,.resitem)::before{inset:auto .625rem .625rem auto}
+html[data-tema="dossie"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{opacity:.85;transform:scale(1) rotate(14deg)}
+
+/* Neon: fita de LED correndo na borda */
+html[data-tema="neon"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{padding:2px;
+  background:conic-gradient(from var(--ang),color-mix(in srgb,var(--gold) 30%,transparent) 0 8%,var(--gold2) 14%,
+    color-mix(in srgb,var(--gold) 30%,transparent) 22% 50%,var(--blood2) 62%,color-mix(in srgb,var(--gold) 30%,transparent) 72%);
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}
+html[data-tema="neon"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{animation:liga .5s linear,gira 2.8s linear infinite}
+html[data-tema="neon"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover{border-color:transparent;
+  box-shadow:0 0 1.5rem -.25rem color-mix(in srgb,var(--gold) 55%,transparent),0 0 3rem -.75rem color-mix(in srgb,var(--blood2) 60%,transparent)}
+@keyframes liga{0%{opacity:0}12%{opacity:1}24%{opacity:.2}36%{opacity:1}52%{opacity:.45}64%,100%{opacity:1}}
+@keyframes gira{to{--ang:360deg}}
+
+/* Aco: chapa escovada e rebitada o tempo todo; no hover passa um reflexo */
+html[data-tema="cinza"]{--chapa:repeating-linear-gradient(90deg,color-mix(in srgb,var(--fg) 3%,transparent) 0 1px,transparent 1px 3px);
+  --lustro:linear-gradient(160deg,color-mix(in srgb,var(--fg) 9%,transparent),transparent 35%,color-mix(in srgb,var(--fg) 5%,transparent) 55%,transparent 80%);
+  --rebite:radial-gradient(circle at 35% 35%,var(--gold2),var(--gold) 40%,color-mix(in srgb,var(--gold) 35%,var(--bg)) 68%,transparent 72%)}
+html[data-tema="cinza"] :is(.seccols>.sec-wrap,.caixa,.sbody>.blk){background-image:var(--faixa),var(--chapa),var(--lustro);
+  background-size:100% 3px,auto,auto;background-repeat:no-repeat,repeat,no-repeat;background-position:top,0 0,0 0}
+html[data-tema="cinza"] :is(.ccard,.cad,.pc){background-image:var(--chapa),var(--lustro)}
+html[data-tema="cinza"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem){box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 16%,transparent),inset 0 -2px 0 color-mix(in srgb,var(--bg) 70%,transparent),
+  0 .875rem 1.75rem -1.25rem var(--sh)}
+html[data-tema="cinza"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem)::before{opacity:1;transition:background-position 1s var(--ease);background:
+  linear-gradient(110deg,transparent 40%,color-mix(in srgb,var(--gold2) 24%,transparent) 50%,transparent 60%) 110% 0/220% 100% no-repeat,
+  var(--rebite) left .5rem top .5rem/.5rem .5rem no-repeat,var(--rebite) right .5rem top .5rem/.5rem .5rem no-repeat,
+  var(--rebite) left .5rem bottom .5rem/.5rem .5rem no-repeat,var(--rebite) right .5rem bottom .5rem/.5rem .5rem no-repeat}
+html[data-tema="cinza"] :is(.ccard,.cad,.pc,.seccols>.sec-wrap,.caixa,.sbody>.blk,.cv .card,.evcard,.qcard,.post,.resitem):hover::before{background-position:-20% 0,left .5rem top .5rem,right .5rem top .5rem,left .5rem bottom .5rem,right .5rem bottom .5rem}
+
+
+/* ---- no quadro: o cartao da cena usa os mesmos efeitos, na escala dele ----
+   O cartao e pequeno e em px (o quadro tem zoom proprio), entao tamanhos em rem dos efeitos
+   acima ficariam enormes aqui. Vem depois de tudo para ganhar no empate de especificidade. */
+html[data-tema="sangue"] .cv .card::before{height:19px;mask-size:134px 19px}
+html[data-tema="abismo"] .cv .card::before{height:22px;mask-size:100px 100%}
+html[data-tema="abismo"] .cv .card:hover::before{animation-name:mare-c}
+@keyframes mare-c{to{mask-position:100px 100%}}
+html[data-tema="floresta"] .cv .card:hover::before{mask-size:70px 70px,70px 70px}
+html[data-tema="pergaminho"] .cv .card::before{inset:-9px auto auto -9px;width:26px;height:26px;
+  box-shadow:0 2px 4px var(--sh),inset 0 -2px 3px color-mix(in srgb,var(--fg) 35%,transparent)}
+html[data-tema="taverna"] .cv .card:hover{box-shadow:0 0 20px -5px color-mix(in srgb,var(--blood2) 55%,transparent),0 3px 10px rgba(0,0,0,.45)}
+html[data-tema="veu"] .cv .card::before{inset:auto 6px 6px auto;width:64px;height:64px}
+html[data-tema="noir"] .cv .card::before{background:radial-gradient(120px circle at var(--mx,50%) var(--my,0%),
+  color-mix(in srgb,var(--gold) 24%,transparent),transparent 70%)}
+html[data-tema="dossie"] .cv .card::before{inset:-8px -7px auto auto;width:30px;height:30px}
+html[data-tema="neon"] .cv .card::before{padding:1.5px}
+html[data-tema="neon"] .cv .card:hover{box-shadow:0 0 14px -2px color-mix(in srgb,var(--gold) 55%,transparent),
+  0 0 28px -8px color-mix(in srgb,var(--blood2) 60%,transparent)}
+html[data-tema="cinza"] .cv .card{background-image:var(--chapa),var(--lustro);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 16%,transparent),inset 0 -2px 0 color-mix(in srgb,var(--bg) 70%,transparent),0 3px 10px rgba(0,0,0,.45)}
+html[data-tema="cinza"] .cv .card::before{background:
+  linear-gradient(110deg,transparent 40%,color-mix(in srgb,var(--gold2) 24%,transparent) 50%,transparent 60%) 110% 0/220% 100% no-repeat,
+  var(--rebite) left 4px top 4px/5px 5px no-repeat,var(--rebite) right 4px top 4px/5px 5px no-repeat,
+  var(--rebite) left 4px bottom 4px/5px 5px no-repeat,var(--rebite) right 4px bottom 4px/5px 5px no-repeat}
+html[data-tema="cinza"] .cv .card:hover::before{background-position:-20% 0,left 4px top 4px,right 4px top 4px,left 4px bottom 4px,right 4px bottom 4px}
+
+/* ---- mesa dos jogadores: resumos em lista, lugares em cartao, anotacoes de tamanho livre ---- */
+.reslist{display:flex;flex-direction:column;gap:.625rem;max-width:112ch}
+.resitem{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rc);overflow:hidden;transition:border-color .2s,box-shadow .3s}
+.resitem>summary{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;cursor:pointer;list-style:none;transition:background-color .15s}
+.resitem>summary::-webkit-details-marker{display:none}
+.resitem>summary:hover{background:var(--bg3)}
+.resitem>summary b{font-family:var(--disp);font-size:1.1rem;letter-spacing:.03em;flex:1;min-width:0}
+.resitem>summary::after{content:"+";font-family:var(--ui);font-size:1.25rem;line-height:1;color:var(--fg3);transition:transform .25s var(--ease),color .2s}
+.resitem[open]>summary::after{transform:rotate(45deg);color:var(--gold)}
+.resitem[open]>summary{border-bottom:1px solid var(--line);background:var(--bg3)}
+.resitem[open]{border-color:var(--line2)}
+.rsdata{font-family:var(--ui);font-size:.8rem;letter-spacing:.08em;color:var(--fg3);white-space:nowrap}
+.resbody{padding:.875rem 1rem 1rem}
+.resacts{display:flex;gap:.375rem;justify-content:flex-end;margin-top:.875rem}
+.abriu[open]>.resbody{animation:desce .28s var(--ease)}
+.mloc .cb p{-webkit-line-clamp:unset;display:block}
+.nota{width:min(112ch,100%);max-width:100%;min-width:min(100%,18rem);min-height:10rem;resize:both}
+.notaft{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem}
+
+/* bloco pequeno da mesa (pessoa, recado): os efeitos do tema na escala dele */
+html[data-tema="sangue"] :is(.qcard,.post)::before{height:1.25rem;mask-size:8.75rem 1.25rem}
+html[data-tema="abismo"] :is(.qcard,.post)::before{height:1.5rem;mask-size:6.5rem 100%}
+html[data-tema="abismo"] :is(.qcard,.post):hover::before{animation-name:mare-q}
+@keyframes mare-q{to{mask-position:6.5rem 100%}}
+html[data-tema="floresta"] :is(.qcard,.post):hover::before{mask-size:4.5rem 4.5rem,4.5rem 4.5rem}
+html[data-tema="pergaminho"] :is(.qcard,.post)::before{inset:auto .5rem .5rem auto;width:1.75rem;height:1.75rem}
+html[data-tema="veu"] :is(.qcard,.post)::before{inset:auto .375rem .375rem auto;width:3.75rem;height:3.75rem}
+html[data-tema="noir"] :is(.qcard,.post)::before{background:radial-gradient(8rem circle at var(--mx,50%) var(--my,0%),
+  color-mix(in srgb,var(--gold) 24%,transparent),transparent 70%)}
+html[data-tema="dossie"] :is(.qcard,.post)::before{inset:auto .5rem .5rem auto;width:2rem;height:2rem}
+html[data-tema="cinza"] :is(.qcard,.post){background-image:var(--chapa),var(--lustro)}
+html[data-tema="cinza"] :is(.qcard,.post)::before{background:
+  linear-gradient(110deg,transparent 40%,color-mix(in srgb,var(--gold2) 24%,transparent) 50%,transparent 60%) 110% 0/220% 100% no-repeat,
+  var(--rebite) left .3rem top .3rem/.35rem .35rem no-repeat,var(--rebite) right .3rem top .3rem/.35rem .35rem no-repeat,
+  var(--rebite) left .3rem bottom .3rem/.35rem .35rem no-repeat,var(--rebite) right .3rem bottom .3rem/.35rem .35rem no-repeat}
+html[data-tema="cinza"] :is(.qcard,.post):hover::before{background-position:-20% 0,left .3rem top .3rem,right .3rem top .3rem,left .3rem bottom .3rem,right .3rem bottom .3rem}
+
+/* ---- esbocos no fundo: o objeto do estilo num canto, uma ficha rabiscada no outro ---- */
+.atmo .marca{inset:auto 2vw 2vh auto;width:min(36vmin,24rem);height:min(36vmin,24rem);background:var(--gold);opacity:.075;
+  mask:var(--marca) center/contain no-repeat}
+.atmo .marca.f{inset:auto auto 3vh 2vw;width:min(30vmin,19rem);height:min(30vmin,19rem);opacity:.06;rotate:-7deg;mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='40' y='12' width='120' height='176' rx='4'/%3E%3Crect x='50' y='22' width='40' height='46'/%3E%3Ccircle cx='70' cy='38' r='8'/%3E%3Cpath d='M56 66c0-16 28-16 28 0M98 28h52M98 40h38M98 52h46M98 64h30'/%3E%3Crect x='50.0' y='78' width='14' height='18'/%3E%3Crect x='68.4' y='78' width='14' height='18'/%3E%3Crect x='86.8' y='78' width='14' height='18'/%3E%3Crect x='105.2' y='78' width='14' height='18'/%3E%3Crect x='123.6' y='78' width='14' height='18'/%3E%3Crect x='142.0' y='78' width='14' height='18'/%3E%3Cpath d='M52 108h20v10c0 8-5 12-10 14-5-2-10-6-10-14zM80 110h70M80 120h56M80 130h64'/%3E%3Cpath d='M52 146h42M52 156h34M52 166h38M52 176h28M108 146h42M108 156h28M108 166h38M108 176h34'/%3E%3Cg transform='translate(134 134) scale(2.6)' stroke-width='.5'%3E%3Cpath d='M12 1.5 21.1 6.75v10.5L12 22.5 2.9 17.25V6.75z'/%3E%3Cpath d='M7 8.5h10l-5 8.7z'/%3E%3Cpath d='M12 1.5 7 8.5M12 1.5l5 7M2.9 6.75 7 8.5M21.1 6.75 17 8.5M2.9 17.25 7 8.5M2.9 17.25l9.1-.05M21.1 17.25 17 8.5M21.1 17.25l-9.1-.05M12 22.5v-5.3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+html[data-esquema="light"] .atmo .marca{opacity:.13}
+html[data-estilo="fantasia"]{--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M100 22c22 12 44 15 62 15 0 62-20 108-62 140-42-32-62-78-62-140 18 0 40-3 62-15z'/%3E%3Cpath d='M100 36c18 9 34 12 49 12-2 52-18 90-49 115-31-25-47-63-49-115 15 0 31-3 49-12z'/%3E%3Cg transform='rotate(40 100 100)'%3E%3Cpath d='M96 14l4-10 4 10v112h-8zM100 22v98M80 126h40v7H80zM96 133h8v26h-8z'/%3E%3Ccircle cx='100' cy='166' r='7'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+html[data-estilo="terror"]{--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='100' cy='100' r='88'/%3E%3Ccircle cx='100' cy='100' r='80'/%3E%3Cpath d='M100 20 169.3 140H30.7z'/%3E%3Ccircle cx='100' cy='20' r='5'/%3E%3Ccircle cx='169.3' cy='140' r='5'/%3E%3Ccircle cx='30.7' cy='140' r='5'/%3E%3Cpath d='M88 96h24v52H88zM88 96c4-5 8 3 12-2s8 2 12 2M100 58c10 14 11 22 0 34-11-12-10-20 0-34zM100 92v6M108 96v14c0 4-5 4-5 0M76 148h48l-6 10H82z'/%3E%3C/g%3E%3C/svg%3E")}
+html[data-estilo="misterio"]{--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='52' y='14' width='96' height='172' rx='8'/%3E%3Crect x='60' y='22' width='80' height='156' rx='4'/%3E%3Cpath d='M72 100q28-30 56 0-28 30-56 0z'/%3E%3Ccircle cx='100' cy='100' r='10'/%3E%3Ccircle cx='100' cy='100' r='3' fill='black'/%3E%3Cpath d='M100 62V50M82 68l-6-10M118 68l6-10M106 28a10 10 0 1 0 0 18 8 8 0 0 1 0-18z'/%3E%3Cpath d='M76 144l2 4 4 2-4 2-2 4-2-4-4-2 4-2zM124 144l2 4 4 2-4 2-2 4-2-4-4-2 4-2zM100 156l2 4 4 2-4 2-2 4-2-4-4-2 4-2z'/%3E%3Cpath d='M28 56l2 4 4 2-4 2-2 4-2-4-4-2 4-2zM172 126l2 4 4 2-4 2-2 4-2-4-4-2 4-2z'/%3E%3C/g%3E%3C/svg%3E")}
+html[data-estilo="investigacao"]{--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='86' cy='86' r='56'/%3E%3Ccircle cx='86' cy='86' r='49'/%3E%3Cpath d='M127 127l46 46' stroke-width='10'/%3E%3Cpath d='M54 96c2-50 62-50 64 0M60 100c0-40 52-40 52 0M68 104c0-30 36-30 36 0v10M76 106c0-18 20-18 20 0v16M86 104v20'/%3E%3C/g%3E%3C/svg%3E")}
+html[data-estilo="ficcao"]{--marca:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='100' cy='100' r='40'/%3E%3Cellipse cx='100' cy='100' rx='78' ry='20' transform='rotate(-20 100 100)'/%3E%3Cpath d='M63 88q37 12 74 0M62 108q38 12 76 0'/%3E%3Ccircle cx='100' cy='100' r='92' stroke-dasharray='3 7'/%3E%3Ccircle cx='165' cy='35' r='6'/%3E%3Cpath d='M30 40v10M25 45h10M170 160v8M166 164h8M10 10h14M10 10v14M190 190h-14M190 190v-14'/%3E%3C/g%3E%3C/svg%3E")}
+
+/* ---- D20: carregando, tela vazia, numero de sessao e o rolador ---- */
+.abrindo svg{width:5rem;height:5rem;color:var(--gold);animation:rolando 1.5s cubic-bezier(.5,0,.3,1) infinite}
+@keyframes rolando{0%{transform:rotate(0) scale(1);opacity:.6}45%{transform:rotate(200deg) scale(.86);opacity:1}100%{transform:rotate(360deg) scale(1);opacity:.6}}
+.empty::before{width:1.875rem;height:1.875rem;-webkit-mask:var(--d20) center/contain no-repeat;mask:var(--d20) center/contain no-repeat}
+.ep .n{position:relative;z-index:0;text-align:center;color:var(--fg)}
+.ep .n::before{content:"";position:absolute;left:50%;top:50%;width:2.1rem;height:2.1rem;translate:-50% -50%;z-index:-1;
+  background:color-mix(in srgb,var(--blood) 55%,transparent);mask:var(--hex) center/contain no-repeat;
+  transition:rotate .5s var(--ease),background-color .25s}
+.ep:hover .n::before{rotate:60deg;background:color-mix(in srgb,var(--gold) 55%,transparent)}
+.ep.done .n::before{background:color-mix(in srgb,var(--ok) 45%,transparent)}
+body.fora #btnDados{display:none!important}
+.sheet.dadosheet{max-width:26rem}
+.dados{display:flex;flex-direction:column;align-items:center;gap:.75rem;text-align:center}
+.dadoface{position:relative;width:9rem;height:9rem;display:grid;place-items:center;color:var(--gold)}
+.dadoface .dd{position:absolute;inset:0;width:100%;height:100%;stroke-width:.6}
+.dadoface b{position:relative;top:-.25rem;font-family:var(--disp);font-size:2.4rem;font-weight:800;line-height:1;color:var(--fg);
+  text-shadow:0 0 .5rem var(--bg2),0 0 1rem var(--bg2),0 0 1.5rem var(--bg2)}
+.dadoface.rolando .dd{animation:rola .65s cubic-bezier(.3,.6,.4,1)}
+@keyframes rola{0%{transform:rotate(0) scale(1)}40%{transform:rotate(300deg) scale(.8)}100%{transform:rotate(720deg) scale(1)}}
+.dadoface:is(.caiu,.crit,.falha) b{animation:quica .4s var(--ease)}
+@keyframes quica{from{transform:scale(1.7);opacity:0}}
+.dadoface.crit{color:var(--gold2);filter:drop-shadow(0 0 1rem var(--gold))}
+.dadoface.crit b{color:var(--gold2)}
+.dadoface.falha{color:var(--blood2);animation:treme .4s}
+.dadoface.falha b{color:var(--blood2)}
+@keyframes treme{20%{transform:translateX(-.375rem)}40%{transform:translateX(.3rem)}60%{transform:translateX(-.2rem)}80%{transform:translateX(.1rem)}}
+.ddleg{margin:0;font-family:var(--ui);font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--fg3)}
+.ddrow{display:flex;gap:.375rem;flex-wrap:wrap;justify-content:center}
+.ddhist{list-style:none;margin:0;padding:0;display:flex;gap:.375rem;flex-wrap:wrap;justify-content:center;min-height:1.6rem}
+.ddhist li{font-family:var(--ui);font-size:.74rem;letter-spacing:.06em;color:var(--fg3);border:1px solid var(--line);
+  border-radius:var(--rb);padding:.125rem .5rem;display:flex;gap:.375rem}
+.ddhist b{color:var(--fg)}
+.ddhist b.crit{color:var(--gold)}
+.ddhist b.falha{color:var(--blood2)}
+
+/* ---- dados: quem rolou, quem ve ---- */
+.ddvis{margin:0}
+.ddfeed{width:100%;display:flex;flex-direction:column;gap:2px;max-height:13rem;overflow:auto;text-align:left;
+  border-top:1px solid var(--line);padding-top:.625rem}
+.ddfeed:empty{display:none}
+.ddit{display:grid;grid-template-columns:1fr auto auto;gap:.625rem;align-items:center;padding:.3125rem .5rem;border-radius:var(--rb);
+  font-size:.9rem;color:var(--fg2)}
+.ddit:nth-child(odd){background:color-mix(in srgb,var(--bg3) 70%,transparent)}
+.ddit .ddq{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddit .ddq i{font-style:normal;font-family:var(--ui);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);margin-left:.375rem}
+.ddit .ddd{font-family:var(--ui);font-size:.74rem;letter-spacing:.08em;color:var(--fg3)}
+.ddit b{font-family:var(--disp);font-size:1.05rem;color:var(--fg);min-width:2.25rem;text-align:right}
+.ddit b.crit{color:var(--gold)}
+.ddit b.falha{color:var(--blood2)}
+.ddit.nova{animation:surge .4s var(--ease)}
+.toast.rol{gap:.5rem}
+.toast.rol svg{width:1.125rem;height:1.125rem;color:var(--gold);flex:0 0 auto}
+.toast.rol b{color:var(--gold)}
+
+/* ---- dados por estilo: o d20 rola e cai do jeito do genero ---- */
+.dadoface::before,.dadoface::after{content:"";position:absolute;pointer-events:none;opacity:0}
+/* fantasia: o dado sobe num arco, quica e o resultado solta faiscas douradas */
+html[data-estilo="fantasia"] .dadoface.rolando .dd{animation:ddarco .66s cubic-bezier(.3,.6,.4,1)}
+@keyframes ddarco{0%{transform:translateY(0) rotate(0)}35%{transform:translateY(-2.25rem) rotate(260deg) scale(.85)}
+  70%{transform:translateY(0) rotate(560deg)}82%{transform:translateY(-.5rem) rotate(660deg)}100%{transform:translateY(0) rotate(720deg)}}
+html[data-estilo="fantasia"] .dadoface::after{inset:-2.5rem;border-radius:50%;
+  background:radial-gradient(circle,var(--gold2) 0 2px,transparent 3px) 0 0/1.75rem 1.75rem,
+    radial-gradient(circle,var(--gold) 0 1.5px,transparent 2.5px) .875rem .875rem/1.75rem 1.75rem;
+  mask:radial-gradient(closest-side,transparent 45%,#000 60%,transparent 100%)}
+html[data-estilo="fantasia"] .dadoface:is(.caiu,.crit,.falha)::after{animation:faisca .8s ease-out}
+@keyframes faisca{0%{opacity:0;transform:scale(.4) rotate(0)}25%{opacity:1}100%{opacity:0;transform:scale(1.25) rotate(40deg)}}
+html[data-estilo="fantasia"] .dadoface.crit::before{inset:-3rem;border-radius:50%;opacity:1;animation:raios 1.2s ease-out forwards;
+  background:repeating-conic-gradient(color-mix(in srgb,var(--gold2) 45%,transparent) 0 4deg,transparent 4deg 22deg);
+  mask:radial-gradient(closest-side,transparent 30%,#000 50%,transparent 100%)}
+@keyframes raios{0%{opacity:0;transform:scale(.5) rotate(0)}30%{opacity:1}100%{opacity:0;transform:scale(1.15) rotate(60deg)}}
+
+/* terror: o dado treme com a luz falhando; o numero escorre e uma gota cai */
+html[data-estilo="terror"] .dadoface.rolando .dd{animation:ddtreme .63s steps(1,end)}
+@keyframes ddtreme{0%{transform:translate(0,0) rotate(0)}10%{transform:translate(-3px,2px) rotate(-8deg);opacity:.4}
+  20%{transform:translate(4px,-1px) rotate(70deg);opacity:1}30%{transform:translate(-2px,-3px) rotate(140deg);color:var(--blood2)}
+  40%{transform:translate(3px,3px) rotate(160deg);opacity:.2}50%{transform:translate(-4px,0) rotate(230deg);opacity:1}
+  60%{transform:translate(2px,-2px) rotate(300deg);color:var(--blood2)}70%{transform:translate(-1px,3px) rotate(320deg);opacity:.5}
+  80%{transform:translate(3px,1px) rotate(350deg);opacity:1}100%{transform:none}}
+html[data-estilo="terror"] .dadoface:is(.caiu,.crit,.falha) b{animation:ddsangra .6s cubic-bezier(.2,.7,.2,1)}
+@keyframes ddsangra{from{opacity:0;transform:translateY(-.75rem) scaleY(1.4);filter:blur(4px)}}
+html[data-estilo="terror"] .dadoface b{color:var(--blood2)}
+html[data-estilo="terror"] .dadoface::after{left:50%;top:62%;width:.5rem;height:.7rem;margin-left:-.25rem;background:var(--blood2);
+  border-radius:50% 50% 50% 50%/60% 60% 40% 40%}
+html[data-estilo="terror"] .dadoface:is(.caiu,.crit,.falha)::after{animation:gota 1.1s .25s ease-in}
+@keyframes gota{0%{opacity:0;transform:translateY(0) scale(.3)}20%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(3.5rem) scaleY(1.4)}}
+
+/* misterio: o dado some na nevoa girando devagar; o resultado se forma do borrao */
+html[data-estilo="misterio"] .dadoface.rolando .dd{animation:ddnevoa .66s ease-in-out}
+@keyframes ddnevoa{0%{transform:rotate(0);filter:none}40%{opacity:.25;filter:blur(6px);transform:rotate(90deg) scale(1.1)}
+  100%{opacity:1;filter:none;transform:rotate(180deg)}}
+html[data-estilo="misterio"] .dadoface.rolando b{filter:blur(5px);opacity:.5}
+html[data-estilo="misterio"] .dadoface:is(.caiu,.crit,.falha) b{animation:ddforma .9s ease-out}
+@keyframes ddforma{from{opacity:0;filter:blur(10px);transform:scale(1.3)}}
+html[data-estilo="misterio"] .dadoface::after{inset:-1.5rem;border-radius:50%;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--blood2) 40%,transparent),transparent)}
+html[data-estilo="misterio"] .dadoface:is(.caiu,.crit,.falha)::after{animation:halo 1.4s ease-out}
+@keyframes halo{0%{opacity:0;transform:scale(.6)}35%{opacity:1}100%{opacity:0;transform:scale(1.3)}}
+
+/* investigacao: nada de giro; o dado escorrega na mesa e o resultado e carimbado */
+html[data-estilo="investigacao"] .dadoface.rolando .dd{animation:ddescorrega .63s cubic-bezier(.2,.8,.3,1)}
+@keyframes ddescorrega{0%{transform:translateX(-2.5rem) rotate(-30deg);opacity:0}100%{transform:none}}
+html[data-estilo="investigacao"] .dadoface b{font-family:var(--disp)}
+html[data-estilo="investigacao"] .dadoface:is(.caiu,.crit,.falha) b{animation:carimbo .32s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes carimbo{from{opacity:0;transform:scale(2.4) rotate(-14deg)}to{opacity:1;transform:rotate(-6deg)}}
+html[data-estilo="investigacao"] .dadoface::after{inset:2.4rem 2.2rem 2.6rem;border:3px double var(--blood2);border-radius:50%}
+html[data-estilo="investigacao"] .dadoface:is(.caiu,.crit,.falha)::after{animation:carimbo2 .32s .05s cubic-bezier(.3,1.5,.5,1) forwards}
+@keyframes carimbo2{from{opacity:0;transform:scale(2) rotate(-14deg)}to{opacity:.7;transform:rotate(-6deg)}}
+
+/* ficcao: holograma piscando com linhas de varredura; o resultado entra com falha de sinal */
+html[data-estilo="ficcao"] .dadoface.rolando .dd{animation:ddholo .63s steps(1,end)}
+@keyframes ddholo{0%{opacity:1}12%{opacity:.25;transform:skewX(12deg) rotate(90deg)}24%{opacity:1;transform:rotate(180deg)}
+  36%{opacity:.5;transform:translateX(4px) rotate(220deg)}48%{opacity:1;transform:rotate(300deg);filter:hue-rotate(90deg)}
+  60%{opacity:.3;transform:skewX(-10deg) rotate(330deg)}72%{opacity:1;transform:rotate(350deg)}100%{transform:none;filter:none}}
+html[data-estilo="ficcao"] .dadoface::before{inset:0;opacity:0;
+  background:repeating-linear-gradient(0deg,color-mix(in srgb,var(--gold) 30%,transparent) 0 1px,transparent 1px 4px);
+  mask:radial-gradient(closest-side,#000 60%,transparent)}
+html[data-estilo="ficcao"] .dadoface.rolando::before{opacity:1}
+html[data-estilo="ficcao"] .dadoface:is(.caiu,.crit,.falha) b{animation:ddglitch .45s steps(1,end)}
+@keyframes ddglitch{0%{opacity:0}15%{opacity:1;transform:translateX(-5px);text-shadow:3px 0 var(--blood2),-3px 0 var(--gold)}
+  30%{transform:translateX(4px)}45%{transform:translateX(-2px);text-shadow:-2px 0 var(--blood2),2px 0 var(--gold)}
+  60%{transform:none;text-shadow:none}75%{opacity:.6}100%{opacity:1}}
+
+/* ---- barra da musica: o trilho e o cursor mudam com o tema (--pct vem do JS) ----
+   Os pseudo-elementos de range nao aceitam lista misturando navegadores, entao tudo que varia
+   e token: o tema so troca os --sk-*. --fase e animada no input e herdada pelo trilho. */
+.seek input[type=range],.volrow input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:1.5rem;
+  cursor:pointer;--pct:0%;filter:var(--sk-filtro,none)}
+.seek input[type=range]::-webkit-slider-runnable-track,.volrow input[type=range]::-webkit-slider-runnable-track{
+  height:var(--sk-h,.5rem);border-radius:var(--sk-r,1rem);box-shadow:0 0 0 1px var(--line2);
+  background:linear-gradient(var(--bg4),var(--bg4)) right/calc(100% - var(--pct)) 100% no-repeat,
+    var(--sk-cheio,linear-gradient(90deg,var(--blood),var(--blood2) 50%,var(--blood))) var(--fase) 50%/var(--sk-tam,2rem) 100% repeat-x}
+.seek input[type=range]::-webkit-slider-thumb,.volrow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+  width:var(--sk-tw,1rem);height:var(--sk-th,1rem);margin-top:calc((var(--sk-h,.5rem) - var(--sk-th,1rem))/2);
+  border-radius:var(--sk-tr,50%);background:var(--sk-tb,var(--gold));border:var(--sk-tbd,2px solid var(--bg));
+  box-shadow:var(--sk-ts,0 0 .625rem color-mix(in srgb,var(--gold) 70%,transparent));transform:var(--sk-tt,none)}
+.seek input[type=range]::-moz-range-track,.volrow input[type=range]::-moz-range-track{height:var(--sk-h,.5rem);border-radius:var(--sk-r,1rem);background:var(--bg4)}
+.seek input[type=range]::-moz-range-progress,.volrow input[type=range]::-moz-range-progress{height:var(--sk-h,.5rem);border-radius:var(--sk-r,1rem);
+  background:var(--sk-cheio,linear-gradient(90deg,var(--blood),var(--blood2) 50%,var(--blood))) var(--fase) 50%/var(--sk-tam,2rem) 100% repeat-x}
+.seek input[type=range]::-moz-range-thumb,.volrow input[type=range]::-moz-range-thumb{width:var(--sk-tw,1rem);height:var(--sk-th,1rem);
+  border-radius:var(--sk-tr,50%);background:var(--sk-tb,var(--gold));border:var(--sk-tbd,2px solid var(--bg));
+  box-shadow:var(--sk-ts,0 0 .625rem color-mix(in srgb,var(--gold) 70%,transparent));transform:var(--sk-tt,none)}
+/* todo ladrilho divide 6rem, entao um unico keyframe fecha o ciclo sem salto em qualquer tema */
+.seek.toca input[type=range]{animation:fase 4.2s linear infinite}
+@keyframes fase{to{--fase:6rem}}
+html[data-tema="sangue"]{--sk-cheio:linear-gradient(90deg,var(--blood),var(--blood2) 40%,color-mix(in srgb,var(--blood2) 65%,var(--fg)) 50%,var(--blood2) 60%,var(--blood));
+  --sk-tr:0 50% 50% 50%;--sk-tt:rotate(45deg);--sk-tb:var(--blood2);--sk-tbd:0;--sk-ts:0 0 .75rem var(--blood2)}
+html[data-tema="abismo"]{--sk-tam:3rem;--sk-cheio:linear-gradient(90deg,var(--blood),var(--blood2) 50%,var(--blood));
+  --sk-tb:radial-gradient(circle at 35% 30%,var(--fg) 0 14%,color-mix(in srgb,var(--blood2) 40%,var(--bg)) 42%);
+  --sk-tbd:1.5px solid var(--blood2);--sk-ts:0 0 .75rem var(--blood2)}
+html[data-tema="floresta"]{--sk-tam:1.5rem;--sk-cheio:linear-gradient(90deg,var(--blood) 0 40%,var(--gold) 46% 54%,var(--blood) 60%);
+  --sk-tr:0 100% 0 100%;--sk-tb:var(--blood2);--sk-tbd:0;--sk-tw:1.125rem;--sk-th:1.125rem;--sk-ts:0 0 .5rem var(--blood2)}
+html[data-tema="pergaminho"]{--sk-tam:.5rem;--sk-h:.1875rem;--sk-cheio:linear-gradient(90deg,var(--fg) 0 78%,transparent 78%);
+  --sk-tr:1px;--sk-tt:rotate(45deg);--sk-tb:var(--blood);--sk-tbd:0;--sk-tw:.8125rem;--sk-th:.8125rem;--sk-ts:0 1px 3px var(--sh)}
+html[data-tema="taverna"]{--sk-tam:1.5rem;--sk-cheio:linear-gradient(90deg,var(--blood),var(--gold2) 50%,var(--blood));
+  --sk-tr:0 50% 50% 50%;--sk-tt:rotate(45deg);--sk-tb:radial-gradient(circle at 62% 62%,var(--gold2),var(--blood2) 70%);--sk-tbd:0;
+  --sk-ts:0 0 .875rem var(--gold)}
+html[data-tema="veu"]{--sk-tam:3rem;--sk-cheio:linear-gradient(90deg,var(--blood),var(--blood2) 44%,var(--gold2) 50%,var(--blood2) 56%,var(--blood));
+  --sk-tb:radial-gradient(circle at 35% 35%,var(--gold2),var(--gold));--sk-tbd:0;--sk-ts:0 0 1rem var(--gold2)}
+html[data-tema="luar"]{--sk-tam:3rem;--sk-cheio:linear-gradient(90deg,var(--blood),var(--blood2) 44%,var(--gold2) 50%,var(--blood2) 56%,var(--blood));
+  --sk-tb:transparent;--sk-tbd:0;--sk-tw:1.125rem;--sk-th:1.125rem;
+  --sk-ts:inset .3125rem 0 0 0 var(--gold2),0 0 .875rem color-mix(in srgb,var(--gold) 55%,transparent)}
+html[data-tema="noir"]{--sk-tam:.5rem;--sk-h:.625rem;--sk-r:2px;--sk-cheio:linear-gradient(90deg,var(--gold) 0 55%,transparent 55%);
+  --sk-tw:.5rem;--sk-th:1.25rem;--sk-tr:1px;--sk-tb:var(--fg);--sk-tbd:0;--sk-ts:0 0 .5rem var(--gold)}
+html[data-tema="dossie"]{--sk-tam:.5rem;--sk-h:.25rem;--sk-r:0;--sk-cheio:linear-gradient(90deg,var(--blood2) 0 60%,transparent 60%);
+  --sk-tr:2px;--sk-tt:rotate(8deg);--sk-tb:var(--bg2);--sk-tbd:2px solid var(--blood2);--sk-ts:none}
+html[data-tema="neon"]{--sk-tam:1.5rem;--sk-r:1px;--sk-filtro:drop-shadow(0 0 .25rem var(--gold));
+  --sk-cheio:linear-gradient(90deg,var(--gold) 0 .3rem,transparent .3rem .5rem,var(--gold) .5rem .8rem,transparent .8rem 1rem,var(--gold2) 1rem 1.3rem,transparent 1.3rem 1.5rem);
+  --sk-tw:.375rem;--sk-th:1.25rem;--sk-tr:1px;--sk-tb:var(--gold2);--sk-tbd:0;--sk-ts:0 0 .75rem var(--gold2)}
+html[data-tema="cinza"]{--sk-r:1px;--sk-cheio:linear-gradient(90deg,var(--blood),var(--gold2) 50%,var(--blood));
+  --sk-tr:25%;--sk-tb:radial-gradient(circle at 35% 35%,var(--gold2),var(--gold) 45%,color-mix(in srgb,var(--gold) 40%,var(--bg)) 78%);--sk-tbd:0;
+  --sk-ts:0 1px 3px var(--sh)}
+
+/* ---- virar pagina do PDF: a pagina velha e a nova ocupam a mesma celula por um instante ---- */
+.pdfcanvas>canvas{grid-area:1/1}
+/* sem a calha fixa, a rolagem que some durante a virada recentralizava a pagina alguns pixels */
+.pdfcanvas{scrollbar-gutter:stable both-edges}
+.pdfcanvas.virando{overflow:hidden;perspective:150rem}
+.pdfcanvas>canvas.sai{z-index:1;animation:pgsai .3s ease-in forwards}
+.pdfcanvas>canvas.vem{z-index:2;animation:pgvem .38s var(--ease) backwards}
+@keyframes pgsai{to{opacity:0;transform:translateX(calc(var(--dir,1)*-2rem))}}
+@keyframes pgvem{from{opacity:0;transform:translateX(calc(var(--dir,1)*2rem))}}
+/* fantasia: folha de livro girando na lombada */
+html[data-estilo="fantasia"] .pdfcanvas>canvas{transform-origin:left center;backface-visibility:hidden}
+html[data-estilo="fantasia"] .pdfcanvas[data-dir="f"]>canvas.sai{z-index:3;animation:folhavai .6s cubic-bezier(.45,0,.55,1) forwards}
+html[data-estilo="fantasia"] .pdfcanvas[data-dir="f"]>canvas.vem,html[data-estilo="fantasia"] .pdfcanvas[data-dir="b"]>canvas.sai{animation:none}
+html[data-estilo="fantasia"] .pdfcanvas[data-dir="b"]>canvas.vem{z-index:3;animation:folhavem .6s cubic-bezier(.45,0,.55,1) backwards}
+@keyframes folhavai{to{transform:rotateY(-105deg);filter:brightness(.5)}}
+@keyframes folhavem{from{transform:rotateY(-105deg);filter:brightness(.5)}}
+/* terror: a luz falha e a pagina ja e outra */
+html[data-estilo="terror"] .pdfcanvas>canvas.sai{animation:pgcorte .1s linear forwards}
+html[data-estilo="terror"] .pdfcanvas>canvas.vem{animation:pgpisca .5s linear backwards}
+@keyframes pgcorte{to{opacity:0}}
+@keyframes pgpisca{0%{opacity:0;filter:sepia(1) hue-rotate(-50deg) saturate(5) brightness(1.6)}18%{opacity:1}32%{opacity:.2}
+  48%{opacity:1;filter:sepia(1) hue-rotate(-50deg) saturate(3)}62%{opacity:.55}100%{opacity:1;filter:none}}
+/* misterio: uma se desfaz em nevoa, a outra se forma */
+html[data-estilo="misterio"] .pdfcanvas>canvas.sai{animation:pgnevoasai .5s ease-in forwards}
+html[data-estilo="misterio"] .pdfcanvas>canvas.vem{animation:pgnevoavem .6s ease-out backwards}
+@keyframes pgnevoasai{to{opacity:0;filter:blur(14px);transform:scale(1.04)}}
+@keyframes pgnevoavem{from{opacity:0;filter:blur(14px);transform:scale(.96)}}
+/* investigacao: a folha nova e jogada em cima da pilha */
+html[data-estilo="investigacao"] .pdfcanvas>canvas.sai{animation:none}
+html[data-estilo="investigacao"] .pdfcanvas>canvas.vem{animation:pgjoga .42s cubic-bezier(.2,.8,.3,1) backwards;box-shadow:0 .5rem 1.5rem var(--sh)}
+@keyframes pgjoga{from{opacity:0;transform:translate(calc(var(--dir,1)*40%),-6%) rotate(calc(var(--dir,1)*8deg))}}
+/* ficcao: varredura de cima para baixo com falha de sinal */
+html[data-estilo="ficcao"] .pdfcanvas>canvas.sai{animation:none}
+html[data-estilo="ficcao"] .pdfcanvas>canvas.vem{animation:pgvarre .45s linear backwards}
+@keyframes pgvarre{0%{clip-path:inset(0 0 100% 0);transform:translateX(-6px);filter:hue-rotate(90deg) brightness(1.7)}
+  30%{transform:translateX(5px)}55%{transform:translateX(-2px);filter:hue-rotate(40deg) brightness(1.3)}
+  100%{clip-path:inset(0);transform:none;filter:none}}

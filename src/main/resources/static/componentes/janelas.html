@@ -1,0 +1,41 @@
+<!-- Janela (overlay), projecao em tela cheia e fichas do elenco abertas (js/janelas.js) -->
+
+<template id="t-janela">
+  <div :class="'sheet' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')">
+    <div class="shead">
+      <button v-if="voltar" class="backb" data-back>‹ Voltar</button>
+      <h3>{{ titulo }}</h3><span data-solta v-html="cabeca"></span><button class="x" aria-label="Fechar">✕</button>
+    </div>
+    <div class="sbodyscroll" v-html="corpo"></div>
+  </div>
+</template>
+
+<template id="t-projecao">
+  <img :src="src" alt="">
+  <div v-if="legenda" class="cap">{{ legenda }}</div>
+  <div class="projbar"><span data-solta v-html="liberar"></span><button class="btn sec" data-close>Fechar</button></div>
+</template>
+
+<template id="t-item-elenco">
+  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+    <img v-if="img" :src="img" alt="" data-proj :style="'width:min(100%,' + largura + 'rem);align-self:flex-start;border:1px solid var(--line2);border-radius:3px;cursor:zoom-in'">
+    <div style="flex:1;min-width:14.375rem;display:flex;flex-direction:column;gap:.75rem">
+      <p v-if="texto" class="lead sectxt" style="margin:0">{{ texto }}</p>
+      <p v-else class="muted sm" style="margin:0">Sem descrição ainda.</p>
+      <div v-if="segredo" class="segredo"><span class="lb">Só você vê</span><span class="sectxt">{{ segredo }}</span></div>
+      <div class="addrow">
+        <button v-if="img" class="btn" data-proj>Mostrar em tela cheia</button>
+        <span data-solta v-html="liberar"></span>
+        <button v-if="mestre" class="btn sec" id="itEd">Editar</button>
+        <button v-if="mestre && sessao" class="btn sec" id="itTira">Tirar desta {{ sessao }}</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="t-fichas-imagem">
+  <div class="imgrow" style="gap:.625rem">
+    <img v-for="f in fichas" :src="f.url" alt="" style="width:9.375rem;height:auto" :data-f="f.rel" loading="lazy">
+  </div>
+  <p class="sm muted" style="margin-top:.625rem">Clique para abrir em tela cheia.</p>
+</template>

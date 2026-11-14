@@ -1,0 +1,133 @@
+<!-- Sessao aberta: quadro, roteiro, painel, cenas e blocos (js/cena.js) -->
+
+<!-- ---------- blocos de cena ---------- -->
+
+<!-- b: o bloco; itens: os itens (nos testes, ja com as faixas de resultado separadas em {num, txt}) -->
+<template id="t-bloco">
+  <div class="blk"><div class="blkhd"><span class="flb">{{ rotulo }}</span><span class="blktools"><button class="edb" data-act="blk-ed" :data-c="cid" :data-b="bi">editar</button><button class="tbtn" data-act="blk-up" :data-c="cid" :data-b="bi" title="Subir">↑</button><button class="tbtn" data-act="blk-dn" :data-c="cid" :data-b="bi" title="Descer">↓</button></span></div>
+    <div v-if="b.tipo === 'leitura' && b.texto" class="leitura"><span v-if="b.nota" class="hint">{{ b.nota }}</span>{{ b.texto }}</div>
+    <div v-else-if="b.tipo === 'nota' && b.texto" class="segredo"><span class="lb">Não revele · clique para ler</span><div class="blur" data-blur="1" style="white-space:pre-wrap">{{ b.texto }}</div></div>
+    <p v-else-if="b.tipo === 'leitura' || b.tipo === 'nota' || !itens.length" class="muted sm" style="margin:0">Vazio. Use “editar” para preencher.</p>
+    <ul v-else-if="b.tipo === 'lista'" class="fl"><li v-for="x in itens">{{ x }}</li></ul>
+    <ul v-else-if="b.tipo === 'quem'" class="fl"><li v-for="q in itens" class="q"><div class="quem"><img v-if="q.img" :src="IMG(q.img)" alt="" :data-lb="q.img" loading="lazy"><div class="itbody">{{ q.t }}<span v-if="q.motiva" class="motiva"><b>Quer:</b> {{ q.motiva }}</span></div></div></li></ul>
+    <ul v-else-if="b.tipo === 'avancar'" class="fl"><li v-for="a in itens"><span v-if="a.tipo && a.tipo !== 'nota'" :class="'tag ' + a.tipo">{{ a.tipo === 'forcado' ? 'obrigatório' : a.tipo }}</span>{{ a.t }}<ul v-if="a.sub && a.sub.length"><li v-for="x in a.sub">{{ x }}</li></ul></li></ul>
+    <span v-else-if="b.tipo === 'dialogo'" data-solta><div v-for="d in itens" class="dlg"><b>{{ d.quem }}</b><q>{{ d.fala }}</q></div></span>
+    <div v-else-if="b.tipo === 'testes'" class="testes"><div v-for="t in itens" class="teste"><span v-if="t.p" class="per">{{ t.p }}</span><div class="itbody">{{ t.t }}<div v-if="t.f.length"><span v-for="f in t.f" class="faixa"><b v-if="f.num">{{ f.num }}</b>{{ f.txt }}</span></div></div><button v-if="mestre" class="tbtn" :data-pedir="t.p || t.t || ''" :title="'Pedir esta rolagem aos ' + vmin('jogadores')">pedir</button></div></div>
+    <div v-else-if="b.tipo === 'trilha'" class="trilharow"><button v-for="tr in itens" class="tplay" :data-faixa="tr.faixa"><span class="dot" :style="'background:' + catColor(tr.cat)"></span><span v-if="tr.sit" class="sit">{{ tr.sit }}</span><b>{{ tr.faixa }}</b></button></div>
+    <div v-else-if="b.tipo === 'imagens'" class="imgrow"><img v-for="src in itens" :src="IMG(src)" alt="" :data-lb="src" loading="lazy"></div>
+  </div>
+</template>
+
+<!-- ---------- cena ---------- -->
+
+<template id="t-ck">
+  <button class="ckbox" data-act="ck" :data-c="cid" :aria-pressed="String(feito)" :aria-label="rotulo"><svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2"><path d="M2 6.3 4.6 9 10 3.2"/></svg></button>
+</template>
+
+<template id="t-ferr-cena">
+  <span class="blktools"><button class="edb" data-act="scn-ed" :data-c="cid">editar {{ vmin('cena') }}</button><button class="tbtn" data-act="scn-up" :data-c="cid" title="Subir">↑</button><button class="tbtn" data-act="scn-dn" :data-c="cid" title="Descer">↓</button></span>
+</template>
+
+<!-- blocos: o HTML de cada bloco -->
+<template id="t-cena-corpo">
+  <span data-solta v-html="blocos"></span>
+  <p v-if="!blocos" class="muted sm" style="margin:0">Esta {{ vmin('cena') }} ainda não tem conteúdo. Escolha um tipo de bloco e adicione.</p>
+  <div class="addrow" style="align-items:center"><select class="selmini" aria-label="Tipo de bloco"><option v-for="t in TIPOS" v-attr:value="t[0]">{{ t[1] }}</option></select><button class="addbtn" data-act="blk-add" :data-c="cid">+ bloco</button></div>
+</template>
+
+<!-- a cena no roteiro; ck, ferramentas e corpo ja preenchidos -->
+<template id="t-scn">
+  <details :class="'scn' + (c.feito ? ' done' : '')" :id="'scn-' + c.id" v-attr:open="aberta"><summary><span data-solta v-html="ck"></span><span class="sn">{{ c.n }}</span><span class="st">{{ c.titulo }}</span><span class="mini" :style="'border-color:' + terr.cor + ';color:' + terr.cor">{{ terr.nome }}</span><span v-if="c.forcado" class="mini f">obrigatória</span><span data-solta v-html="ferr"></span></summary>
+    <div class="sbody" v-html="corpo"></div></details>
+</template>
+
+<template id="t-cena-modal">
+  <div class="cmhd"><span data-solta v-html="ck"></span><span class="sm muted">Marcar como feita</span><span class="mini" :style="'border-color:' + terr.cor + ';color:' + terr.cor">{{ terr.nome }}</span><span v-if="c.forcado" class="mini f">obrigatória</span><span style="flex:1"></span><span data-solta v-html="ferr"></span></div>
+  <div class="sbody" v-html="corpo"></div>
+</template>
+
+<template id="t-cena-modal-cabeca">
+  <button class="ibtn" id="cmPrev" title="Cena anterior" v-attr:disabled="k <= 0">&#8249;</button><span class="sm muted" style="white-space:nowrap">{{ k + 1 }}/{{ total }}</span><button class="ibtn" id="cmNext" title="Próxima cena" v-attr:disabled="k >= total - 1">&#8250;</button>
+</template>
+
+<!-- o card da cena no quadro -->
+<template id="t-card">
+  <article :class="'card' + (c.feito ? ' done' : '')" :data-scn="c.id">
+    <div class="chd"><span data-solta v-html="ck"></span><span class="cn">{{ c.n }}</span><span v-if="c.forcado" class="mini f">forçado</span></div>
+    <div class="ct">{{ c.titulo }}</div>
+    <div class="cfoot"><span v-if="faixa" class="mini" :style="'border-color:' + catColor(faixa.cat) + ';color:' + catColor(faixa.cat)">{{ faixa.faixa }}</span><span v-if="testes" class="mini">{{ testes }} testes</span></div>
+    <div v-if="imagens.length" class="thumbs"><img v-for="i in imagens" :src="IMG(i)" alt="" loading="lazy"></div>
+  </article>
+</template>
+
+<!-- ---------- sessao aberta ---------- -->
+
+<!-- o que o quadro e o roteiro dividem, cada pedaco no lugar que o modo pede -->
+<template id="t-sessao-volta"><button class="backb" id="sesVolta">‹ {{ Vm('sessoes') }}</button></template>
+<template id="t-sessao-prog"><div class="prog"><span>{{ feitas }}/{{ total }} cenas</span><span class="bar"><i :style="'width:' + pc + '%'"></i></span></div></template>
+<template id="t-sessao-enc"><span v-if="encerrada" class="chip enc">encerrada</span></template>
+<template id="t-sessao-acoes"><button class="ibtn" id="sesEd">Editar</button><button class="ibtn" id="libBtn">Liberar p/ {{ vmin('mesa') }}</button><button class="ibtn" id="encBtn">Encerrar</button><button :class="'ibtn' + (ini ? ' on' : '')" id="iniBtn">Iniciativa</button></template>
+<template id="t-sessao-modos"><div class="vmodes"><button data-vm="canvas" :aria-pressed="String(modo === 'canvas')">{{ Vm('quadro') }}</button><button data-vm="roteiro" :aria-pressed="String(modo === 'roteiro')">{{ Vm('roteiro') }}</button></div></template>
+
+<!-- p: as pecas acima, cada uma ja preenchida (volta, prog, enc, acoes, modos) -->
+<template id="t-sessao-quadro">
+  <div class="boardbar"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span style="flex:1"></span><span data-solta v-html="p.acoes"></span><button :class="'ibtn' + (painel ? ' on' : '')" id="railBtn">Painel</button><span data-solta v-html="p.modos"></span></div>
+  <span data-solta v-html="ini"></span>
+  <span data-solta v-html="quadro"></span>
+</template>
+
+<template id="t-sessao-roteiro">
+  <div class="sesshead"><div><span data-solta v-html="p.volta"></span><p class="eyebrow" style="margin-top:.75rem">{{ Vm('sessao') }} {{ s.numero }}</p><h1 class="page">{{ s.titulo }}</h1><p v-if="s.resumo" class="lead sm sectxt" style="margin-top:.375rem">{{ s.resumo }}</p></div>
+    <div style="display:flex;flex-direction:column;gap:.5625rem;align-items:flex-end"><span data-solta v-html="p.prog"></span>
+      <div style="display:flex;gap:.375rem;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span data-solta v-html="p.enc + p.acoes + p.modos"></span></div></div></div>
+  <span data-solta v-html="ini"></span>
+  <div class="sess"><aside class="rail" v-html="painel"></aside>
+    <section style="min-width:0"><div class="roteiro"><span data-solta v-html="cenas"></span><p v-if="!cenas" class="empty">Nenhuma {{ vmin('cena') }} ainda. Comece pela primeira.</p><button class="addbtn" data-act="scn-add">+ {{ vmin('cena') }}</button></div></section></div>
+</template>
+
+<!-- territorios: [{id, nome, cor, x, y, cards (HTML)}]; painel: HTML do painel -->
+<template id="t-quadro">
+  <div class="cvwrap" id="cvwrap"><svg class="cvsvg" id="cvsvg"></svg>
+    <div class="cv" id="cv"><div v-for="t in territorios" class="terr" :data-terr="t.id" :style="'left:' + t.x + 'px;top:' + t.y + 'px;width:244px;border-color:' + t.cor"><span class="tl" :style="'color:' + t.cor + ';border-color:' + t.cor">{{ t.nome }}</span><span data-solta v-html="t.cards"></span><span class="addrow" style="margin-top:6px"><button class="addbtn" data-act="scn-add" :data-t="t.id">+ {{ vmin('cena') }}</button><button class="tbtn" data-act="terr-ed" :data-t="t.id">editar</button></span></div></div>
+    <aside class="railfloat" id="railFloat" v-attr:hidden="!aberto"><div class="rfhd" id="rfHd" title="Arraste para mover · clique duplo volta ao lugar"><span>Painel</span>⠿</div><div class="rfbody" v-html="painel"></div><span class="rfgrip" id="rfGrip" title="Arraste para redimensionar"></span></aside>
+    <div class="cvtools"><button data-z="+" title="Aproximar">+</button><button data-z="-" title="Afastar">−</button><button data-z="0" title="Enquadrar tudo">⤢</button><button data-act="terr-add" :title="'Novo ' + vmin('territorio')">⬡</button></div>
+    <div class="cvhint">Clique num card para abrir · Arraste o card para trocar de {{ vmin('territorio') }} · Arraste o fundo para mover · Roda do mouse para zoom</div></div>
+</template>
+
+<!-- o painel da sessao. aberta: a caixa aberta; obrig: [{cid, n, texto}]; elenco: [{tp, titulo, itens:[{id, nome, img, texto, lib}]}],
+     lib e null para quem joga, ou {on} -->
+<template id="t-painel-sessao">
+  <details class="rbox" data-rb="obrig" v-attr:open="aberta === 'obrig'"><summary>Não pode faltar</summary><div class="rbody">
+    <ul v-if="obrig.length"><li v-for="o in obrig"><button class="chip b btn" data-act="go" :data-c="o.cid">{{ o.n }}</button> {{ o.texto }}</li></ul>
+    <p v-else class="muted sm" style="margin:0">Nada marcado como obrigatório. Marque uma {{ vmin('cena') }} ou um item de “Para avançar”.</p></div></details>
+  <details class="rbox" data-rb="fixos" v-attr:open="aberta === 'fixos'"><summary>Eventos fixos</summary><div class="rbody">
+    <p v-if="s.eventosFixos.intro" class="muted sm" style="margin:0">{{ s.eventosFixos.intro }}</p>
+    <ul v-if="s.eventosFixos.lista.length"><li v-for="x in s.eventosFixos.lista">{{ x }}</li></ul><p v-else class="muted sm" style="margin:0">Nada ainda.</p>
+    <div class="addrow"><button class="edb" data-act="s-fixos">editar</button></div></div></details>
+  <details class="rbox" data-rb="prep" v-attr:open="aberta === 'prep'"><summary>Preparação</summary><div class="rbody">
+    <b class="ui sm" style="color:var(--fg3)">O que ter pronto</b>
+    <ul v-if="s.prep.terPronto.length"><li v-for="x in s.prep.terPronto">{{ x }}</li></ul><p v-else class="muted sm" style="margin:0">Nada ainda.</p>
+    <b class="ui sm" style="color:var(--fg3)">Regras que vão aparecer</b>
+    <ul v-if="s.prep.mecanicas.length"><li v-for="x in s.prep.mecanicas">{{ x }}</li></ul><p v-else class="muted sm" style="margin:0">Nada ainda.</p>
+    <div class="addrow"><button class="edb" data-act="s-prep">editar</button></div></div></details>
+  <details v-for="g in elenco" class="rbox" :data-rb="g.tp" v-attr:open="aberta === g.tp"><summary>{{ g.titulo }} ({{ g.itens.length }})</summary><div class="rbody">
+    <div v-for="x in g.itens" class="npcrow" data-act="el-ver" :data-tp="g.tp" :data-id="x.id"><img v-if="x.img" :src="IMG(x.img)" alt="" loading="lazy"><div style="flex:1;min-width:0"><b>{{ x.nome }}</b><p v-if="x.texto">{{ x.texto }}</p></div>
+      <button v-if="x.lib" :class="'libdot' + (x.lib.on ? ' on' : '')" data-act="lib" :data-tp="g.tp" :data-id="x.id" :title="x.lib.on ? 'Liberado para a mesa. Clique para tirar.' : 'Liberar para a mesa'"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.3 4.6 9 10 3.2"/></svg></button></div>
+    <p v-if="!g.itens.length" class="muted sm" style="margin:0">Nenhum nesta {{ vmin('sessao') }}.</p>
+    <div class="addrow"><button class="edb" data-act="el-add" :data-tp="g.tp">+ adicionar</button></div></div></details>
+  <details class="rbox" data-rb="notas" v-attr:open="aberta === 'notas'"><summary>Notas da {{ vmin('sessao') }}</summary><div class="rbody">
+    <p v-if="s.plantado" class="muted sm sectxt" style="margin:0">{{ s.plantado }}</p><p v-else class="muted sm" style="margin:0">Nada ainda.</p>
+    <div class="addrow"><button class="edb" data-act="s-notas">editar</button></div></div></details>
+</template>
+
+<!-- ---------- janelas pequenas ---------- -->
+
+<template id="t-adicionar-sessao">
+  <div class="addrow" style="margin-bottom:.875rem"><button class="btn" id="asNovo">Criar novo</button></div>
+  <span v-if="fora.length" data-solta><span class="flb">Já no elenco</span><div class="libgrid" style="margin-top:.5rem"><button v-for="x in fora" class="libit" :data-add="x.id">{{ x.nome }}</button></div></span>
+  <p v-else class="muted sm">Tudo que está no elenco já faz parte desta {{ vmin('sessao') }}.</p>
+</template>
+
+<template id="t-escolher">
+  <div style="display:flex;flex-direction:column;gap:.375rem"><button v-for="o in ops" class="btn sec" :data-v="o.v" style="text-align:left">{{ o.l }}</button></div>
+</template>

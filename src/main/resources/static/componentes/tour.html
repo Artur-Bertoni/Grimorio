@@ -1,0 +1,15 @@
+<!-- Tour guiado (js/tour.js) -->
+
+<template id="t-tour">
+  <div class="tourfoco"></div>
+  <div class="tourcard">
+    <div class="tourlogo" v-html="logo"></div>
+    <div class="tourtop"><span class="tourn"></span><button class="tbtn" data-t="pula">pular tour</button></div>
+    <h4></h4><p></p><div class="tourdots"></div>
+    <div class="tourft"><button class="btn sec" data-t="volta">‹ Voltar</button><button class="btn" data-t="vai">Próximo ›</button></div>
+  </div>
+</template>
+
+<template id="t-tour-pontos">
+  <i v-for="k in total" :class="k - 1 === atual ? 'on' : (k - 1 < atual ? 'ja' : null)"></i>
+</template>

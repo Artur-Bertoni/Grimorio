@@ -24,7 +24,7 @@ public class TratadorDeErros {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<?> grande(MaxUploadSizeExceededException e) {
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
                 .body(Map.of("erro", "arquivo maior que o limite configurado"));
     }
 
@@ -37,7 +37,7 @@ public class TratadorDeErros {
 
     @ExceptionHandler(CampanhaService.SemAcessoException.class)
     public ResponseEntity<?> semAcesso(CampanhaService.SemAcessoException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", msg(e)));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", msg(e), "codigo", "proibido"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

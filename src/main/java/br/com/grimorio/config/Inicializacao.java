@@ -20,7 +20,7 @@ public class Inicializacao {
 
     @Bean
     @Order(10)
-    public ApplicationRunner partida(UsuarioRepo usuarios, AppProps props, MidiaService midia) {
+    ApplicationRunner partida(UsuarioRepo usuarios, AppProps props, MidiaService midia) {
         return args -> {
             Path raiz = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
             Files.createDirectories(raiz);

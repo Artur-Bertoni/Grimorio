@@ -1,0 +1,206 @@
+/* ---------- PELE: forma, atmosfera e movimento ----------
+   Ultima folha de proposito: ela veste o que as de cima desenharam. O tema escolhe as cores
+   (tokens, como sempre) e o estilo dele (html[data-estilo]) escolhe a letra dos titulos, o
+   arredondamento, o ornamento e o clima de fundo. Cor aqui e sempre token ou mistura de token. */
+:root{
+  --r:.4375rem; --rc:.75rem; --rb:.5rem;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --sh:rgba(0,0,0,.55); --vin:rgba(0,0,0,.5);
+  --gli:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 0l8 8-8 8-8-8zM8 3.2L3.2 8 8 12.8 12.8 8z'/%3E%3Cpath d='M8 5.6L10.4 8 8 10.4 5.6 8z'/%3E%3C/svg%3E");
+  --faixa:linear-gradient(90deg,transparent,var(--blood) 18%,var(--gold) 50%,var(--blood) 82%,transparent);
+  --po-cor:var(--gold2); --po-op:0; --po-t:80s;
+}
+html[data-esquema="light"]{--sh:rgba(70,45,10,.3);--vin:color-mix(in srgb,var(--line2) 55%,transparent)}
+
+/* ---- fundo: luz, particulas e grao, atras de tudo ---- */
+.atmo{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;contain:strict}
+.atmo i{position:absolute;inset:0;display:block}
+.atmo .luz{background:
+  radial-gradient(ellipse at center,transparent 50%,var(--vin) 110%),
+  radial-gradient(120% 70% at 50% -10%,color-mix(in srgb,var(--blood) 16%,transparent),transparent 60%),
+  radial-gradient(90% 60% at 50% 115%,color-mix(in srgb,var(--gold) 7%,transparent),transparent 65%)}
+.atmo .nev{display:none}
+.atmo .po{inset:0 0 auto 0;height:calc(100% + 40rem);opacity:var(--po-op);
+  background-image:
+    radial-gradient(circle,var(--po-cor) 0 1px,transparent 1.7px),
+    radial-gradient(circle,var(--po-cor) 0 1.5px,transparent 2.2px),
+    radial-gradient(circle,var(--po-cor) 0 0.8px,transparent 1.5px),
+    radial-gradient(circle,var(--po-cor) 0 1.1px,transparent 1.8px),
+    radial-gradient(circle,var(--po-cor) 0 0.8px,transparent 1.5px),
+    radial-gradient(circle,var(--po-cor) 0 1.3px,transparent 2px),
+    radial-gradient(circle,var(--po-cor) 0 1px,transparent 1.7px);
+  background-size:37rem 40rem,43rem 40rem,53rem 40rem,47rem 40rem,59rem 40rem,41rem 40rem,67rem 40rem;
+  background-position:3rem 5rem,19rem 31rem,41rem 13rem,11rem 22rem,30rem 37rem,26rem 9rem,52rem 27rem;
+  animation:sobepo var(--po-t) linear infinite}
+.atmo .po.b{animation-duration:calc(var(--po-t)*1.7);opacity:calc(var(--po-op)*.6);
+  background-image:
+    radial-gradient(circle,var(--po-cor) 0 1px,transparent 1.7px),
+    radial-gradient(circle,var(--po-cor) 0 0.8px,transparent 1.5px),
+    radial-gradient(circle,var(--po-cor) 0 1.4px,transparent 2.0999999999999996px),
+    radial-gradient(circle,var(--po-cor) 0 0.8px,transparent 1.5px),
+    radial-gradient(circle,var(--po-cor) 0 1.1px,transparent 1.8px),
+    radial-gradient(circle,var(--po-cor) 0 0.9px,transparent 1.6px);
+  background-size:39rem 40rem,49rem 40rem,57rem 40rem,45rem 40rem,61rem 40rem,71rem 40rem;
+  background-position:14rem 17rem,5rem 35rem,33rem 3rem,22rem 25rem,47rem 11rem,8rem 29rem}
+@keyframes sobepo{to{transform:translateY(-40rem)}}
+.atmo .grao{opacity:.07;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ---- topo ---- */
+header.top{border-bottom:0;
+  background:linear-gradient(color-mix(in srgb,var(--bg2) 94%,transparent),color-mix(in srgb,var(--bg) 80%,transparent));
+  backdrop-filter:blur(.625rem) saturate(1.2);box-shadow:0 .5rem 1.5rem -1rem var(--sh)}
+header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;opacity:.85;
+  background:linear-gradient(90deg,transparent,var(--line2) 12%,var(--gold) 50%,var(--line2) 88%,transparent)}
+.brand .sigil{transition:transform .7s var(--ease),filter .3s}
+.brand .sigil{filter:drop-shadow(0 .125rem .25rem var(--sh))}
+.brand:hover .sigil{transform:rotate(-14deg) scale(1.14);filter:drop-shadow(0 0 .5rem color-mix(in srgb,var(--blood2) 70%,transparent))}
+.brand #brandNome{transition:color .2s}
+.tab{position:relative;border-radius:var(--rb);transition:color .18s,background-color .18s,border-color .18s,transform .12s var(--ease)}
+.tab::after{content:"";position:absolute;left:.75rem;right:.75rem;bottom:.1875rem;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--blood2),var(--gold));transform:scaleX(0);transform-origin:left;transition:transform .28s var(--ease)}
+.tab:hover::after{transform:scaleX(.35)}
+.tab[aria-current="true"]{box-shadow:none}
+.tab[aria-current="true"]::after{transform:scaleX(1)}
+/* o risco so se desenha quando a aba muda: as abas sao refeitas a cada render() */
+.trocaaba .tab[aria-current="true"]::after{animation:risca .36s var(--ease)}
+@keyframes risca{from{transform:scaleX(0)}}
+.tab:active{transform:scale(.96)}
+
+/* ---- titulos e ornamento ---- */
+h1.page{text-shadow:0 0 2rem color-mix(in srgb,var(--blood) 40%,transparent)}
+h1.page::after{content:"";display:block;margin-top:.75rem;height:.9rem;width:min(26rem,72%);
+  background:linear-gradient(90deg,var(--gold),color-mix(in srgb,var(--gold) 55%,transparent) 30%,transparent);
+  -webkit-mask:var(--gli) left center/.9rem .9rem no-repeat,linear-gradient(#000,#000) 1.5rem center/100% 1px no-repeat;
+  mask:var(--gli) left center/.9rem .9rem no-repeat,linear-gradient(#000,#000) 1.5rem center/100% 1px no-repeat}
+.eyebrow::before,.seccols>.sec-wrap h2.sec::before,.caixa>.flb::before,.sbody>.blk>.blkhd .flb::before{
+  content:"";display:inline-block;flex:0 0 auto;width:.72em;height:.72em;background:var(--blood2);
+  -webkit-mask:var(--gli) center/contain no-repeat;mask:var(--gli) center/contain no-repeat}
+.eyebrow::before{margin-right:.5em;vertical-align:-.04em}
+.empty::before{content:"";display:block;width:1.5rem;height:1.5rem;margin:0 auto .625rem;background:var(--line2);
+  -webkit-mask:var(--gli) center/contain no-repeat;mask:var(--gli) center/contain no-repeat}
+
+/* ---- blocos: canto, faixa e sombra ---- */
+.panel,.seccols>.sec-wrap,.caixa,.ccard,.pc,.cad,.scn,.rbox,.idx .doc,.eps,.passos,.libbox,.sbody>.blk,.menu,.sheet,
+.cvwrap,.railfloat,.temacard,.evcard,.qcard,.post,.resitem{border-radius:var(--rc)}
+.seccols>.sec-wrap,.caixa,.sbody>.blk{border-top:1px solid var(--line2);background-image:var(--faixa);
+  background-size:100% 3px;background-repeat:no-repeat;background-position:top}
+.ccard{border-top:1px solid var(--line);padding:0}
+.ccimg{position:relative}
+.ccimg img{position:absolute;inset:0}
+.panel,.seccols>.sec-wrap,.caixa,.ccard,.pc,.cad,.scn,.idx .doc,.evcard,.qcard,.post,.resitem{
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 5%,transparent),0 .875rem 1.75rem -1.25rem var(--sh)}
+.ccard,.pc,.cad,.evcard,.qcard{transition:transform .28s var(--ease),border-color .2s,box-shadow .28s,rotate .28s var(--ease)}
+.ccard:hover,.cad:hover,.pc:hover,.evcard:hover{transform:translateY(-.25rem);border-color:var(--gold);
+  box-shadow:0 1.25rem 2rem -1.1rem var(--sh),0 0 0 1px color-mix(in srgb,var(--gold) 35%,transparent),
+    0 0 1.75rem -.5rem color-mix(in srgb,var(--gold) 45%,transparent)}
+.ccard:active,.cad:active{transform:translateY(-.0625rem) scale(.985)}
+.cad .ci img{transition:transform .5s var(--ease)}
+.cad:hover .ci img{transform:scale(1.05)}
+.ccimg img{transition:transform .5s var(--ease)}
+.ep{transition:background-color .15s,box-shadow .2s}
+.ep:hover{box-shadow:inset 3px 0 0 var(--gold)}
+.scn>summary,.rbox>summary,.npcrow,.rit,.mi{transition:background-color .15s,color .15s,border-color .15s}
+.segredo{background:linear-gradient(90deg,color-mix(in srgb,var(--blood) 10%,transparent),transparent 60%)}
+.cvwrap{background:radial-gradient(circle at 30% 10%,color-mix(in srgb,var(--blood) 9%,transparent),transparent 55%),
+  linear-gradient(color-mix(in srgb,var(--bg2) 86%,transparent),color-mix(in srgb,var(--bg) 86%,transparent))}
+.railfloat{background:color-mix(in srgb,var(--bg) 93%,transparent)}
+.terr{background:color-mix(in srgb,var(--bg) 45%,transparent)}
+::-webkit-scrollbar-thumb{border-radius:1rem;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--fg3)}
+
+/* no celular o titulo de bloco passava por baixo dos botoes de editar */
+@media (max-width:600px){.seccols>.sec-wrap h2.sec{font-size:1.15rem;overflow-wrap:anywhere}}
+
+/* ---- botoes e campos: resposta ao toque ---- */
+.btn,.ibtn,.edb,.addbtn,.fchip,.chip,.x,.tplay,.vmodes button,.cvtools button,.nbb,.delx,.libdot,.backb,.ckbox{
+  transition:background-color .18s,color .18s,border-color .18s,box-shadow .22s,transform .12s var(--ease),opacity .18s}
+.btn,.ibtn,.vmodes{border-radius:var(--rb)}
+.btn{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 14%,transparent),color-mix(in srgb,var(--gold) 5%,transparent))}
+.btn:hover{background:var(--gold);transform:translateY(-1px);box-shadow:0 .3rem 1.1rem -.3rem color-mix(in srgb,var(--gold) 70%,transparent)}
+.btn.sec{background:var(--bg2)}
+.btn.sec:hover{background:var(--bg4);box-shadow:0 .3rem .9rem -.5rem var(--sh)}
+.btn.dang{background:color-mix(in srgb,var(--blood) 9%,transparent)}
+.btn.dang:hover{background:var(--blood);box-shadow:0 .3rem 1.1rem -.3rem var(--blood)}
+.ibtn:hover{transform:translateY(-1px);box-shadow:0 .3rem .9rem -.5rem var(--sh)}
+.btn:active,.ibtn:active,.edb:active,.addbtn:active,.fchip:active,.x:active,.tplay:active,.vmodes button:active,
+.cvtools button:active,.nbb:active,.delx:active,.libdot:active,.chip.btn:active{transform:scale(.95)}
+.fchip:hover{border-color:var(--line2);color:var(--fg)}
+.fchip[aria-pressed="true"]{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.x:hover{transform:rotate(90deg)}
+.inp,.form input,.form textarea,.form select,.sfield{transition:border-color .18s,box-shadow .22s,background-color .18s}
+.inp:focus,.form input:focus,.form textarea:focus,.form select:focus,.sfield:focus-within{outline:none;border-color:var(--gold);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 18%,transparent)}
+.form label.ck input:focus{box-shadow:none}
+
+/* ---- janelas ---- */
+.ov,.ovg{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:blur(.5rem)}
+.sheet{box-shadow:0 1.5rem 4rem -1rem var(--sh),0 0 0 1px color-mix(in srgb,var(--gold) 10%,transparent)}
+.sheet.fs{border-radius:0}
+.shead{background-image:var(--faixa);background-size:100% 2px;background-repeat:no-repeat;background-position:top}
+.ov{animation:ovin .22s ease-out}
+.ov>.sheet{animation:sheetin .34s var(--ease)}
+.ov.seco,.ov.seco>.sheet{animation:none}
+@keyframes ovin{from{opacity:0}}
+@keyframes sheetin{from{opacity:0;transform:translateY(1rem) scale(.975)}}
+/* copia inerte da janela que acabou de fechar: a de verdade ja saiu do DOM */
+.ovg{position:fixed;inset:0;z-index:79;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;
+  padding:max(1rem,env(safe-area-inset-top,0px)) max(1rem,env(safe-area-inset-right,0px)) max(1rem,env(safe-area-inset-bottom,0px)) max(1rem,env(safe-area-inset-left,0px));
+  pointer-events:none;animation:ovout .2s ease-in forwards}
+.ovg>.sheet{animation:sheetout .2s ease-in forwards}
+@keyframes ovout{to{opacity:0}}
+@keyframes sheetout{to{opacity:0;transform:translateY(.5rem) scale(.985)}}
+.menu{animation:menuin .18s var(--ease);transform-origin:top center}
+@keyframes menuin{from{opacity:0;transform:translateY(-.375rem) scale(.97)}}
+.proj{animation:ovin .25s ease-out}
+.proj img{animation:projin .5s var(--ease)}
+@keyframes projin{from{opacity:0;transform:scale(.94)}}
+.toast{border-radius:var(--rb);animation:toastin .32s var(--ease)}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,.75rem)}}
+.abriu[open]>.sbody,.abriu[open]>.rbody{animation:desce .28s var(--ease)}
+@keyframes desce{from{opacity:0;transform:translateY(-.375rem)}}
+
+/* ---- montagem de pagina: so quando a tela muda, nunca no redesenho da mesma ---- */
+main.entra>*{animation:surge .44s var(--ease) backwards}
+main.entra>:nth-child(2){animation-delay:.05s}
+main.entra>:nth-child(3){animation-delay:.1s}
+main.entra>:nth-child(4){animation-delay:.15s}
+main.entra>:nth-child(n+5){animation-delay:.2s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>*{animation:surge .5s var(--ease) backwards;animation-delay:.36s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(1){animation-delay:.08s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(2){animation-delay:.12s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(3){animation-delay:.16s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(4){animation-delay:.2s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(5){animation-delay:.24s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(6){animation-delay:.28s}
+main.entra :is(.campgrid,.cadgrid,.pcs,.seccols,.campforms,.met,.idx,.temalist)>:nth-child(7){animation-delay:.32s}
+/* o quadro mede a propria caixa para enquadrar: ali so a opacidade se mexe */
+main.entra.board>*{animation-name:some}
+@keyframes surge{from{opacity:0;transform:translateY(.75rem)}}
+@keyframes some{from{opacity:0}}
+.abrindo{min-height:62vh;display:grid;place-items:center;align-content:center;gap:1rem;text-align:center;animation:some .35s ease-out}
+.abrindo svg{width:4.25rem;height:4.75rem;animation:pulsa 1.7s ease-in-out infinite}
+.abrindo b{font-family:var(--disp);font-size:1.7rem;letter-spacing:.1em;color:var(--gold);line-height:1.15}
+.abrindo span{font-family:var(--ui);font-size:.74rem;letter-spacing:.26em;text-transform:uppercase;color:var(--fg3)}
+@keyframes pulsa{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.08);opacity:1}}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.5s}
+
+/* ---- escolha de tema ---- */
+.temas{display:flex;flex-direction:column;gap:1.125rem}
+.temagen{font-family:var(--ui);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--fg3);
+  display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.temagen::after{content:"";flex:1;height:1px;background:var(--line)}
+.temalist{display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:.75rem}
+.temacard{position:relative;display:flex;flex-direction:column;gap:.5rem;text-align:left;padding:.8125rem .9375rem .875rem;
+  background:var(--p-bg);color:var(--p-fg);border:1px solid var(--p-line);overflow:hidden;
+  transition:transform .2s var(--ease),box-shadow .2s,border-color .2s}
+.temacard::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% -20%,color-mix(in srgb,var(--p-blood) 38%,transparent),transparent 65%)}
+.temacard b{position:relative;font-size:1.2rem;font-weight:700;letter-spacing:.05em;color:var(--p-gold);line-height:1.15}
+.temacard .tex{position:relative;font-size:.82rem;line-height:1.35;color:var(--p-fg2)}
+.temacard .tsw{position:relative;display:flex;gap:.25rem;margin-top:.125rem}
+.temacard .tsw i{width:1.5rem;height:.4375rem;border-radius:1rem;display:block}
+.temacard:hover{transform:translateY(-2px);box-shadow:0 .875rem 1.5rem -1rem var(--sh)}
+.temacard:active{transform:scale(.98)}
+.temacard[aria-pressed="true"]{border-color:var(--p-gold);box-shadow:0 0 0 2px var(--p-gold)}
+.temacard[aria-pressed="true"]::after{content:"em uso";position:absolute;top:.5rem;right:.6875rem;
+  font:600 .62rem/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--p-gold)}

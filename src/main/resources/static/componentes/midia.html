@@ -1,0 +1,51 @@
+<!-- Visor de PDF (js/pdf.js) e trilha sonora (js/trilha.js) -->
+
+<template id="t-pdf-ausente">
+  <div class="libbox"><p>O PDF de <b>{{ livro }}</b> ainda não está no servidor.</p>
+    <button v-if="mestre" class="btn" id="lc2">Enviar arquivos</button>
+    <p v-else class="sm muted">Fala com o mestre para ele subir esse livro.</p></div>
+</template>
+
+<template id="t-pdf">
+  <div class="pdfwrap">
+    <div class="pdfbar">
+      <span class="pnum">Página <input id="pNum" type="number" min="1" v-attr:value="pagina"> de <b id="pTot">?</b></span>
+      <button class="btn sec" id="pOut">−</button><button class="btn sec" id="pIn">+</button>
+      <button class="btn sec" id="pFs">Tela cheia</button>
+      <button class="btn sec" id="pFit">Ajustar</button>
+      <button class="btn sec" id="pTxt">Texto da página</button>
+      <span class="muted sm">setas ou scroll mudam de página</span>
+    </div>
+    <div class="pdfstage">
+      <button class="pdfnav l" id="pPrev" aria-label="Anterior">‹</button>
+      <div class="pdfcanvas" id="pCanvas"><p class="empty">Abrindo o PDF…</p></div>
+      <button class="pdfnav r" id="pNext" aria-label="Próxima">›</button>
+    </div>
+  </div>
+</template>
+
+<template id="t-icone-tocar">
+  <svg v-if="tocando" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/></svg>
+  <svg v-else viewBox="0 0 16 16" fill="currentColor"><path d="M4 3l9 5-9 5z"/></svg>
+</template>
+
+<template id="t-trilha">
+  <div v-if="!temFaixas" class="libbox"><p>Nenhuma faixa no servidor ainda.</p>
+    <button v-if="mestre" class="btn" id="libConn">Enviar a trilha sonora</button>
+    <p v-else class="sm muted">O mestre ainda não subiu a trilha.</p></div>
+  <div class="nowbox" :style="'margin-top:' + (temFaixas ? '0' : '.875rem')">
+    <div class="nowtitle" id="plNow">{{ tocando }}</div>
+    <div class="ctrls"><button class="pbtn main" id="plPlay" aria-label="Tocar"></button>
+      <button class="pbtn" id="plStop" aria-label="Parar"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8"/></svg></button>
+      <div class="seek"><span class="tm" id="plT">0:00</span><input type="range" id="plSeek" min="0" max="100" step="0.1" value="0" aria-label="Posição"><span class="tm" id="plD">0:00</span></div></div>
+    <div class="ctrls"><div class="volrow"><span>Volume</span><input type="range" id="plVol" min="0" max="100" v-attr:value="volume" aria-label="Volume"></div>
+      <button class="chip btn" id="plLoop" :aria-pressed="String(loop)">Loop {{ loop ? 'ligado' : 'desligado' }}</button>
+      <span class="muted sm">Troca com fade de 1,8s</span></div>
+  </div>
+  <div v-if="temFaixas" class="catgrid" style="margin-top:.875rem">
+    <div v-for="c in categorias" class="catblk">
+      <b><i :style="'background:' + c.cor"></i>{{ c.nome }} <span class="muted">({{ c.faixas.length }})</span></b>
+      <div class="tracks"><button v-for="f in c.faixas" class="trk" :data-trk="f.nome"><span class="eq"><i></i><i></i><i></i></span><span>{{ f.nome }}</span></button></div>
+    </div>
+  </div>
+</template>
