@@ -68,15 +68,15 @@ function formulario(titulo,campos,valor,o){
       a.push(c&&c.novo?c.novo():{}); repinta(p+"."+(a.length-1)+"."); }; });
     $$("[data-rmr]",ov).forEach(function(b){ b.onclick=function(){ colher(); var pr=b.getAttribute("data-rmr").split(":");
       lista(pr[0]).splice(+pr[1],1); repinta(); }; });
-    $$("[data-mvr]",ov).forEach(function(b){ b.onclick=function(){ colher(); var pr=b.getAttribute("data-mvr").split(":");
-      var a=lista(pr[0]), i=+pr[1], j=i+(+pr[2]); if(j<0||j>=a.length)return;
-      var t=a[i]; a[i]=a[j]; a[j]=t; repinta(); }; });
   }
   ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{wide:!!o.wide,firme:true});
   var fecha=ov.close;
   ov.close=function(){
     if(!fechando){ colher(); if(JSON.stringify(w)!==ini&&!confirm("Descartar o que você mudou?"))return; }
     fecha(); };
+  /* linhas de grupo e imagens trocam de lugar arrastando (js/ordenar.js) */
+  ligarOrdem(ov,function(l){ return l.getAttribute("data-ordena")==="form"?function(_l,de,para){
+    colher(); if(moverNaLista(lista(l.getAttribute("data-p")),de,para))repinta(); }:null; });
   liga(); colher(); ini=JSON.stringify(w);
   ov.addEventListener("keydown",function(e){
     if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); $("[data-ok]",ov).click(); } });

@@ -170,8 +170,6 @@ function hydrateHome(v){
         .concat(D.campanha.indiceAS.length?[]:[{v:"indice",l:"Índice de livro (atalhos para páginas do PDF)"}]),
       function(t){ if(t==="indice")editarIndice(); else editarSecao(-1,t); }); }; });
   $$("[data-sec]",v).forEach(function(b){ b.onclick=function(){ editarSecao(+b.getAttribute("data-sec")); }; });
-  $$("[data-secmv]",v).forEach(function(b){ b.onclick=function(){
-    var pr=b.getAttribute("data-secmv").split(":"), l=D.campanha.secoes, i=+pr[0], j=i+(+pr[1]);
-    if(j<0||j>=l.length)return;
-    var t=l[i]; l[i]=l[j]; l[j]=t; save(); render(); }; });
 }
+/* as secoes da pagina da campanha trocam de lugar arrastando pelo cabecalho (js/ordenar.js) */
+ORDENA.secoes=function(_l,de,para){ if(moverNaLista(D.campanha.secoes,de,para)){ save(); render(); } };

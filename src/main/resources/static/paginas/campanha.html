@@ -37,25 +37,25 @@
 </template>
 
 <!-- passos: so vem quando ainda falta algum dos tres primeiros; proxima: HTML da linha da sessao;
-     secoes: [{i, titulo, tipo, texto, itens}]; indice: [{nome, linhas:[{cls, t, ref, p}]}] -->
+     secoes: [{i, titulo, tipo, texto, itens}], reordenadas arrastando pelo cabecalho (js/ordenar.js); indice: [{nome, linhas:[{cls, t, ref, p}]}] -->
 <template id="t-home">
-  <div class="pagehd"><div><p class="eyebrow">{{ c.sistema || 'sistema não definido' }}</p><h1 class="page">{{ c.titulo || 'Sem título' }}</h1></div><button class="edb" data-cp="cp-ed">editar</button></div>
+  <div class="pagehd"><div><p class="eyebrow">{{ c.sistema || 'sistema não definido' }}</p><h1 class="page">{{ c.titulo || 'Sem título' }}</h1></div><button class="edb ico" data-cp="cp-ed" title="Editar" aria-label="Editar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div>
   <p v-if="c.apresentacao" class="lead sectxt" style="margin-top:.625rem">{{ c.apresentacao }}</p>
-  <div class="seccols">
+  <div class="seccols" data-ordena="secoes">
     <div v-if="passos" class="sec-wrap"><div class="sechd"><h2 class="sec">Primeiros passos</h2><button class="tbtn" data-cp="cp-semp">dispensar</button></div>
       <div class="passos"><div v-for="(p, i) in passos" :class="'passo' + (p.ok ? ' ok' : '')"><span class="pn">{{ p.ok ? '✓' : i + 1 }}</span><div><b>{{ p.t }}</b><p>{{ p.d }}</p></div><button class="btn sec" :data-cp="p.a">{{ p.b }}</button></div></div></div>
     <div v-if="nSessoes" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ proxima ? 'Próxima ' + vmin('sessao') : Vm('sessoes') }}</h2><button class="tbtn" data-cp="ir-sessoes">ver todas ({{ nSessoes }})</button></div>
       <div v-if="proxima" class="eps" v-html="proxima"></div>
       <p v-else class="muted sm" style="margin:0">Todas as {{ vmin('sessoes') }} estão encerradas.</p></div>
-    <div v-for="s in secoes" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ s.titulo || 'Sem título' }}</h2>
-        <span class="blktools"><button class="edb" :data-sec="s.i">editar</button><button class="tbtn" :data-secmv="s.i + ':-1'" title="Subir">↑</button><button class="tbtn" :data-secmv="s.i + ':1'" title="Descer">↓</button></span></div>
+    <div v-for="s in secoes" class="sec-wrap" :data-item="s.i"><div class="sechd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" aria-label="Arrastar para mudar a ordem (setas do teclado também movem)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><h2 class="sec">{{ s.titulo || 'Sem título' }}</h2>
+        <span class="blktools"><button class="edb ico" :data-sec="s.i" title="Editar seção" aria-label="Editar seção"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
       <p v-if="s.texto" class="lead sectxt" style="margin:0">{{ s.texto }}</p>
       <ul v-if="s.tipo === 'lista' && s.itens.length" class="fl"><li v-for="x in s.itens">{{ x }}</li></ul>
       <div v-if="s.tipo === 'cartoes' && s.itens.length" class="grid met"><div v-for="m in s.itens" class="c"><b>{{ m.t }}</b><p class="sectxt">{{ m.d }}</p></div></div>
       <p v-if="s.vazia" class="muted sm" style="margin:0">Seção vazia.</p></div>
   </div>
   <div class="addrow" style="margin-top:1.75rem"><button class="btn sec" data-cp="sec-add">+ seção</button></div>
-  <div v-if="indice.length" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ c.indiceTitulo || 'Índice dos livros' }}</h2><span class="blktools"><button class="edb" data-cp="idx-ed">editar</button></span></div>
+  <div v-if="indice.length" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ c.indiceTitulo || 'Índice dos livros' }}</h2><span class="blktools"><button class="edb ico" data-cp="idx-ed" title="Editar índice" aria-label="Editar índice"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
     <p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p>
     <div class="grid idx"><div v-for="d in indice" class="doc"><b>{{ d.nome }}</b><ul><li v-for="l in d.linhas" :class="l.cls">{{ l.t }}<span v-if="l.p" data-solta> <span class="pg" :data-open="l.ref + ':' + l.p">p{{ l.p }}</span></span></li></ul></div></div></div>
 </template>

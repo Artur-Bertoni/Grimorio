@@ -26,7 +26,7 @@
       <div class="addrow">
         <button v-if="img" class="btn" data-proj>Mostrar em tela cheia</button>
         <span data-solta v-html="liberar"></span>
-        <button v-if="mestre" class="btn sec" id="itEd">Editar</button>
+        <button v-if="mestre" class="btn sec ico" id="itEd" title="Editar" aria-label="Editar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button>
         <button v-if="mestre && sessao" class="btn sec" id="itTira">Tirar desta {{ sessao }}</button>
       </div>
     </div>

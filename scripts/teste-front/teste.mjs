@@ -56,6 +56,16 @@ pg.on('console', m => {
 });
 pg.on('dialog', d => d.accept());
 const espera = ms => pg.waitForTimeout(ms);
+/* reordenar arrastando (js/ordenar.js): pega pela alca e solta antes ou depois do alvo */
+async function arrastar(alca, alvo, lado = 'antes') {
+  const a = await alca.boundingBox(), b = await alvo.boundingBox();
+  await pg.mouse.move(a.x + Math.min(30, a.width / 2), a.y + a.height / 2);
+  await pg.mouse.down();
+  await pg.mouse.move(a.x + 40, a.y + a.height / 2 + 12, { steps: 3 });
+  await pg.mouse.move(b.x + b.width / 2, lado === 'antes' ? b.y + 4 : b.y + b.height - 4, { steps: 8 });
+  await pg.mouse.up();
+  await espera(350);
+}
 /* DOM=pasta grava, junto de cada foto, um retrato da estrutura da pagina (elementos, classes,
    atributos e texto). Comparar dois retratos acusa mudanca de HTML que nenhum teste percebe. */
 const DOM = process.env.DOM || '';
@@ -193,6 +203,28 @@ await pg.locator('.toast.act button').click();
 await espera(400);
 ok((await pg.locator('[data-sec]').count()) === nSec, 'desfazer trouxe de volta');
 
+titulo('secoes trocam de lugar arrastando (sem setinhas)');
+ok((await pg.locator('#view .tbtn[title="Subir"], #view .tbtn[title="Descer"]').count()) === 0, 'nao sobrou setinha de subir/descer');
+ok(await pg.locator('#view .edb').evaluateAll(l => l.length > 0 && l.every(b => b.querySelector('svg') && !b.textContent.trim() && b.title)),
+  'editar e so o lapis, com o nome no title');
+ok(await pg.locator('[data-ordena="secoes"] > [data-item]').evaluateAll(l => l.every(s => s.querySelector('button.alca svg rect'))),
+  'toda secao que se arrasta mostra as tres barrinhas');
+const titulosSec = () => pg.locator('[data-ordena="secoes"] > [data-item] h2.sec').allInnerTexts();
+const antesSec = await titulosSec();
+await pg.locator('[data-ordena="secoes"] > [data-item]').first().scrollIntoViewIfNeeded();
+await arrastar(pg.locator('[data-ordena="secoes"] > [data-item]').nth(1).locator('[data-alca]'),
+  pg.locator('[data-ordena="secoes"] > [data-item]').first(), 'antes');
+const depoisSec = await titulosSec();
+ok(depoisSec[0] === antesSec[1] && depoisSec[1] === antesSec[0] && depoisSec.length === antesSec.length,
+  'a segunda secao foi para o topo: ' + depoisSec.slice(0, 2).join(' | '));
+await espera(1100);
+const gSec = await guia(1);
+ok(gSec.campanha.secoes[0].titulo.toUpperCase() === depoisSec[0].toUpperCase(), 'a ordem nova foi gravada no guia');
+await pg.locator('[data-ordena="secoes"] > [data-item]').first().locator('.alca').focus();
+await pg.keyboard.press('ArrowDown'); await espera(300);
+ok((await titulosSec())[1] === depoisSec[0], 'seta do teclado no glifo desce a secao um passo');
+ok(await pg.evaluate(() => document.activeElement?.classList.contains('alca')), 'o foco fica no glifo depois de mover');
+
 titulo('cancelar com mudanca pede confirmacao e nao grava');
 await pg.locator('[data-cp="cp-ed"]').click();
 await espera(300);
@@ -274,8 +306,22 @@ await espera(250);
 await pg.locator('.ov [data-f="itens.0.p"]').fill('Furtividade');
 await pg.locator('.ov [data-f="itens.0.t"]').fill('Descer sem ranger');
 await pg.locator('.ov [data-f="itens.0.f"]').fill('12 · ninguém ouve');
+await pg.locator('.ov [data-addr="itens"]').click();
+await espera(250);
+await pg.locator('.ov [data-f="itens.1.p"]').fill('Percepção');
+await arrastar(pg.locator('.ov .rowed').nth(1).locator('.rowhd'), pg.locator('.ov .rowed').first(), 'antes');
+ok((await pg.locator('.ov [data-f="itens.0.p"]').inputValue()) === 'Percepção'
+  && (await pg.locator('.ov [data-f="itens.1.t"]').inputValue()) === 'Descer sem ranger',
+  'linhas do formulario trocam de lugar arrastando, levando o que ja foi digitado');
 await salvar();
 ok(/Furtividade/i.test(await pg.locator('.cenasheet').innerText()), 'bloco com linhas repetidas (testes) gravou');
+const tiposBloco = () => pg.locator('.cenasheet .sbody > .blk .flb').allInnerTexts();
+const blocosAntes = await tiposBloco();
+await arrastar(pg.locator('.cenasheet .sbody > .blk').nth(1).locator('.blkhd'), pg.locator('.cenasheet .sbody > .blk').first(), 'antes');
+const blocosDepois = await tiposBloco();
+ok(blocosDepois[0] === blocosAntes[1] && blocosDepois[1] === blocosAntes[0], 'blocos da cena trocam de lugar arrastando: ' + blocosDepois.join(' | '));
+await arrastar(pg.locator('.cenasheet .sbody > .blk').first().locator('.blkhd'), pg.locator('.cenasheet .sbody > .blk').nth(1), 'depois');
+ok((await tiposBloco())[0] === blocosAntes[0], 'e voltam arrastando para baixo');
 await foto('05-cena');
 await pg.locator('.cenasheet .x').click();
 await espera(300);
