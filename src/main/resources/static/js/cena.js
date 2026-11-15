@@ -59,7 +59,7 @@ function blkDe(c,tipo){ return (c.blocos||[]).filter(function(b){return b.tipo==
 function ckHtml(c,rotulo){ return htmlDe("t-ck",{cid:c.id,feito:!!c.feito,rotulo:rotulo||"Marcar como feita"}); }
 function ferrCena(c){ return htmlDe("t-ferr-cena",{cid:c.id}); }
 function scnHtml(s,c){
-  return htmlDe("t-scn",{c:c,terr:terr(s,c.territorio),aberta:S.aberta===c.id,ck:ckHtml(c),ferr:ferrCena(c),corpo:cenaBodyHtml(c)});
+  return htmlDe("t-scn",{c:c,k:s.cenas.indexOf(c),terr:terr(s,c.territorio),aberta:S.aberta===c.id,ck:ckHtml(c),ferr:ferrCena(c),corpo:cenaBodyHtml(c)});
 }
 function cenaBodyHtml(c){
   return htmlDe("t-cena-corpo",{cid:c.id,blocos:(c.blocos||[]).map(function(b,bi){ return blocoHtml(c,b,bi); }).join("")});
@@ -198,6 +198,12 @@ function adicionarNaSessao(s,tp){
   $("#asNovo",ov).onclick=function(){ ov.close(); editarElenco(tp,null,function(x){ s[k].push(x.id); }); };
 }
 
+/* reordenar arrastando (js/ordenar.js): cenas no roteiro, blocos na cena */
+ORDENA.cenas=function(_l,de,para){ var s=curSess();
+  if(s&&moverNaLista(s.cenas,de,para)){ save(); render(); refreshCenaModal(); } };
+ORDENA.blocos=function(l,de,para){ var c=cena(l.getAttribute("data-c"));
+  if(c&&moverNaLista(c.blocos,de,para)){ save(); render(); refreshCenaModal(); } };
+
 document.addEventListener("click",function(e){
   var b=e.target.closest("[data-act]"); if(!b)return;
   var a=b.getAttribute("data-act"), s=curSess(); if(!s)return;
@@ -218,13 +224,9 @@ document.addEventListener("click",function(e){
       var tid=b.getAttribute("data-t")||s.territorios[0].id;
       editarCena(s,{id:uid("c"),n:Vm("cena")+" "+(s.cenas.length+1),titulo:"",territorio:tid,feito:false,blocos:[]},true); break; }
     case "scn-ed": if(c)editarCena(s,c,false); break;
-    case "scn-up": case "scn-dn":{ if(!c)break; var k=s.cenas.indexOf(c),n2=k+(a==="scn-up"?-1:1);
-      if(n2>=0&&n2<s.cenas.length){ s.cenas.splice(n2,0,s.cenas.splice(k,1)[0]); done(); } break; }
     case "blk-add":{ if(!c)break; var sel=b.parentNode.querySelector("select");
       editarBloco(c,-1,novoBloco(sel?sel.value:"lista")); break; }
     case "blk-ed": if(c)editarBloco(c,bi); break;
-    case "blk-up": case "blk-dn":{ if(!c)break; var n3=bi+(a==="blk-up"?-1:1);
-      if(n3>=0&&n3<c.blocos.length){ c.blocos.splice(n3,0,c.blocos.splice(bi,1)[0]); done(); } break; }
     case "terr-add": editarTerr(s,null); break;
     case "terr-ed": editarTerr(s,b.getAttribute("data-t")); break;
     case "s-fixos": formulario("Eventos fixos",[

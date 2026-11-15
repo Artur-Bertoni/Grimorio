@@ -5,7 +5,7 @@
   <p class="lead">A busca varre a {{ campanha }} e o texto dos livros. Aqui você ensina a ela o jeito do seu sistema. Nada vem pronto.</p>
   <div v-for="b in blocos" class="fld" style="margin-top:1rem"><span class="flb">{{ b.titulo }} ({{ b.n }})</span>
     <p class="sm muted" style="margin:0">{{ b.texto }}</p>
-    <div class="addrow"><button class="btn sec" :id="b.id">Editar</button></div></div>
+    <div class="addrow"><button class="btn sec ico" :id="b.id" v-attr:title="'Editar ' + b.titulo.toLowerCase()" v-attr:aria-label="'Editar ' + b.titulo.toLowerCase()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div></div>
 </template>
 
 <template id="t-texto-livros">

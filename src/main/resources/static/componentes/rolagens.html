@@ -1,7 +1,7 @@
 <!-- Dados: janela, painel de rolagens, aviso e historico (js/rolagens.js) -->
 
 <template id="t-painel-rolagens">
-  <div class="rphd" id="rpHd"><span data-solta v-html="dado"></span><span>Rolagens da {{ vmin('mesa') }}</span><button class="x" id="rpX" aria-label="Fechar o painel">✕</button></div>
+  <div class="rphd" id="rpHd"><span class="alca enfeite" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></span><span data-solta v-html="dado"></span><span>Rolagens da {{ vmin('mesa') }}</span><button class="x" id="rpX" aria-label="Fechar o painel">✕</button></div>
   <div class="rpbody"><div class="ddfeed" id="rpFeed" aria-live="polite"></div></div>
   <form class="rpform" id="rpForm"><input class="inp" id="rpF" placeholder="1d20+3" autocomplete="off" spellcheck="false" aria-label="Rolar daqui"><button class="btn sec" id="rpGo">Rolar</button></form>
   <span class="rpgrip" id="rpGrip" title="Arraste para redimensionar"></span>

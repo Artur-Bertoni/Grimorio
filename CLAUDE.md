@@ -345,6 +345,16 @@ formulario("Editar · npc", [
   (Biblioteca) e apagar a campanha: aí não tem volta, então a confirmação é de verdade.
 - Um campo é o template `t-campo` (`componentes/formulario.html`); tipo novo de campo
   é um ramo `v-else-if` lá, e o grupo monta as linhas por dentro chamando `campoHtml`.
+- **Reordenar é sempre arrastar, nunca setinha de subir/descer** (`js/ordenar.js`). A lista
+  ganha `data-ordena="nome"`, cada item `data-item="índice"`, o cabeçalho `data-alca` e a alça
+  `<button type="button" class="alca">` com o SVG das três barrinhas (no toque só ela arrasta;
+  com foco, as setas do teclado movem). Tudo que se arrasta na tela mostra as três barrinhas:
+  onde a alça não é de reordenar (cartão e território do quadro, painéis flutuantes) ela é só
+  enfeite, `<span class="alca enfeite" aria-hidden="true">`. O botão de editar é sempre só o
+  lápis (`class="edb ico"`, ou `ico` junto da classe do botão), com o nome em `title` e
+  `aria-label`. Quem grava é `ORDENA[nome](lista, de, para)`, normalmente
+  `moverNaLista(...)` + `save()` + `render()`; lista dentro de janela com estado próprio liga o
+  seu com `ligarOrdem(raiz, fn)`, como o formulário.
 - `escolherImagem(atual)` é o único seletor de imagem: devolve o caminho relativo,
   `""` para tirar, ou `null` se fechou sem escolher.
 

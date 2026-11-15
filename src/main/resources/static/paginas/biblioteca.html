@@ -30,7 +30,7 @@
 <!-- categorias: [{nome, cor, faixas}] em ordem alfabetica -->
 <template id="t-bib-trilha">
   <div v-for="c in categorias" class="fld" style="margin-bottom:1rem">
-    <div class="sechd"><span class="flb" style="flex:1"><i :style="'width:.5rem;height:.5rem;border-radius:50%;flex:0 0 auto;background:' + c.cor"></i>{{ c.nome }} ({{ c.faixas.length }})</span><button class="edb" :data-cated="c.nome">Editar categoria</button></div>
+    <div class="sechd"><span class="flb" style="flex:1"><i :style="'width:.5rem;height:.5rem;border-radius:50%;flex:0 0 auto;background:' + c.cor"></i>{{ c.nome }} ({{ c.faixas.length }})</span><button class="edb ico" :data-cated="c.nome" title="Editar categoria" aria-label="Editar categoria"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div>
     <div class="alist"><div v-for="f in c.faixas" class="arow"><div style="flex:1;min-width:10rem"><b>{{ f.nome }}</b> <span class="muted sm">{{ mb(f.tamanho) }}</span></div>
       <button class="tbtn" :data-fxcat="f.id" :data-cat="c.nome" :data-nome="f.nome">mudar categoria</button>
       <button class="tbtn" :data-toca="f.nome">tocar</button>
