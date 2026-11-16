@@ -71,7 +71,7 @@ function hydrateCampanhas(v){
         go.textContent="Importando pacote…";
         var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
         return upload("/api/c/"+r.id+"/pacote",fd,function(fr){ go.textContent="Enviando o pacote… "+Math.round(fr*100)+"%"; })
-          .then(function(imp){ toast((imp.indices||0)+" índices e "+(imp.imagens||0)+" imagens importados"); return r; })
+          .then(function(imp){ toast(resumoPacote(imp)); return r; })
           .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+mensagemDeErro(e),"erro"); return r; });
       })
       .then(function(r){ PACOTE=null;

@@ -307,7 +307,9 @@ dependência, é egress, não o `pom.xml`.
   e categorias de trilha são dado da campanha. Precisou de uma lista de termos de um
   sistema? Ela vai para o guia, com editor, nunca para uma constante.
 - **O repositório não carrega campanha, livro nem arte.** Conteúdo entra por pacote
-  (`PacoteService`), um zip com `campanha.json`, `indice/*.json` e `img/*`.
+  (`PacoteService`), um zip com `campanha.json` (guia, mesa, fichas e o catálogo de mídia),
+  `indice/*.json`, `img/*`, `pdf/*` e `audio/**`. Ele leva tudo, para a campanha reabrir igual em
+  outra conta sem enviar arquivo de novo.
 - **Cores só por token CSS** (`var(--bg)`, `var(--gold)`, …). Hex fixo quebra os temas
   claros. Já aconteceu no gradiente do header. Precisa de transparência ou de um tom
   intermediário? `color-mix(in srgb, var(--blood) 20%, transparent)`, nunca `rgba()` com

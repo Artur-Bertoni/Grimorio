@@ -196,7 +196,7 @@ function abrirCampanha(back,mk){
     toast(this.value?"Tema sugerido: "+TEMAS[this.value].nome:"Sem tema sugerido"); };
 
   var ex=$("#caExp",ov);
-  ex.href="/api/c/"+CID+"/pacote?imagens=true";
+  ex.href="/api/c/"+CID+"/pacote";
   ex.setAttribute("download","");
 
   $("#caImp",ov).onclick=function(){
@@ -206,7 +206,7 @@ function abrirCampanha(back,mk){
       fd.append("substituir",$("#caSub",ov).checked?"true":"false");
       toast("Enviando o pacote…");
       upload("/api/c/"+CID+"/pacote",fd,null)
-        .then(function(r){ toast((r.indices||0)+" índices e "+(r.imagens||0)+" imagens importados");
+        .then(function(r){ toast(resumoPacote(r));
           recarregaCatalogo(); recarregaIndice();
           if(r.guia){ ov.close(); entrarNaCampanha(CID); } })
         .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); };

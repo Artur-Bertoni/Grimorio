@@ -1,10 +1,17 @@
 package br.com.grimorio.service;
 
 import br.com.grimorio.model.Campanha;
+import br.com.grimorio.model.Ficha;
+import br.com.grimorio.model.Midia;
+import br.com.grimorio.model.Usuario;
 import br.com.grimorio.repo.CampanhaRepo;
+import br.com.grimorio.repo.FichaRepo;
+import br.com.grimorio.repo.MidiaRepo;
+import br.com.grimorio.repo.UsuarioRepo;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,105 +24,147 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.zip.*;
-import br.com.grimorio.model.Ficha;
-import br.com.grimorio.model.Usuario;
-import br.com.grimorio.repo.FichaRepo;
-import br.com.grimorio.repo.UsuarioRepo;
-import tools.jackson.databind.node.ArrayNode;
 
 /**
- * Pacote de campanha: um zip com o guia, a mesa, os indices de busca e as
- * imagens. E assim que uma campanha sai de uma instancia e entra em outra,
- * e e por isso que o repositorio nao precisa carregar conteudo nenhum.
+ * Pacote de campanha: um zip com tudo que a campanha tem, para ela sair de uma instancia (ou
+ * de uma conta) e entrar em outra igual, sem ninguem precisar enviar arquivo de novo.
  *
- *   campanha.json      dados da campanha, guia e mesa
- *   indice/ABREV.json  indices de busca ja prontos
- *   img/arquivo.webp   imagens referenciadas pelo guia
+ *   campanha.json            dados da campanha, guia, mesa, fichas e o catalogo de midia
+ *   indice/ABREV.json        indices de busca ja prontos
+ *   img/arquivo.webp         imagens
+ *   pdf/ABREV.pdf            livros
+ *   audio/categoria/x.mp3    faixas da trilha
  *
- * PDFs e audio nao entram: sao grandes e cada mestre tem os seus.
+ * O catalogo ("midia" no campanha.json) leva o que o arquivo sozinho nao diz: o nome de
+ * exibicao, a categoria da faixa e se o livro e publico. Pacote sem ele (formato 1) ainda
+ * entra: PDF e faixa sao catalogados como o reescanear faria.
  */
 @Service
 public class PacoteService {
 
     private static final Logger log = LoggerFactory.getLogger(PacoteService.class);
+    /* o que vai para a memoria (json e imagem) tem teto baixo; PDF e audio vao direto ao disco */
     private static final long LIMITE_ENTRADA = 80L * 1024 * 1024;
-    private static final int MAX_ENTRADAS = 2000;
+    private static final long LIMITE_ARQUIVO = 2L * 1024 * 1024 * 1024;
+    private static final int MAX_ENTRADAS = 5000;
+    private static final Pattern PDF = Pattern.compile("pdf/[A-Za-z0-9]{2,10}\\.(?i:pdf)");
+    private static final Pattern AUDIO = Pattern.compile("audio/(?:[^/]{1,80}/){0,2}[^/]{1,120}\\.(?i:mp3|m4a|ogg|wav)");
 
     private final CampanhaRepo campanhas;
     private final DocumentoService docs;
     private final MidiaService midia;
+    private final MidiaRepo catalogo;
     private final IndiceService indice;
     private final FichaRepo fichas;
     private final UsuarioRepo usuarios;
     private final ObjectMapper om = JsonMapper.builder().build();
 
     public PacoteService(CampanhaRepo campanhas, DocumentoService docs,
-                         MidiaService midia, IndiceService indice,
+                         MidiaService midia, MidiaRepo catalogo, IndiceService indice,
                          FichaRepo fichas, UsuarioRepo usuarios) {
-        this.fichas = fichas;
-        this.usuarios = usuarios;
         this.campanhas = campanhas;
         this.docs = docs;
         this.midia = midia;
+        this.catalogo = catalogo;
         this.indice = indice;
+        this.fichas = fichas;
+        this.usuarios = usuarios;
     }
 
     // ---------- exportar ----------
 
-    public void exportar(Long campanhaId, boolean comImagens, OutputStream saida) throws IOException {
+    public void exportar(Long campanhaId, boolean comArquivos, OutputStream saida) throws IOException {
         Campanha c = campanhas.findById(campanhaId)
                 .orElseThrow(() -> new IllegalArgumentException("campanha nao encontrada"));
+        Path raiz = midia.raiz(campanhaId);
+
+        /* PDF e faixa saem pelo catalogo, que sabe nome e categoria; so vai o que esta no disco */
+        List<Midia> arquivos = new ArrayList<>();
+        if (comArquivos) {
+            for (Midia m : catalogo.findByCampanhaId(campanhaId)) {
+                if (m.getTipo() == Midia.Tipo.IMG || !caminhoAceito(m)) continue;
+                Path p = raiz.resolve(m.getArquivo()).normalize();
+                if (p.startsWith(raiz) && Files.isRegularFile(p)) arquivos.add(m);
+            }
+            arquivos.sort(Comparator.comparing(Midia::getArquivo));
+        }
 
         try (ZipOutputStream z = new ZipOutputStream(saida, StandardCharsets.UTF_8)) {
-            ObjectNode raiz = om.createObjectNode();
-            raiz.put("formato", 1);
-            raiz.put("nome", c.getNome());
-            raiz.put("sistema", c.getSistema());
-            raiz.put("descricao", c.getDescricao());
-            raiz.put("tema", c.getTema());
-            raiz.put("capa", c.getCapa() == null ? "" : c.getCapa());
-            raiz.set("guia", leJson(docs.ler(campanhaId, DocumentoService.GUIA).getConteudo()));
-            raiz.set("mesa", leJson(docs.ler(campanhaId, DocumentoService.MESA).getConteudo()));
-            ArrayNode fs = raiz.putArray("fichas");
-            Map<Long, String> nomes = new HashMap<>();
-            for (Ficha f : fichas.findByCampanhaIdOrderByNomeAsc(campanhaId)) {
-                ObjectNode o = fs.addObject();
-                o.put("nome", f.getNome());
-                o.put("dono", nomes.computeIfAbsent(f.getUsuarioId(),
-                        k -> usuarios.findById(k).map(Usuario::getNome).orElse("")));
-                o.set("conteudo", leJson(f.getConteudo()));
-            }
-
             z.putNextEntry(new ZipEntry("campanha.json"));
-            z.write(om.writerWithDefaultPrettyPrinter().writeValueAsBytes(raiz));
+            z.write(om.writerWithDefaultPrettyPrinter().writeValueAsBytes(dadosDaCampanha(c, arquivos)));
             z.closeEntry();
 
             Path dirIdx = indice.pastaIndice(campanhaId);
             if (Files.isDirectory(dirIdx)) {
                 try (var st = Files.list(dirIdx)) {
-                    for (Path p : st.filter(x -> x.toString().endsWith(".json")).sorted().toList()) {
-                        z.putNextEntry(new ZipEntry("indice/" + p.getFileName()));
-                        Files.copy(p, z);
-                        z.closeEntry();
-                    }
+                    for (Path p : st.filter(x -> x.toString().endsWith(".json")).sorted().toList())
+                        copiar(z, "indice/" + p.getFileName(), p);
                 }
             }
 
-            if (comImagens) {
-                Path dirImg = midia.raiz(campanhaId).resolve("img");
+            if (comArquivos) {
+                /* imagem, PDF e audio ja vem comprimidos: comprimir de novo so gasta processador */
+                z.setLevel(Deflater.BEST_SPEED);
+                Path dirImg = raiz.resolve("img");
                 if (Files.isDirectory(dirImg)) {
                     try (var st = Files.list(dirImg)) {
-                        for (Path p : st.filter(Files::isRegularFile).sorted().toList()) {
-                            z.putNextEntry(new ZipEntry("img/" + p.getFileName()));
-                            Files.copy(p, z);
-                            z.closeEntry();
-                        }
+                        for (Path p : st.filter(Files::isRegularFile)
+                                .filter(x -> !x.getFileName().toString().endsWith(".parcial"))
+                                .sorted().toList())
+                            copiar(z, "img/" + p.getFileName(), p);
                     }
                 }
+                for (Midia m : arquivos) copiar(z, m.getArquivo(), raiz.resolve(m.getArquivo()));
             }
             z.finish();
         }
+    }
+
+    private ObjectNode dadosDaCampanha(Campanha c, List<Midia> arquivos) {
+        Long campanhaId = c.getId();
+        ObjectNode raiz = om.createObjectNode();
+        raiz.put("formato", 2);
+        raiz.put("nome", c.getNome());
+        raiz.put("sistema", c.getSistema());
+        raiz.put("descricao", c.getDescricao());
+        raiz.put("tema", c.getTema());
+        raiz.put("capa", c.getCapa() == null ? "" : c.getCapa());
+        raiz.set("guia", leJson(docs.ler(campanhaId, DocumentoService.GUIA).getConteudo()));
+        raiz.set("mesa", leJson(docs.ler(campanhaId, DocumentoService.MESA).getConteudo()));
+        ArrayNode fs = raiz.putArray("fichas");
+        Map<Long, String> nomes = new HashMap<>();
+        for (Ficha f : fichas.findByCampanhaIdOrderByNomeAsc(campanhaId)) {
+            ObjectNode o = fs.addObject();
+            o.put("nome", f.getNome());
+            o.put("dono", nomes.computeIfAbsent(f.getUsuarioId(),
+                    k -> usuarios.findById(k).map(Usuario::getNome).orElse("")));
+            o.set("conteudo", leJson(f.getConteudo()));
+        }
+        ArrayNode cat = raiz.putArray("midia");
+        for (Midia m : arquivos) {
+            ObjectNode o = cat.addObject();
+            o.put("tipo", m.getTipo().name());
+            o.put("arquivo", m.getArquivo());
+            o.put("chave", m.getChave());
+            o.put("nome", m.getNome());
+            o.put("categoria", m.getCategoria() == null ? "" : m.getCategoria());
+            o.put("publico", m.isPublico());
+        }
+        return raiz;
+    }
+
+    private static void copiar(ZipOutputStream z, String nome, Path p) throws IOException {
+        z.putNextEntry(new ZipEntry(nome));
+        Files.copy(p, z);
+        z.closeEntry();
+    }
+
+    /* so sai o que a importacao aceita de volta, senao o arquivo se perderia do outro lado */
+    private static boolean caminhoAceito(Midia m) {
+        String a = m.getArquivo() == null ? "" : m.getArquivo();
+        return m.getTipo() == Midia.Tipo.PDF ? PDF.matcher(a).matches() : AUDIO.matcher(a).matches();
     }
 
     // ---------- importar ----------
@@ -126,26 +175,35 @@ public class PacoteService {
         if (zip == null || zip.isEmpty()) throw new IllegalArgumentException("arquivo vazio");
         midia.prepararPastas(campanhaId);
 
-        int indices = 0, imagens = 0, nFichas = 0;
-        boolean trocouGuia = false, trocouMesa = false;
+        int indices = 0;
+        int imagens = 0;
+        int nFichas = 0;
+        boolean trocouGuia = false;
+        boolean trocouMesa = false;
         String nomeCampanha = null;
         int entradas = 0;
+        /* caminho do PDF ou da faixa gravada -> hash. O registro espera o fim do zip, quando o
+           catalogo e os indices (que poupam o PDF de ser reprocessado) ja foram lidos. */
+        Map<String, String> gravados = new LinkedHashMap<>();
+        Map<String, JsonNode> meta = new HashMap<>();
 
         try (ZipInputStream z = new ZipInputStream(zip.getInputStream(), StandardCharsets.UTF_8)) {
             ZipEntry e;
             while ((e = z.getNextEntry()) != null) {
                 if (++entradas > MAX_ENTRADAS) throw new IllegalArgumentException("pacote com entradas demais");
-                if (e.isDirectory()) { z.closeEntry(); continue; }
                 String nome = e.getName().replace('\\', '/');
-                if (nome.contains("..") || nome.startsWith("/")) { z.closeEntry(); continue; }
+                if (e.isDirectory() || nome.contains("..") || nome.startsWith("/")) { z.closeEntry(); continue; }
 
-                byte[] dados = lerLimitado(z);
-
-                if (nome.equals("campanha.json")) {
-                    JsonNode n = om.readTree(dados);
+                if (PDF.matcher(nome).matches() || AUDIO.matcher(nome).matches()) {
+                    String rel = relDoArquivo(nome);
+                    var g = midia.gravarDoPacote(campanhaId, rel, new Limitado(z, LIMITE_ARQUIVO));
+                    gravados.put(rel, g.hash());
+                } else if (nome.equals("campanha.json")) {
+                    JsonNode n = om.readTree(lerLimitado(z));
                     nomeCampanha = n.path("nome").asString("");
                     aplicarCampanha(campanhaId, n);
                     nFichas = importarFichas(campanhaId, usuarioId, n.path("fichas"));
+                    for (JsonNode m : n.path("midia")) meta.put(relDoArquivo(m.path("arquivo").asString("")), m);
                     if (substituirGuia && n.has("guia") && !n.get("guia").isNull()) {
                         docs.gravar(campanhaId, DocumentoService.GUIA, om.writeValueAsString(n.get("guia")), -1);
                         trocouGuia = true;
@@ -156,16 +214,36 @@ public class PacoteService {
                     }
                 } else if (nome.startsWith("indice/") && nome.endsWith(".json")) {
                     String arq = nome.substring("indice/".length());
-                    if (arq.contains("/")) { z.closeEntry(); continue; }
-                    Files.write(indice.pastaIndice(campanhaId).resolve(arq), dados);
-                    indices++;
+                    if (!arq.contains("/")) {
+                        Files.write(indice.pastaIndice(campanhaId).resolve(arq), lerLimitado(z));
+                        indices++;
+                    }
                 } else if (nome.startsWith("img/")) {
                     String arq = nome.substring("img/".length());
-                    if (arq.isEmpty() || arq.contains("/")) { z.closeEntry(); continue; }
-                    midia.gravarImagem(campanhaId, arq, dados);
-                    imagens++;
+                    if (!arq.isEmpty() && !arq.contains("/")) {
+                        midia.gravarImagem(campanhaId, arq, lerLimitado(z));
+                        imagens++;
+                    }
                 }
                 z.closeEntry();
+            }
+        }
+
+        int pdfs = 0;
+        int faixas = 0;
+        Path raiz = midia.raiz(campanhaId);
+        for (var g : gravados.entrySet()) {
+            String rel = g.getKey();
+            JsonNode m = meta.getOrDefault(rel, om.createObjectNode());
+            if (rel.startsWith("pdf/")) {
+                String ab = rel.substring(4, rel.length() - 4);
+                midia.registrarPdf(campanhaId, ab, m.path("nome").asString(ab),
+                        m.path("publico").asBoolean(false), raiz.resolve(rel), g.getValue());
+                pdfs++;
+            } else {
+                midia.registrarFaixa(campanhaId, rel, m.path("chave").asString(""), m.path("nome").asString(""),
+                        m.path("categoria").asString(""), g.getValue());
+                faixas++;
             }
         }
 
@@ -174,12 +252,57 @@ public class PacoteService {
         r.put("nome", nomeCampanha);
         r.put("indices", indices);
         r.put("imagens", imagens);
+        r.put("pdfs", pdfs);
+        r.put("faixas", faixas);
         r.put("guia", trocouGuia);
         r.put("mesa", trocouMesa);
         r.put("fichas", nFichas);
-        log.info("Campanha {}: importou {} indices e {} imagens (guia={}).",
-                campanhaId, indices, imagens, trocouGuia);
+        log.info("Campanha {}: importou {} indices, {} imagens, {} PDFs e {} faixas (guia={}).",
+                campanhaId, indices, imagens, pdfs, faixas, trocouGuia);
         return r;
+    }
+
+    /* o PDF e achado pela sigla em maiuscula (pdf/LB.pdf), venha o nome como vier no zip */
+    private static String relDoArquivo(String nome) {
+        String n = nome.replace('\\', '/');
+        if (!PDF.matcher(n).matches()) return n;
+        return "pdf/" + n.substring(4, n.length() - 4).toUpperCase(Locale.ROOT) + ".pdf";
+    }
+
+    /* Le a entrada atual do zip sem deixar quem le fechar o zip inteiro, e corta no limite: o
+       tamanho declarado no zip nao e confiavel, entao conta o que passa de verdade. */
+    private static final class Limitado extends FilterInputStream {
+        private final long limite;
+        private long lidos;
+
+        Limitado(InputStream in, long limite) {
+            super(in);
+            this.limite = limite;
+        }
+
+        private void conta(long n) {
+            if (n > 0) lidos += n;
+            if (lidos > limite) throw new IllegalArgumentException("arquivo grande demais dentro do pacote");
+        }
+
+        @Override
+        public int read() throws IOException {
+            int b = super.read();
+            if (b >= 0) conta(1);
+            return b;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int n = super.read(b, off, len);
+            conta(n);
+            return n;
+        }
+
+        @Override
+        public void close() {
+            /* o zip continua aberto para a proxima entrada */
+        }
     }
 
     /* Os donos das fichas sao contas de outra instancia: aqui ninguem e "o mesmo jogador".

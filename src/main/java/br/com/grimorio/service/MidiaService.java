@@ -260,6 +260,45 @@ public class MidiaService {
         return m;
     }
 
+    /** Importacao de pacote: grava um PDF ou uma faixa no caminho relativo que veio no zip
+     *  (quem chama ja validou o formato). O fluxo e lido uma vez so, direto do zip; por isso o
+     *  tamanho vai como desconhecido, e disco cheio aparece como ArmazenamentoCheioException. */
+    public Gravado gravarDoPacote(Long campanhaId, String rel, InputStream in) throws IOException {
+        Path base = raiz(campanhaId);
+        Path destino = base.resolve(rel).normalize();
+        if (!destino.startsWith(base)) throw new IllegalArgumentException("caminho invalido no pacote");
+        return gravarCompartilhado(() -> in, -1, destino);
+    }
+
+    /** Importacao de pacote: cataloga a faixa com o nome e a categoria que ela tinha na origem.
+     *  A chave e o caminho tambem sao os de la, porque e pela chave que o roteiro cita a faixa. */
+    @Transactional
+    public Midia registrarFaixa(Long campanhaId, String rel, String chave, String nome,
+                                String categoria, String hash) throws IOException {
+        Path arquivo = raiz(campanhaId).resolve(rel).normalize();
+        Path pai = arquivo.getParent();
+        String nomeArq = semExtensao(arquivo.getFileName().toString());
+        String cat = categoria == null || categoria.isBlank()
+                ? (pai == null || pai.equals(raiz(campanhaId).resolve("audio")) ? "Sem categoria" : pai.getFileName().toString())
+                : corta(categoria.trim(), 60);
+        String ch = chave == null || chave.isBlank() ? slug(cat) + "/" + slug(nomeArq) : corta(chave.trim(), 120);
+        Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.AUDIO, ch)
+                .orElseGet(Midia::new);
+        m.setCampanhaId(campanhaId);
+        m.setTipo(Midia.Tipo.AUDIO);
+        m.setChave(ch);
+        m.setNome(nome == null || nome.isBlank() ? nomeArq : corta(nome.trim(), 200));
+        m.setCategoria(cat);
+        m.setArquivo(rel);
+        m.setTamanho(Files.size(arquivo));
+        m.setPaginas(0);
+        m.setPublico(false);
+        m.setEnviadoEm(Instant.now());
+        m.setHash(hash);
+        repo.save(m);
+        return m;
+    }
+
     @Transactional
     public void trocarVisibilidade(Long campanhaId, Long id, boolean publico) {
         Midia m = repo.findById(id)
