@@ -328,6 +328,86 @@ console.log("\n=== administracao e suporte ===");
   ok(r.s === 200 && JSON.stringify(r.d).includes("teste de suporte"), "admin ve o chamado", r.d);
 }
 
+console.log("\n=== miniatura, textos publicos, 404, uso e recuperacao de senha ===");
+{
+  /* PNG de 900x40 feito na mao (zlib do Node), para a miniatura ter o que reduzir */
+  const zlib = await import("node:zlib");
+  function pngGrande(w, h) {
+    const crcT = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c >>> 0; }
+    const crc = b => { let c = 0xffffffff; for (const x of b) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+    const bloco = (tipo, dados) => { const t = Buffer.from(tipo); const len = Buffer.alloc(4); len.writeUInt32BE(dados.length);
+      const c = Buffer.alloc(4); c.writeUInt32BE(crc(Buffer.concat([t, dados]))); return Buffer.concat([len, t, dados, c]); };
+    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+    const linhas = []; for (let y = 0; y < h; y++) { const l = Buffer.alloc(1 + w * 3); for (let x = 0; x < w; x++) { l[1 + x * 3] = x % 256; l[2 + x * 3] = y * 6; l[3 + x * 3] = 120; } linhas.push(l); }
+    return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), bloco("IHDR", ihdr), bloco("IDAT", zlib.deflateSync(Buffer.concat(linhas))), bloco("IEND", Buffer.alloc(0))]);
+  }
+  const camp = (await mestre.get("/api/sessao")).d.campanhas[0].id;
+  let r = await mestre.req("POST", `/api/c/${camp}/midia/img`, undefined, { form: forma("arquivo", pngGrande(900, 40), "largo.png", "image/png", { nome: "largo" }) });
+  ok(r.s === 200 && r.d?.arquivo, "mestre sobe imagem grande", r.d);
+  const larg = r.d?.arquivo;
+  r = await jogador.get(`/midia/c${camp}/${larg}`);
+  ok(r.s === 200 && /image\/png/.test(r.tipo) && r.bruto.length > 0, "original continua servido sem ?mini", { s: r.s, t: r.tipo });
+  const tamOrig = r.bruto.length;
+  r = await jogador.get(`/midia/c${camp}/${larg}?mini=1`);
+  ok(r.s === 200 && /image\//.test(r.tipo), "?mini=1 devolve uma imagem", { s: r.s, t: r.tipo });
+  const larguraMini = r.bruto.length > 24 && /png/.test(r.tipo) ? r.bruto.readUInt32BE(16) : (r.bruto[0] === 0xff ? "jpeg" : "?");
+  ok(larguraMini === "jpeg" || larguraMini <= 512, "a miniatura tem no maximo 512px de largura", { larguraMini, tamOrig, tamMini: r.bruto.length });
+  r = await anonimo.get(`/midia/c${camp}/${larg}?mini=1`);
+  ok(r.s !== 200, "anonimo nao baixa miniatura", r.s);
+  r = await jogador.get(`/midia/c${camp}/img/../pdf/x.pdf?mini=1`);
+  ok(r.s !== 200, "miniatura nao escapa da pasta img", r.s);
+
+  r = await anonimo.get("/api/publico/texto/privacidade");
+  ok(r.s === 200 && /cookie/i.test(r.d?.texto || "") && r.d?.padrao === true, "privacidade abre sem conta, com o texto padrao", r.d?.titulo);
+  r = await anonimo.get("/privacidade");
+  ok(r.s === 200 && /text\/html/.test(r.tipo), "/privacidade e uma pagina publica", r.s);
+  r = await anonimo.get("/termos");
+  ok(r.s === 200 && /text\/html/.test(r.tipo), "/termos e uma pagina publica", r.s);
+  r = await jogador.put("/api/admin/textos/termos", { texto: "invadido" });
+  ok(r.s === 403, "jogador nao muda os termos", r.s);
+  r = await mestre.put("/api/admin/textos/termos", { texto: "Termos da mesa de teste." });
+  ok(r.s === 200 && r.d?.padrao === false, "admin grava os termos", r.d);
+  r = await anonimo.get("/api/publico/texto/termos");
+  ok(r.d?.texto === "Termos da mesa de teste.", "termos gravados aparecem para todos");
+  r = await anonimo.get("/api/publico/texto/segredo");
+  ok(r.s === 400, "texto desconhecido e recusado", r.s);
+
+  r = await jogador.req("GET", "/nao-existe-esta-pagina", undefined, {});
+  const html404 = await fetch(B + "/nao-existe-esta-pagina", { headers: { Accept: "text/html", Cookie: Object.entries(jogador.cookies).map(([k, v]) => k + "=" + v).join("; ") }, redirect: "manual" });
+  const corpo404 = await html404.text();
+  ok(html404.status === 404 && /Esta página não existe/.test(corpo404), "endereco que nao existe mostra a pagina 404 para quem navega", html404.status);
+  r = await jogador.get("/api/nao-existe");
+  ok(r.s === 404 && r.d?.erro, "na API o 404 continua em JSON", r.s);
+
+  r = await jogador.post("/api/metrica", { evento: "tela:mesa" });
+  ok(r.s === 204, "contagem de uso aceita evento", r.s);
+  r = await jogador.post("/api/metrica", { evento: "Nome de Alguém <b>" });
+  ok(r.s === 400, "contagem recusa texto livre", r.s);
+  r = await anonimo.post("/api/metrica", { evento: "tela:mesa" });
+  ok(r.s === 401 || r.s === 403, "contagem exige conta", r.s);
+  r = await mestre.get("/api/admin/metricas?dias=7");
+  ok(r.s === 200 && r.d?.porEvento?.["tela:mesa"] >= 1, "admin ve a contagem somada", r.d);
+  r = await jogador.get("/api/admin/metricas");
+  ok(r.s === 403, "jogador nao ve a contagem", r.s);
+
+  r = await jogador.put("/api/perfil", { email: "errado" });
+  ok(r.s === 400, "e-mail mal escrito e recusado", r.s);
+  r = await jogador.put("/api/perfil", { email: "jogador@exemplo.com" });
+  ok(r.s === 200 && r.d?.email === "jogador@exemplo.com", "pessoa grava o e-mail de recuperacao", r.d);
+  r = await mestre.put("/api/perfil", { email: "JOGADOR@exemplo.com" });
+  ok(r.s === 400, "o mesmo e-mail nao vale em duas contas", r.s);
+  r = await jogador.put("/api/perfil", { tourVisto: "jogador" });
+  r = await jogador.get("/api/sessao");
+  ok((r.d?.toursVistos || []).includes("jogador"), "tour visto fica na conta", r.d?.toursVistos);
+  await anonimo.ping();
+  r = await anonimo.post("/api/publico/senha/esqueci", { conta: "jogador" });
+  ok(r.s === 200 && r.d?.porEmail === false, "esqueci a senha responde igual e diz que nao ha e-mail configurado", r.d);
+  r = await anonimo.post("/api/publico/senha/esqueci", { conta: "ninguem-existe" });
+  ok(r.s === 200, "conta inexistente recebe a mesma resposta", r.s);
+  r = await anonimo.post("/api/publico/senha/redefinir", { token: "abc", senha: "Nova#Senha9" });
+  ok(r.s === 400 && /venceu|usado/.test(r.d?.erro || ""), "token invalido nao troca senha", r.d);
+}
+
 console.log("\n=== sair ===");
 {
   const r = await jogador.post("/api/logout", {});

@@ -44,7 +44,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
                 .requestMatchers("/login.html", "/paginas/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
-                                 "/api/ping", "/api/registrar", "/api/publico").permitAll()
+                                 "/api/ping", "/api/registrar", "/api/publico/**").permitAll()
+                /* privacidade e termos se leem sem conta (o link fica no login); icones, manifest e
+                   robots sao pedidos pelo navegador antes de qualquer sessao */
+                .requestMatchers("/privacidade", "/termos", "/paginas/legal.html", "/paginas/404.html",
+                                 "/robots.txt", "/manifest.webmanifest", "/icones/**").permitAll()
                 /* conferido no banco a cada pedido, nao no papel congelado no login (ver AdminAutorizacao) */
                 .requestMatchers("/api/admin/**").access(adminAutorizacao)
                 .requestMatchers("/midia/**").access(midiaAutorizacao)
@@ -62,7 +66,7 @@ public class SecurityConfig {
                 .failureHandler((req, res, ex) -> {
                     res.setStatus(401);
                     res.setContentType(JSON_UTF8);
-                    res.getWriter().write("{\"erro\":\"login ou senha invalidos\"}");
+                    res.getWriter().write("{\"erro\":\"login ou senha inválidos\"}");
                 }))
             .logout(l -> l
                 .logoutUrl("/api/logout")
@@ -75,14 +79,14 @@ public class SecurityConfig {
                     res.setStatus(403);
                     res.setContentType(JSON_UTF8);
                     res.getWriter().write(ex instanceof CsrfException
-                        ? "{\"erro\":\"a sessao de seguranca expirou, tente de novo\",\"codigo\":\"csrf\"}"
-                        : "{\"erro\":\"sem permissao para isso\",\"codigo\":\"proibido\"}");
+                        ? "{\"erro\":\"a sessão de segurança expirou, tente de novo\",\"codigo\":\"csrf\"}"
+                        : "{\"erro\":\"sem permissão para isso\",\"codigo\":\"proibido\"}");
                 })
                 .defaultAuthenticationEntryPointFor(
                     (req, res, ex) -> {
                         res.setStatus(401);
                         res.setContentType(JSON_UTF8);
-                        res.getWriter().write("{\"erro\":\"nao autenticado\"}");
+                        res.getWriter().write("{\"erro\":\"não autenticado\"}");
                     },
                     r -> {
                         String p = r.getRequestURI();

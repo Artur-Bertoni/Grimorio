@@ -9,7 +9,7 @@ function temaDaCampanha(){ if(!CID)return ""; try{ return localStorage.getItem("
 function sugereTema(){
   var m=temaMesa(); if(!CID||!m)return;
   var k="grim_tema_visto_c"+CID, visto="";
-  try{ visto=localStorage.getItem(k)||""; localStorage.setItem(k,m); }catch(e){}
+  try{ visto=localStorage.getItem(k)||""; localStorage.setItem(k,m); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   /* aparece uma vez por sugestao: se o mestre trocar o tema, a pergunta volta */
   if(visto===m||GM)return;
   $$(".sugtema").forEach(function(x){ x.remove(); });
@@ -18,7 +18,7 @@ function sugereTema(){
     estilo:(ESTILOS[TEMAS[m].estilo]||{}).nome||"",igual:igual});
   var pv=$(".temacard",d); if(pv){ pv.disabled=true; pv.removeAttribute("data-tema"); }
   $$("[data-s]",d).forEach(function(b){ b.onclick=function(){
-    if(b.getAttribute("data-s")==="usar"){ try{ localStorage.setItem("grim_tema_c"+CID,"mesa"); }catch(e){}
+    if(b.dataset.s==="usar"){ try{ localStorage.setItem("grim_tema_c"+CID,"mesa"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
       trocarTema(temaAtivo()); toast("Tema do "+V("mestre").toLowerCase()+" aplicado nesta "+V("campanha").toLowerCase()); }
     d.remove(); }; });
   document.body.appendChild(d);
@@ -39,13 +39,13 @@ function telaCritica(extremo){
 /* ---------- PEDIDO DE TESTE ---------- */
 function pedirTeste(rotulo){
   if(!GM)return;
-  var ult="1d20"; try{ ult=localStorage.getItem("grim_pedf")||"1d20"; }catch(e){}
+  var ult="1d20"; try{ ult=localStorage.getItem("grim_pedf")||"1d20"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   formulario("Pedir teste à "+V("mesa").toLowerCase(),[
     {k:"rotulo",rot:"Para quê",dica:"Aparece para os "+V("jogadores").toLowerCase()+" junto do pedido."},
     {k:"formula",rot:"Rolagem",obrig:true,dica:"Ex.: 1d20, 2d6+3, 2d20kh1 (fica o maior), 4d6dl1 (descarta o menor)."}
   ],{rotulo:rotulo||"",formula:ult},{
     salvar:function(w){
-      try{ localStorage.setItem("grim_pedf",w.formula); }catch(e){}
+      try{ localStorage.setItem("grim_pedf",w.formula); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
       api(cAPI("/rolagens/pedido"),{method:"POST",body:{formula:w.formula,rotulo:w.rotulo}})
         .then(function(r){ toast("Pedido enviado: "+(r.rotulo||r.formula)); puxaRolagens(false); })
         .catch(function(e){ toast((e&&e.message)||"não deu para pedir"); });
@@ -63,13 +63,21 @@ function avisaPedido(r){
 }
 
 /* ---------- ABERTURA DE CAPITULO ---------- */
+/* Uma vez por sessao por dia, em 1,2s: abrir e fechar a mesma sessao varias vezes durante a
+   preparacao nao pode cobrir a tela a cada vez. */
+function capituloJaVisto(s){
+  var k="grim_cap_"+CID+"_"+s.id, hoje=new Date().toDateString();
+  try{ if(localStorage.getItem(k)===hoje)return true; localStorage.setItem(k,hoje); }
+  catch(error_){ console.warn(error_); /* sem armazenamento: mostra sempre */ }
+  return false;
+}
 function abreCapitulo(s){
-  if(!s||!fxLigado())return;
+  if(!s||!fxLigado()||capituloJaVisto(s))return;
   $$(".capitulo").forEach(function(x){ x.remove(); });
   var d=el("div",{"class":"capitulo","aria-hidden":"true"});
-  d.innerHTML=htmlDe("t-capitulo",{numero:s.numero==null?"":s.numero,titulo:s.titulo||""});
+  d.innerHTML=htmlDe("t-capitulo",{numero:s.numero??"",titulo:s.titulo||""});
   document.body.appendChild(d); som("capitulo");
-  setTimeout(function(){ d.remove(); },2400);
+  setTimeout(function(){ d.remove(); },1200);
 }
 
 /* ---------- REVELACAO PARA OS JOGADORES ----------
@@ -132,7 +140,7 @@ function iniLigar(v,s){
   var b=$("#iniBtn",v); if(b)b.onclick=function(){ S.ini=!S.ini; render(); };
   var ini=iniDe(s);
   $$("[data-ini]",v).forEach(function(c){ c.onclick=function(){
-    iniEditar(s,ini.lista.filter(function(x){ return x.id===c.getAttribute("data-ini"); })[0]); }; });
+    iniEditar(s,ini.lista.filter(function(x){ return x.id===c.dataset.ini; })[0]); }; });
   var a=$("#iniAdd",v); if(a)a.onclick=function(){ iniEditar(s,null); };
   var p=$("#iniProx",v); if(p)p.onclick=function(){ var o=iniOrdem(ini); if(!o.length)return;
     var i=o.map(function(x){return x.id;}).indexOf(ini.vez)+1;
@@ -146,13 +154,13 @@ function iniLigar(v,s){
     if(!ini.vez&&ini.lista.length)ini.vez=iniOrdem(ini)[0].id;
     toast(n?n+" entraram na ordem. NPC entra oculto.":"Todo mundo já estava na ordem"); iniMudou(s); };
   var rl=$("#iniRol",v); if(rl)rl.onclick=function(){
-    var ult="1d20"; try{ ult=localStorage.getItem("grim_inif")||"1d20"; }catch(e){}
+    var ult="1d20"; try{ ult=localStorage.getItem("grim_inif")||"1d20"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     formulario("Rolar iniciativa de quem está sem valor",[{k:"f",rot:"Rolagem",obrig:true,dica:"Um dado com soma opcional: 1d20, 1d10+2, 2d6."}],{f:ult},{
       salvar:function(w){ var m=/^\s*(\d{0,2})d(\d{1,4})\s*([+-]\s*\d{1,3})?\s*$/i.exec(w.f);
         if(!m){ toast("Não entendi essa rolagem"); return; }
-        try{ localStorage.setItem("grim_inif",w.f); }catch(e){}
+        try{ localStorage.setItem("grim_inif",w.f); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
         ini.lista.forEach(function(x){ if(x.v!==""&&x.v!=null)return;
-          var t=m[3]?parseInt(m[3].replace(/\s/g,""),10):0; for(var k=0;k<(+m[1]||1);k++)t+=rolaDado(+m[2]); x.v=t; });
+          var t=m[3]?Number.parseInt(m[3].replace(/\s/g,""),10):0; for(var k=0;k<(+m[1]||1);k++)t+=rolaDado(+m[2]); x.v=t; });
         ini.vez=iniOrdem(ini)[0].id; ini.rodada=1; iniMudou(s); } }); };
   var f=$("#iniFim",v); if(f)f.onclick=function(){ comDesfazer("Iniciativa encerrada",function(){
     s.ini={lista:[],vez:"",rodada:1}; S.ini=false; iniMudou(s); }); };

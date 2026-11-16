@@ -1,8 +1,11 @@
 server:
   port: ${PORT:8080}
+  # atras do proxy do Railway: o endereco que vai nos links (redefinir senha, previa do convite)
+  # precisa ser o https publico, nao o http interno
+  forward-headers-strategy: framework
   compression:
     enabled: true
-    mime-types: application/json,application/javascript,text/html,text/css,text/plain
+    mime-types: application/json,application/javascript,text/html,text/css,text/plain,application/manifest+json,image/svg+xml
     min-response-size: 2048
   servlet:
     session:

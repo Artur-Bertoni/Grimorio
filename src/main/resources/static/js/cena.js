@@ -66,10 +66,10 @@ function cenaBodyHtml(c){
 }
 var CMODAL=null;
 function hydrateCena(root){
-  $$("[data-pedir]",root).forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); pedirTeste(b.getAttribute("data-pedir")); }; });
+  $$("[data-pedir]",root).forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); pedirTeste(b.dataset.pedir); }; });
   $$("[data-blur]",root).forEach(function(n){n.onclick=function(){n.classList.add("rev");};});
-  $$("[data-lb]",root).forEach(function(n){n.onclick=function(){projetar(n.getAttribute("data-lb"));};});
-  $$("[data-faixa]",root).forEach(function(b){b.onclick=function(){ tocar(b.getAttribute("data-faixa")); };});
+  $$("[data-lb]",root).forEach(function(n){n.onclick=function(){projetar(n.dataset.lb);};});
+  $$("[data-faixa]",root).forEach(function(b){b.onclick=function(){ tocar(b.dataset.faixa); };});
 }
 function cenaModalBody(s,c){
   return htmlDe("t-cena-modal",{c:c,terr:terr(s,c.territorio),ck:ckHtml(c),ferr:ferrCena(c),corpo:cenaBodyHtml(c)});
@@ -88,6 +88,7 @@ function abrirCenaModal(id){
   var pv=$("#cmPrev",ov); if(pv&&k>0)pv.onclick=function(){ abrirCenaModal(s.cenas[k-1].id); };
   var nx=$("#cmNext",ov); if(nx&&k<s.cenas.length-1)nx.onclick=function(){ abrirCenaModal(s.cenas[k+1].id); };
   var kh=function(e){ if(!document.body.contains(ov)){document.removeEventListener("keydown",kh);return;}
+    if(!teclaDaCamada(e,ov))return;
     if(e.target&&(e.target.isContentEditable||/input|textarea|select/i.test(e.target.tagName)))return;
     if(e.key==="ArrowLeft"&&k>0){e.preventDefault();abrirCenaModal(s.cenas[k-1].id);}
     else if(e.key==="ArrowRight"&&k<s.cenas.length-1){e.preventDefault();abrirCenaModal(s.cenas[k+1].id);} };
@@ -101,7 +102,7 @@ function refreshCenaModal(){
   if(!c){ CMODAL.ov.close(); CMODAL=null; return; }
   var b=CMODAL.ov.querySelector("#cmBody");
   if(b){ b.innerHTML=cenaModalBody(s,c); hydrateCena(b); }
-  var h3=CMODAL.ov.querySelector("h3"); if(h3)h3.textContent=c.n+" · "+c.titulo;
+  var h3=CMODAL.ov.querySelector(".stit"); if(h3)h3.textContent=c.n+" · "+c.titulo;
 }
 function cardHtml(s,c){
   var tb=blkDe(c,"trilha"), ib=blkDe(c,"imagens"), te=blkDe(c,"testes");
@@ -158,7 +159,7 @@ function railHtml(s){
 /* ---------- ACOES ---------- */
 function cena(id){var s=curSess();return ((s&&s.cenas)||[]).filter(function(c){return c.id===id;})[0];}
 function irCena(id){ S.vmode="roteiro"; S.aberta=id; render(); setTimeout(function(){
-  var d=$("#scn-"+id); if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"});} },50); }
+  var d=$("#scn-"+id); if(d){d.open=true;d.scrollIntoView({behavior:fxLigado()?"smooth":"auto",block:"center"});} },50); }
 
 function editarCena(s,c,nova){
   formulario((nova?"Nova ":"Editar ")+V("cena").toLowerCase(),[
@@ -194,26 +195,26 @@ function adicionarNaSessao(s,tp){
   var fora=D.elenco[tp].filter(function(x){return s[k].indexOf(x.id)<0;});
   var ov=overlay("Adicionar "+um+" à "+V("sessao").toLowerCase(),htmlDe("t-adicionar-sessao",{fora:fora}));
   $$("[data-add]",ov).forEach(function(b){ b.onclick=function(){
-    s[k].push(b.getAttribute("data-add")); save(); b.remove(); render(); toast("Adicionado"); }; });
+    s[k].push(b.dataset.add); save(); b.remove(); render(); toast("Adicionado"); }; });
   $("#asNovo",ov).onclick=function(){ ov.close(); editarElenco(tp,null,function(x){ s[k].push(x.id); }); };
 }
 
 /* reordenar arrastando (js/ordenar.js): cenas no roteiro, blocos na cena */
 ORDENA.cenas=function(_l,de,para){ var s=curSess();
   if(s&&moverNaLista(s.cenas,de,para)){ save(); render(); refreshCenaModal(); } };
-ORDENA.blocos=function(l,de,para){ var c=cena(l.getAttribute("data-c"));
+ORDENA.blocos=function(l,de,para){ var c=cena(l.dataset.c);
   if(c&&moverNaLista(c.blocos,de,para)){ save(); render(); refreshCenaModal(); } };
 
 document.addEventListener("click",function(e){
   var b=e.target.closest("[data-act]"); if(!b)return;
-  var a=b.getAttribute("data-act"), s=curSess(); if(!s)return;
-  var c=b.getAttribute("data-c")?cena(b.getAttribute("data-c")):null;
-  var bi=+b.getAttribute("data-b"), tp=b.getAttribute("data-tp"), id=b.getAttribute("data-id");
+  var a=b.dataset.act, s=curSess(); if(!s)return;
+  var c=b.dataset.c?cena(b.dataset.c):null;
+  var bi=+b.dataset.b, tp=b.dataset.tp, id=b.dataset.id;
   function done(){ save(); render(); refreshCenaModal(); }
   if(a==="ck"){ e.preventDefault(); e.stopPropagation(); if(!c)return; c.feito=!c.feito; marcarFeito(s,c); save(); return; }
-  if(a==="go"){ if(S.vmode==="canvas")abrirCenaModal(b.getAttribute("data-c")); else irCena(b.getAttribute("data-c")); return; }
+  if(a==="go"){ if(S.vmode==="canvas")abrirCenaModal(b.dataset.c); else irCena(b.dataset.c); return; }
   if(a==="lib"){ e.preventDefault(); e.stopPropagation(); var o=elDe(tp,id); if(!o)return;
-    var on=alternaLib(tp,o); b.classList.toggle("on",on);
+    var on=alternaLib(tp,o); b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on));
     b.title=on?"Liberado para a mesa. Clique para tirar.":"Liberar para a mesa";
     toast(on?"Liberado para a mesa":"Tirado da mesa"); return; }
   if(a==="el-ver"){ var x=elDe(tp,id); if(x)abrirItem(tp,x,null,s); return; }
@@ -221,14 +222,14 @@ document.addEventListener("click",function(e){
   switch(a){
     case "scn-add":{
       if(!s.territorios.length)s.territorios.push({id:uid("t"),nome:Vm("territorio")+" 1",cor:CORES_T[0][0],padrao:true});
-      var tid=b.getAttribute("data-t")||s.territorios[0].id;
+      var tid=b.dataset.t||s.territorios[0].id;
       editarCena(s,{id:uid("c"),n:Vm("cena")+" "+(s.cenas.length+1),titulo:"",territorio:tid,feito:false,blocos:[]},true); break; }
     case "scn-ed": if(c)editarCena(s,c,false); break;
     case "blk-add":{ if(!c)break; var sel=b.parentNode.querySelector("select");
       editarBloco(c,-1,novoBloco(sel?sel.value:"lista")); break; }
     case "blk-ed": if(c)editarBloco(c,bi); break;
     case "terr-add": editarTerr(s,null); break;
-    case "terr-ed": editarTerr(s,b.getAttribute("data-t")); break;
+    case "terr-ed": editarTerr(s,b.dataset.t); break;
     case "s-fixos": formulario("Eventos fixos",[
         {k:"intro",rot:"Explicação (opcional)",tipo:"area",linhas:3},
         {k:"lista",rot:"Eventos",tipo:"linhas",linhas:6,dica:"O que acontece em hora marcada, faça o grupo o que fizer. Um por linha."}],
@@ -245,5 +246,5 @@ document.addEventListener("click",function(e){
 });
 function escolher(titulo,ops,cb){
   var ov=overlay(titulo,htmlDe("t-escolher",{ops:ops}));
-  $$("[data-v]",ov).forEach(function(x){ x.onclick=function(){ ov.close(); cb(x.getAttribute("data-v")); }; });
+  $$("[data-v]",ov).forEach(function(x){ x.onclick=function(){ ov.close(); cb(x.dataset.v); }; });
 }

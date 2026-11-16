@@ -124,6 +124,12 @@ public class SuporteService {
         return out;
     }
 
+    /** E-mail de sistema para uma pessoa (o link de redefinir senha), pelo mesmo provedor do suporte. */
+    public void enviarPara(String para, String assunto, String corpo) throws Exception {
+        if (!envioConfigurado()) throw new IllegalStateException("o envio de e-mail não está configurado nesta instância");
+        enviar(para, null, assunto, corpo);
+    }
+
     /** Botao "enviar e-mail de teste" da Administracao: devolve o erro do SMTP por extenso. */
     public void testar() throws Exception {
         if (!envioConfigurado()) throw new IllegalStateException(provedor().equals("smtp")

@@ -13,9 +13,9 @@ function escolherImagem(atual){
     ov.close=function(){ if(!resolvido){ resolvido=true; res(escolhido); } fechar(); };
     function pinta(figs){
       $("#eiList",ov).innerHTML=htmlDe("t-imagens-lista",{campanha:V("campanha").toLowerCase(),atual:atual,
-        figuras:figs.map(function(x){ return {rel:x.arquivo||("img/"+x.nome),url:x.url,nome:x.nome}; })});
+        figuras:figs.map(function(x){ var rel=x.arquivo||("img/"+x.nome); return {rel:rel,url:x.url,mini:IMG(rel,"mini"),nome:x.nome}; })});
       $$("[data-pick]",ov).forEach(function(b){ b.onclick=function(){
-        escolhido=b.getAttribute("data-pick"); ov.close();
+        escolhido=b.dataset.pick; ov.close();
       };});
     }
     function carrega(){

@@ -4,9 +4,9 @@
   <div class="tourfoco"></div>
   <div class="tourcard">
     <div class="tourlogo" v-html="logo"></div>
-    <div class="tourtop"><span class="tourn"></span><button class="tbtn" data-t="pula">pular tour</button></div>
-    <h4></h4><p></p><div class="tourdots"></div>
-    <div class="tourft"><button class="btn sec" data-t="volta">‹ Voltar</button><button class="btn" data-t="vai">Próximo ›</button></div>
+    <div class="tourtop"><span class="tourn" aria-live="polite"></span><button type="button" class="tbtn" data-t="pula">Pular o tour</button></div>
+    <h2 class="tourtit" id="tourTit">Tour guiado</h2><p id="tourTx"></p><div class="tourdots" aria-hidden="true"></div>
+    <div class="tourft"><button type="button" class="btn sec m" data-t="volta">‹ Voltar</button><button type="button" class="btn fant m" data-t="tudo" hidden>Ver o tour completo</button><button type="button" class="btn m" data-t="vai">Próximo ›</button></div>
   </div>
 </template>
 

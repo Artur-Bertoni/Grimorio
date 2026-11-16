@@ -10,7 +10,14 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import br.com.grimorio.service.CampanhaService;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.MediaType;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class TratadorDeErros {
@@ -40,9 +47,23 @@ public class TratadorDeErros {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", msg(e), "codigo", "proibido"));
     }
 
+    /* Endereco que nao existe: quem pediu pelo navegador (aceita HTML e nao e /api nem /midia)
+       recebe a pagina 404 com o tema e o caminho de volta; o resto continua recebendo JSON. */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<?> naoAchei(NoResourceFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("erro", "arquivo não encontrado"));
+    public ResponseEntity<?> naoAchei(NoResourceFoundException e, HttpServletRequest req) {
+        String uri = req.getRequestURI(), aceita = req.getHeader("Accept");
+        boolean navegador = aceita != null && aceita.contains("text/html")
+                && !uri.startsWith("/api/") && !uri.startsWith("/midia/");
+        if (navegador) {
+            try (InputStream in = new ClassPathResource("static/paginas/404.html").getInputStream()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                        .body(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException falta) {
+                log.warn("Pagina 404 nao encontrada no jar: {}", falta.toString());
+            }
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("erro", "não encontrado"));
     }
 
     @ExceptionHandler(IllegalStateException.class)
@@ -50,14 +71,16 @@ public class TratadorDeErros {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", msg(e)));
     }
 
+    /* Erro inesperado: o detalhe tecnico fica no log; a tela recebe uma frase que serve a quem usa */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> geral(Exception e) {
         log.error("Erro nao tratado", e);
-        return ResponseEntity.internalServerError().body(Map.of("erro", msg(e)));
+        return ResponseEntity.internalServerError()
+                .body(Map.of("erro", "o servidor falhou ao atender este pedido; tente de novo em instantes"));
     }
 
     private String msg(Exception e) {
         String m = e.getMessage();
-        return m == null || m.isBlank() ? e.getClass().getSimpleName() : m;
+        return m == null || m.isBlank() ? "pedido inválido" : m;
     }
 }

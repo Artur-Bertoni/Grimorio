@@ -5,30 +5,70 @@
 function secoesAjustes(){
   var l=[];
   if(GM&&CID)l.push(["campanha",Vm("campanha")],["mesa","Mesa e convites"],["vocab","Vocabulário"],["ref",Vm("referencia")],["busca","Busca"]);
-  l.push(["aparencia","Aparência"]);
+  l.push(["aparencia","Aparência"],["privacidade","Privacidade e acessibilidade"]);
   if(CID)l.push(["tour","Tour guiado"]);
   l.push(["conta","Conta"],["suporte","Suporte"]);
-  if(ADMIN)l.push(["admin","Administração"]);
+  if(ADMIN)l.push(["admin","Administração"],["textos","Textos legais"],["uso","Uso"]);
   return l;
 }
+function rotuloAjuste(k){ return (secoesAjustes().find(function(x){ return x[0]===k; })||[])[1]||""; }
+/* No celular Configuracoes e uma lista: cada secao abre numa tela propria, com voltar. Na tela
+   larga o menu fica ao lado e a primeira secao ja vem aberta. */
+function ajustesEmLista(){ return window.innerWidth<1000; }
 function viewAjustes(){
   var l=secoesAjustes();
-  if(!l.some(function(x){return x[0]===S.aj;}))S.aj=l[0][0];
+  if(!l.some(function(x){return x[0]===S.aj;}))S.aj=ajustesEmLista()?"":l[0][0];
   return htmlDe("t-ajustes",{cabeca:cabecaPagina(tituloApp(),"Configurações",{id:"ajCamps",texto:"Minhas "+vmin("campanhas"),sec:true}),
-    abas:subnav(l,S.aj,"data-aj")});
+    lista:!S.aj,abas:subnav(l,S.aj,"data-aj")});
 }
 /* As janelas de ajuste ja existiam como overlay. Aqui elas sao montadas dentro da
    pagina: a mesma funcao recebe este "fabricante" no lugar do overlay. */
-function emPagina(alvo){
+/* O titulo e sempre o nome do item do menu: antes cada janela trazia o seu, e o menu dizia
+   "Mesa e convites" enquanto a pagina dizia outra coisa. */
+function emPagina(alvo,rotulo){
   return function(titulo,body){
-    alvo.innerHTML=htmlDe("t-em-pagina",{titulo:titulo,corpo:body});
-    alvo.close=function(){}; return alvo; };
+    alvo.innerHTML=htmlDe("t-em-pagina",{titulo:rotulo||titulo,corpo:body});
+    alvo.close=function(){ /* dentro da pagina nao ha janela para fechar */ }; return alvo; };
+}
+function preferencia(k,padrao){ try{ var v=localStorage.getItem(k); return v==null?padrao:v!=="0"; }catch(error_){ return padrao; } }
+function gravaPreferencia(k,ligado){ try{ localStorage.setItem(k,ligado?"1":"0"); }catch(error_){ toast("Não consegui guardar a escolha neste navegador.","erro"); } }
+function ajustePrivacidade(alvo){
+  alvo.innerHTML=htmlDe("t-aj-privacidade",{metricas:preferencia("grim_metricas",true),atalhos:preferencia("grim_atalhos",true)});
+  $("#pvMetricas",alvo).onchange=function(e){ gravaPreferencia("grim_metricas",e.target.checked); toast(e.target.checked?"Contagem de uso ligada":"Contagem de uso desligada","ok"); };
+  $("#pvAtalhos",alvo).onchange=function(e){ gravaPreferencia("grim_atalhos",e.target.checked); toast(e.target.checked?"Atalhos de uma tecla ligados":"Atalhos de uma tecla desligados","ok"); };
+}
+function ajusteTextos(alvo){
+  alvo.innerHTML=htmlDe("t-aj-textos",{});
+  var campos={privacidade:$("#txPriv",alvo),termos:$("#txTerm",alvo)};
+  Object.keys(campos).forEach(function(k){ api("/api/publico/texto/"+k).then(function(j){ campos[k].value=j.padrao?"":j.texto;
+    campos[k].placeholder=j.padrao?j.texto:""; }).catch(function(e){ toast(mensagemDeErro(e),"erro"); }); });
+  var b=$("#txOk",alvo);
+  b.onclick=function(){ b.disabled=true; b.setAttribute("aria-busy","true");
+    Promise.all(Object.keys(campos).map(function(k){ return api("/api/admin/textos/"+k,{method:"PUT",body:{texto:campos[k].value}}); }))
+      .then(function(){ toast("Textos salvos","ok"); }).catch(function(e){ toast(mensagemDeErro(e),"erro"); })
+      .finally(function(){ b.disabled=false; b.removeAttribute("aria-busy"); }); };
+}
+function ajusteUso(alvo){
+  alvo.innerHTML=htmlDe("t-carregando-sm",{texto:""});
+  api("/api/admin/metricas?dias=30").then(function(r){
+    var dias=Object.keys(r.porDia||{}).map(function(d){ return {dia:d.split("-").reverse().join("/"),total:r.porDia[d]}; });
+    var max=Math.max.apply(null,dias.map(function(d){ return d.total; }).concat([1]));
+    dias.forEach(function(d){ d.pc=Math.round(d.total*100/max); });
+    var ev=Object.keys(r.porEvento||{}).map(function(k){ return {nome:k,total:r.porEvento[k]}; })
+      .sort(function(a,b){ return b.total-a.total; });
+    alvo.innerHTML=htmlDe("t-aj-uso",{periodo:r.dias,eventos:ev,dias:dias.reverse()});
+  }).catch(function(e){ alvo.innerHTML=htmlDe("t-vazio",{texto:"Não consegui ler a contagem: "+mensagemDeErro(e)}); });
 }
 function hydrateAjustes(v){
-  $$("[data-aj]",v).forEach(function(b){ b.onclick=function(){ S.aj=b.getAttribute("data-aj"); render(); }; });
+  $$("[data-aj]",v).forEach(function(b){ b.onclick=function(){ S.aj=b.dataset.aj; render(); }; });
   var bc=$("#ajCamps",v); if(bc)bc.onclick=function(){ trocarCampanha(); };
-  var alvo=$("#ajBody",v), mk=emPagina(alvo), k=S.aj;
-  if(k==="mesa")abrirMembros(null,mk);
+  var av=$("#ajVolta",v); if(av)av.onclick=function(){ S.aj=""; render(); };
+  if(!S.aj)return;
+  var alvo=$("#ajBody",v), k=S.aj, mk=emPagina(alvo,rotuloAjuste(k));
+  if(k==="privacidade")ajustePrivacidade(alvo);
+  else if(k==="textos")ajusteTextos(alvo);
+  else if(k==="uso")ajusteUso(alvo);
+  else if(k==="mesa")abrirMembros(null,mk);
   else if(k==="vocab")abrirVocabulario(null,mk);
   else if(k==="ref")abrirReferencia(null,mk);
   else if(k==="busca")ajustesBusca(alvo);
@@ -47,10 +87,11 @@ function hydrateAjustes(v){
     alvo.insertAdjacentHTML("beforeend",htmlDe("t-aj-sair",{sairCampanha:!!(CID&&!GM)}));
     $("#mSair",alvo).onclick=sair;
     var sj=$("#mSaiCamp",alvo); if(sj)sj.onclick=function(){
-      if(!confirm("Sair desta campanha? Você perde o acesso até receber outro convite."))return;
-      api("/api/campanhas/"+CID+"/sair",{method:"POST"})
-        .then(function(){ trocarCampanha(); })
-        .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+      confirmar("Você perde o acesso até receber outro convite.",{titulo:"Sair desta "+V("campanha").toLowerCase()+"?",sim:"Sair"}).then(function(sim){
+        if(!sim)return;
+        api("/api/campanhas/"+CID+"/sair",{method:"POST"})
+          .then(function(){ trocarCampanha(); })
+          .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); };
   }
   else {
     alvo.innerHTML=htmlDe("t-aj-aparencia",{temas:temaHtml(),ia:!!(GM&&CID),iaNome:MESA.iaNome||""});
@@ -70,25 +111,26 @@ function abrirMembros(back,mk){
   var ov=(mk||overlay)("Quem está na mesa",htmlDe("t-membros"),{wide:true,back:back});
 
   function marcaRol(){ var ab=rolagensAbertas();
-    $$("[data-rol]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.getAttribute("data-rol")==="1")===ab); }); }
+    $$("[data-rol]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.dataset.rol==="1")===ab); }); }
   marcaRol();
   $$("[data-rol]",ov).forEach(function(b){ b.onclick=function(){
-    var ab=b.getAttribute("data-rol")==="1";
+    var ab=b.dataset.rol==="1";
     api("/api/campanhas/"+CID,{method:"PUT",body:{rolagensAbertas:ab}}).then(function(){
       campAtual().rolagensAbertas=ab; marcaRol();
       toast(ab?"Rolagens abertas para a mesa":"Rolagens só para quem rolou e o mestre"); })
-     .catch(function(e){ toast((e&&e.message)||"não deu"); }); }; });
+     .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }; });
   function lista(){
     api("/api/campanhas/"+CID+"/membros").then(function(ms){
       $("#mbList",ov).innerHTML=htmlDe("t-membros-lista",{membros:ms||[]});
       $$("[data-pap]",ov).forEach(function(b){ b.onclick=function(){
-        api("/api/campanhas/"+CID+"/membros/"+b.getAttribute("data-pap"),
-            {method:"PUT",body:{papel:b.getAttribute("data-v")}})
-          .then(lista).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+        api("/api/campanhas/"+CID+"/membros/"+b.dataset.pap,
+            {method:"PUT",body:{papel:b.dataset.v}})
+          .then(lista).catch(function(e){toast(mensagemDeErro(e),"erro");}); }; });
       $$("[data-rm]",ov).forEach(function(b){ b.onclick=function(){
-        if(!confirm("Tirar essa pessoa da campanha?"))return;
-        api("/api/campanhas/"+CID+"/membros/"+b.getAttribute("data-rm"),{method:"DELETE"})
-          .then(lista).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+        confirmar("Ela perde o acesso até receber outro convite.",{titulo:"Tirar essa pessoa da "+V("campanha").toLowerCase()+"?",sim:"Tirar"}).then(function(sim){
+          if(!sim)return;
+          api("/api/campanhas/"+CID+"/membros/"+b.dataset.rm,{method:"DELETE"})
+            .then(lista).catch(function(e){toast(mensagemDeErro(e),"erro");}); }); }; });
     }).catch(function(){ $("#mbList",ov).innerHTML=htmlDe("t-vazio",{texto:"Não consegui listar."}); });
   }
   function convites(){
@@ -97,9 +139,9 @@ function abrirMembros(back,mk){
         return {id:c.id,rotulo:c.rotulo,papel:c.papel,usos:c.usos,usosMax:c.usosMax,valido:c.valido,
           url:location.origin+"/?convite="+encodeURIComponent(c.token)}; })});
       $$("[data-cp]",ov).forEach(function(b){ b.onclick=function(){
-        try{ navigator.clipboard.writeText(b.getAttribute("data-cp")).then(function(){toast("Link copiado");},function(){}); }catch(e){} }; });
+        try{ navigator.clipboard.writeText(b.dataset.cp).then(function(){toast("Link copiado");},function(){}); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } }; });
       $$("[data-cvdel]",ov).forEach(function(b){ b.onclick=function(){
-        api("/api/campanhas/"+CID+"/convites/"+b.getAttribute("data-cvdel"),{method:"DELETE"})
+        api("/api/campanhas/"+CID+"/convites/"+b.dataset.cvdel,{method:"DELETE"})
           .then(convites).catch(function(){toast("não deu");}); }; });
     }).catch(function(){});
   }
@@ -109,7 +151,7 @@ function abrirMembros(back,mk){
       papel:$("#cvPap",ov).value, rotulo:$("#cvRot",ov).value,
       usos:+$("#cvUsos",ov).value||1, dias:+$("#cvDias",ov).value||null}})
      .then(function(){ $("#cvRot",ov).value=""; convites(); toast("Link gerado"); })
-     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+     .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); };
 }
 
 function abrirCampanha(back,mk){
@@ -121,14 +163,21 @@ function abrirCampanha(back,mk){
       temas:Object.keys(TEMAS).filter(function(k){ return TEMAS[k].estilo===e; }).map(function(k){ return {k:k,nome:TEMAS[k].nome}; })}; })}),
     {wide:true,back:back});
 
-  $("#caGo",ov).onclick=function(){
-    api("/api/campanhas/"+CID,{method:"PUT",body:{
-      nome:$("#caNome",ov).value, sistema:$("#caSis",ov).value}})
-     .then(function(){ if(D.campanha){ D.campanha.sistema=$("#caSis",ov).value;
-         D.campanha.titulo=$("#caNome",ov).value.trim()||D.campanha.titulo; save(); salvarMesa(); }
-       toast("Salvo"); return api("/api/sessao"); })
+  /* um padrao so de gravacao: ao sair do campo, com o indicador de gravacao do topo */
+  var gravado=$("#caNome",ov).value+"\u0000"+$("#caSis",ov).value;
+  function gravaIdentidade(){
+    var nome=$("#caNome",ov).value.trim(), sis=$("#caSis",ov).value.trim(), agora=nome+"\u0000"+sis;
+    if(agora===gravado)return;
+    if(!nome){ erroNoCampo($("#caNome",ov),"A "+V("campanha").toLowerCase()+" precisa de um nome."); return; }
+    estadoSalvo("salvando…");
+    api("/api/campanhas/"+CID,{method:"PUT",body:{nome:nome,sistema:sis}})
+     .then(function(){ gravado=agora;
+       if(D.campanha){ D.campanha.sistema=sis; D.campanha.titulo=nome; save(); salvarMesa(); }
+       estadoSalvo("salvo"); return api("/api/sessao"); })
      .then(function(s2){ CAMPANHAS=s2.campanhas||[]; pintarMarca(); })
-     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+     .catch(function(e){ estadoSalvo("não salvou",true); toast(mensagemDeErro(e),"erro"); }); }
+  $("#caNome",ov).addEventListener("change",gravaIdentidade);
+  $("#caSis",ov).addEventListener("change",gravaIdentidade);
 
   function gravarCapa(rel){
     api("/api/campanhas/"+CID,{method:"PUT",body:{capa:rel}})
@@ -137,7 +186,7 @@ function abrirCampanha(back,mk){
         var c2=(CAMPANHAS.filter(function(x){return String(x.id)===String(CID);})[0])||{};
         $("#caCapa",ov).innerHTML=capaHtml(c2); $("#caCapaTira",ov).hidden=!c2.capa;
         toast(rel?"Capa salva":"Capa tirada"); })
-      .catch(function(e){ toast((e&&e.message)||"não deu"); });
+      .catch(function(e){ toast(mensagemDeErro(e),"erro"); });
   }
   $("#caCapaEsc",ov).onclick=function(){
     var c2=(CAMPANHAS.filter(function(x){return String(x.id)===String(CID);})[0])||{};
@@ -160,14 +209,15 @@ function abrirCampanha(back,mk){
         .then(function(r){ toast((r.indices||0)+" índices e "+(r.imagens||0)+" imagens importados");
           recarregaCatalogo(); recarregaIndice();
           if(r.guia){ ov.close(); entrarNaCampanha(CID); } })
-        .catch(function(e){ toast((e&&e.message)||"não deu"); }); }); };
+        .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); };
 
   $("#caDel",ov).onclick=function(){
-    if(!confirm("Apagar a campanha inteira? Isso não volta."))return;
-    if(!confirm("Confirma mesmo? Guia, mesa, mídia e anotações somem."))return;
-    api("/api/campanhas/"+CID,{method:"DELETE"})
-      .then(function(){ ov.close(); trocarCampanha(); })
-      .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+    confirmar("Guia, mesa, mídia, fichas e anotações somem do servidor. Isso não volta.",
+      {titulo:"Apagar a "+V("campanha").toLowerCase()+" inteira?",sim:"Apagar para sempre",detalhe:"Se quiser guardar uma cópia, exporte o pacote antes."}).then(function(sim){
+      if(!sim)return;
+      api("/api/campanhas/"+CID,{method:"DELETE"})
+        .then(function(){ ov.close(); trocarCampanha(); })
+        .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); };
 }
 
 function abrirVocabulario(back,mk){
@@ -178,7 +228,7 @@ function abrirVocabulario(back,mk){
   $("#vcGo",ov).onclick=function(){
     var v={};
     $$("[data-voc]",ov).forEach(function(i){ var t=(i.value||"").trim();
-      if(t)v[i.getAttribute("data-voc")]=t; });
+      if(t)v[i.dataset.voc]=t; });
     D.campanha.vocab=v; save(); salvarMesa(); ov.close(); render(); toast("Vocabulário salvo"); };
 }
 
@@ -188,9 +238,9 @@ function abrirReferencia(back,mk){
   function corpo(){ return htmlDe("t-referencia-grupos",{grupos:ref}); }
   var ov=(mk||overlay)(Vm("referencia"),htmlDe("t-referencia",{corpo:corpo()}),{wide:true,back:back});
   function colher(){
-    $$("[data-rt]",ov).forEach(function(i){ ref[+i.getAttribute("data-rt")].t=i.value; });
+    $$("[data-rt]",ov).forEach(function(i){ ref[+i.dataset.rt].t=i.value; });
     $$("[data-ri]",ov).forEach(function(t){
-      ref[+t.getAttribute("data-ri")].itens=(t.value||"").split("\n")
+      ref[+t.dataset.ri].itens=(t.value||"").split("\n")
         .map(function(x){return x.trim();}).filter(Boolean); });
   }
   function ligar(){
@@ -200,7 +250,7 @@ function abrirReferencia(back,mk){
       D.campanha.referencia=ref.filter(function(g){return (g.t||"").trim()||(g.itens||[]).length;});
       save(); salvarMesa(); ov.close(); render(); toast("Consulta rápida salva"); };
     $$("[data-rdel]",ov).forEach(function(b){ b.onclick=function(){ colher();
-      ref.splice(+b.getAttribute("data-rdel"),1); $("#rfBody",ov).innerHTML=corpo(); ligar(); }; });
+      ref.splice(+b.dataset.rdel,1); $("#rfBody",ov).innerHTML=corpo(); ligar(); }; });
   }
   ligar();
 }
@@ -244,7 +294,7 @@ function abrirAdmin(back,mk){
     api("/api/admin/armazenamento/juntar",{method:"POST"}).then(function(r){
       b.disabled=false; b.textContent="Juntar arquivos iguais agora";
       toast(r.liberado?mb(r.liberado)+" liberados":"Nada para juntar: os arquivos iguais já estavam compartilhados"); pintaSistema(); })
-     .catch(function(e){ b.disabled=false; b.textContent="Juntar arquivos iguais agora"; toast((e&&e.message)||"não deu"); }); };
+     .catch(function(e){ b.disabled=false; b.textContent="Juntar arquivos iguais agora"; toast(mensagemDeErro(e),"erro"); }); };
   var DICAS={
     smtp:"Funciona em hospedagem que libera a saída SMTP. Railway Trial e Hobby bloqueiam: dá \"Couldn't connect\". Gmail: smtp.gmail.com, porta 587, senha de app.",
     resend:"resend.com › API Keys › Create API Key. Sem domínio próprio, deixe o remetente vazio (usa onboarding@resend.dev) e crie a conta Resend com o mesmo e-mail que recebe o suporte: sem domínio verificado, o Resend só entrega para o dono da conta. 3.000 e-mails/mês grátis.",
@@ -262,7 +312,7 @@ function abrirAdmin(back,mk){
     var sn=segredoDe($("#smS",ov)), ch=segredoDe($("#smK",ov));
     if(sn!==null)corpo.smtpSenha=sn; if(ch!==null)corpo.emailChave=ch;
     api("/api/admin/config",{method:"PUT",body:corpo})
-      .then(function(){ toast("Salvo"); }).catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+      .then(function(){ toast("Salvo"); }).catch(function(e){ toast(mensagemDeErro(e),"erro"); }); };
   $("#smT",ov).onclick=function(){ var b=this; b.disabled=true; $("#smSt",ov).textContent="enviando o teste…";
     api("/api/admin/suporte/teste",{method:"POST"}).then(function(r){ b.disabled=false; $("#smSt",ov).textContent="Teste enviado para "+r.para+". Confira a caixa de entrada (e o spam)."; })
       .catch(function(e){ b.disabled=false; $("#smSt",ov).textContent=(e&&e.message)||"não deu"; }); };
@@ -272,26 +322,31 @@ function abrirAdmin(back,mk){
     if(k!==null)corpo.iaApiKey=k;
     api("/api/admin/config",{method:"PUT",body:corpo})
       .then(function(){ if(k!==null)IACFG=!!k.trim(); toast("Salvo"); })
-      .catch(function(e){toast((e&&e.message)||"não deu");}); };
+      .catch(function(e){toast(mensagemDeErro(e),"erro");}); };
   $("#adReg",ov).onchange=function(){
     api("/api/admin/config",{method:"PUT",body:{registroAberto:$("#adReg",ov).checked?"true":"false"}})
-      .then(function(){ toast("Salvo"); }).catch(function(e){toast((e&&e.message)||"não deu");}); };
+      .then(function(){ toast("Salvo"); }).catch(function(e){toast(mensagemDeErro(e),"erro");}); };
 
   function usuarios(){
     api("/api/admin/usuarios").then(function(us){
       $("#adUs",ov).innerHTML=htmlDe("t-admin-usuarios",{usuarios:us||[]});
       $$("[data-pw]",ov).forEach(function(b){ b.onclick=function(){
-        var p=prompt("Nova senha (mínimo 6):"); if(!p)return;
-        api("/api/admin/usuarios/"+b.getAttribute("data-pw"),{method:"PUT",body:{senha:p}})
-          .then(function(){toast("Trocada");}).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+        var uid=b.dataset.pw;
+        formulario("Nova senha",[{k:"senha",rot:"Nova senha",tipo:"senha",obrig:true,
+            dica:"Pelo menos 6 caracteres, com letra, número e um caractere especial.",
+            valida:function(v){ var f=faltaNaSenha(String(v||"")); return f.length?"Falta: "+f.join(", ")+".":""; }}],{senha:""},
+          {rotSalvar:"Trocar a senha",salvar:function(w){
+            api("/api/admin/usuarios/"+uid,{method:"PUT",body:{senha:w.senha}})
+              .then(function(){toast("Senha trocada","ok");}).catch(function(e){toast(mensagemDeErro(e),"erro");}); }}); }; });
       $$("[data-ad]",ov).forEach(function(b){ b.onclick=function(){
-        api("/api/admin/usuarios/"+b.getAttribute("data-ad"),
-            {method:"PUT",body:{admin:b.getAttribute("data-v")==="true"}})
-          .then(usuarios).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+        api("/api/admin/usuarios/"+b.dataset.ad,
+            {method:"PUT",body:{admin:b.dataset.v==="true"}})
+          .then(usuarios).catch(function(e){toast(mensagemDeErro(e),"erro");}); }; });
       $$("[data-ur]",ov).forEach(function(b){ b.onclick=function(){
-        if(!confirm("Remover essa conta?"))return;
-        api("/api/admin/usuarios/"+b.getAttribute("data-ur"),{method:"DELETE"})
-          .then(usuarios).catch(function(e){toast((e&&e.message)||"não deu");}); }; });
+        confirmar("A pessoa perde o acesso a esta instância. As campanhas que só ela mestrava ficam sem mestre.",{titulo:"Remover essa conta?",sim:"Remover a conta"}).then(function(sim){
+          if(!sim)return;
+          api("/api/admin/usuarios/"+b.dataset.ur,{method:"DELETE"})
+            .then(usuarios).catch(function(e){toast(mensagemDeErro(e),"erro");}); }); }; });
     }).catch(function(){ $("#adUs",ov).innerHTML=htmlDe("t-vazio",{texto:"Não consegui listar."}); });
   }
   usuarios();
@@ -300,7 +355,7 @@ function abrirAdmin(back,mk){
       login:$("#auL",ov).value,nome:$("#auN",ov).value,senha:$("#auS",ov).value}})
      .then(function(){ $("#auL",ov).value="";$("#auN",ov).value="";$("#auS",ov).value="";
        usuarios(); toast("Conta criada"); })
-     .catch(function(e){ toast((e&&e.message)||"não deu"); }); };
+     .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); };
 
   api("/api/admin/campanhas").then(function(cs){
     $("#adCa",ov).innerHTML=htmlDe("t-admin-campanhas",{campanhas:cs||[]});
@@ -313,7 +368,7 @@ function temaCard(k,at){
 }
 function temaHtml(){
   var at=temaAtivo(), fx=true;
-  try{ fx=localStorage.getItem("grim_fx")!=="0"; }catch(e){}
+  try{ fx=localStorage.getItem("grim_fx")!=="0"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   return htmlDe("t-temas",{mestre:GM,fx:fx,som:somLigado(),volume:Math.round(somVol()*100),
     estilos:Object.keys(ESTILOS).map(function(e){
       var ks=Object.keys(TEMAS).filter(function(k){ return TEMAS[k].estilo===e; });
@@ -321,28 +376,28 @@ function temaHtml(){
       .filter(function(e){ return e.cartoes; })});
 }
 function temaWire(ov){
-  $$("[data-som]",ov).forEach(function(b){ b.onclick=function(){ var lig=b.getAttribute("data-som")==="1";
-    try{ localStorage.setItem("grim_som",lig?"1":"0"); }catch(e){}
-    $$("[data-som]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.getAttribute("data-som")==="1")===lig); });
+  $$("[data-som]",ov).forEach(function(b){ b.onclick=function(){ var lig=b.dataset.som==="1";
+    try{ localStorage.setItem("grim_som",lig?"1":"0"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+    $$("[data-som]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.dataset.som==="1")===lig); });
     if(lig)som("max"); }; });
   var sv=$("#somVol",ov); if(sv){ sv.style.setProperty("--pct",sv.value+"%");
-    sv.oninput=function(){ sv.style.setProperty("--pct",sv.value+"%"); try{ localStorage.setItem("grim_somvol",String(sv.value/100)); }catch(e){} };
+    sv.oninput=function(){ sv.style.setProperty("--pct",sv.value+"%"); try{ localStorage.setItem("grim_somvol",String(sv.value/100)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } };
     sv.onchange=function(){ som("cai"); }; }
   function marca(){ $$("[data-tema]",ov).forEach(function(x){
-    x.setAttribute("aria-pressed", x.getAttribute("data-tema")===temaAtivo()); }); }
+    x.setAttribute("aria-pressed", x.dataset.tema===temaAtivo()); }); }
   $$("[data-tema]",ov).forEach(function(b){ b.onclick=function(){
-    var k=b.getAttribute("data-tema");
-    try{ localStorage.setItem("grim_tema",k); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(e){}
+    var k=b.dataset.tema;
+    try{ localStorage.setItem("grim_tema",k); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     trocarTema(k); marca(); }; });
   $$("[data-mov]",ov).forEach(function(b){ b.onclick=function(){
-    var lig=b.getAttribute("data-mov")==="1";
-    try{ if(lig)localStorage.removeItem("grim_fx"); else localStorage.setItem("grim_fx","0"); }catch(e){}
+    var lig=b.dataset.mov==="1";
+    try{ if(lig)localStorage.removeItem("grim_fx"); else localStorage.setItem("grim_fx","0"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     aplicarFx();
-    $$("[data-mov]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.getAttribute("data-mov")==="1")===lig); }); }; });
+    $$("[data-mov]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.dataset.mov==="1")===lig); }); }; });
   var tm=$("#temaMesa",ov); if(tm)tm.onclick=function(){
     MESA.tema=temaAtivo(); salvarMesa(); toast("Tema aplicado para a mesa inteira"); };
   var tl=$("#temaLimpa",ov); if(tl)tl.onclick=function(){
-    try{ localStorage.removeItem("grim_tema"); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(e){}
+    try{ localStorage.removeItem("grim_tema"); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     trocarTema(temaAtivo()); marca(); toast("Voltou ao tema da mesa"); };
 }
 function sair(){

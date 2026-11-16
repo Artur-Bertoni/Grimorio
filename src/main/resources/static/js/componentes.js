@@ -6,6 +6,7 @@
    Arquivo novo de template precisa entrar nesta lista. */
 var TEMPLATES=[
   "componentes/marca.html",
+  "componentes/navegacao.html",
   "componentes/estado.html",
   "componentes/quadro.html",
   "componentes/tour.html",

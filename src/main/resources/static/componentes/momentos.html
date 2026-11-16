@@ -35,16 +35,16 @@
 <template id="t-ini">
   <div class="inibar"><span class="inirod">Rodada {{ rodada }}</span>
     <div class="inilist">
-      <button v-for="x in lista" :class="'inichip' + (x.id === vez ? ' vez' : '')" :data-ini="x.id" title="Clique para editar"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span><i v-if="x.oc">oculto</i></button>
+      <button v-for="x in lista" type="button" :class="'inichip' + (x.id === vez ? ' vez' : '')" v-attr:aria-current="x.id === vez ? 'true' : null" :data-ini="x.id" :title="'Editar ' + x.nome + ' na iniciativa'"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span><i v-if="x.oc">oculto</i></button>
       <span v-if="!lista.length" class="muted sm">Ninguém na ordem ainda.</span>
     </div>
     <button class="btn sec" id="iniProx" :disabled="!lista.length">Próximo ›</button>
-    <button class="tbtn" id="iniAdd">+ alguém</button><button class="tbtn" id="iniPux">puxar elenco</button>
-    <button class="tbtn" id="iniRol" :disabled="!lista.length">rolar quem falta</button>
-    <button class="tbtn d" id="iniFim">encerrar</button></div>
+    <button class="tbtn" id="iniAdd">+ alguém</button><button class="tbtn" id="iniPux">Puxar elenco</button>
+    <button class="tbtn" id="iniRol" :disabled="!lista.length">Rolar quem falta</button>
+    <button class="tbtn d" id="iniFim">Encerrar</button></div>
 </template>
 
 <template id="t-ini-pub">
   <div class="inibar pub"><span class="inirod">Rodada {{ rodada }}</span>
-    <div class="inilist"><span v-for="(x, i) in lista" :class="'inichip' + (i === vez ? ' vez' : '')"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span></span></div></div>
+    <div class="inilist"><span v-for="(x, i) in lista" :class="'inichip' + (i === vez ? ' vez' : '')" v-attr:aria-current="i === vez ? 'true' : null"><b>{{ x.v === '' || x.v == null ? '–' : x.v }}</b><span>{{ x.nome }}</span></span></div></div>
 </template>

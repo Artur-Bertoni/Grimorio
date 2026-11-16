@@ -15,11 +15,14 @@ var CID=null,CAMPANHAS=[],MIDIABASE="",ADMIN=false,PAPEL="JOGADOR",EU=null;
 function PUBD(){ if(GM&&D&&D.campanha)return D.campanha; return MESA||{}; }
 function cAPI(p){ return "/api/c/"+CID+p; }
 /* Caminho de imagem do guia vira URL da mídia da campanha. */
-function IMG(p){ var x=String(p==null?"":p); if(!x)return "";
+/* tam "mini": a versao de ate 512px que o servidor gera na primeira vez que alguem pede, para
+   miniatura e lista. Nunca carregar a foto original numa miniatura de 30px. */
+function IMG(p,tam){ var x=String(p==null?"":p); if(!x)return "";
   if(/^(https?:|data:|blob:|\/)/i.test(x))return x;
-  return MIDIABASE+x.replace(/^\.?\//,""); }
+  var rel=x.replace(/^\.?\//,"");
+  return MIDIABASE+rel+(tam==="mini"&&/^img\//.test(rel)?"?mini=1":""); }
 function parametro(n){ try{ return new URLSearchParams(location.search).get(n)||""; }catch(e){ return ""; } }
-function limparUrl(){ try{ history.replaceState({},"",location.pathname); }catch(e){} }
+function limparUrl(){ try{ history.replaceState({},"",location.pathname); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } }
 
 /* ---------- VOCABULÁRIO ---------- */
 var VOCAB_PADRAO={campanha:"Campanha",campanhas:"Campanhas",sessao:"Sessão",sessoes:"Sessões",cena:"Cena",cenas:"Cenas",
@@ -45,7 +48,6 @@ document.addEventListener("click",function(e){
   var s=e.target&&e.target.closest?e.target.closest("summary"):null;
   if(s&&s.parentNode&&s.parentNode.classList)s.parentNode.classList.add("abriu");
 },true);
-function toast(m){var t=el("div",{"class":"toast",text:m});document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 function fmt(s){if(!isFinite(s))return "0:00";var m=Math.floor(s/60),x=Math.floor(s%60);return m+":"+(x<10?"0":"")+x;}
 function catColor(c){var f=(D.trilhaCategorias||[]).filter(function(x){return x.id===c;})[0];return f?f.cor:"var(--fg3)";}
 function curSess(){return D.sessoes[S.sessao]||null;}
@@ -68,13 +70,28 @@ function refDoc(ab,p){ var n=nomeDoc(ab); return p?(n+" p."+p):n; }
 function refLivro(txt){ var m=String(txt==null?"":txt).match(/^\s*([A-Za-z]{1,4}\d{0,2})\s*[Pp]\.?\s*(\d+)/);
   return m?refDoc(m[1],m[2]):nomeDoc(txt); }
 
-function cacheGM(j){ try{localStorage.setItem("grim_gm_"+CID,j);}catch(e){} }
+function cacheGM(j){ try{localStorage.setItem("grim_gm_"+CID,j);}catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } }
 function lerCache(){ try{ var c=localStorage.getItem("grim_gm_"+CID); if(!c)return false;
-  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length&&(Number(v.versao)||0)>=FORMATO_GUIA){ D=v; normalizaCampanha(); return true; } }catch(e){} return false; }
+  var v=JSON.parse(c); if(v&&v.sessoes&&v.sessoes.length&&(Number(v.versao)||0)>=FORMATO_GUIA){ D=v; normalizaCampanha(); return true; } }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } return false; }
 function cookie(n){ var m=document.cookie.match(new RegExp("(^|; )"+n+"=([^;]*)")); return m?decodeURIComponent(m[2]):""; }
 /* Token CSRF faltando ou trocado (cookie limpo, outra aba): o servidor responde 403 com
    codigo "csrf". Um GET qualquer devolve um cookie novo, e o pedido e repetido uma vez. */
 function renovaCsrf(){ return fetch("/api/ping",{credentials:"same-origin",cache:"no-store"}).catch(function(){}); }
+/* Erro em portugues, para gente. O servidor ja manda {erro} legivel na maioria dos casos; o que
+   vem sem texto (ou da rede) ganha a frase do codigo. Pilha e detalhe tecnico so no console. */
+var ERRO_HTTP={0:"Sem conexão com o servidor. Confira a internet e tente de novo.",
+  400:"O pedido foi recusado: confira o que foi preenchido.",403:"Você não tem permissão para isso.",
+  404:"Não encontrado. Pode ter sido removido.",409:"Alguém mudou isto ao mesmo tempo. Recarregue para ver a versão atual.",
+  413:"O arquivo é grande demais para enviar.",500:"O servidor falhou ao responder. Tente de novo em instantes.",
+  502:"O servidor está reiniciando. Tente de novo em alguns segundos.",503:"O servidor está reiniciando. Tente de novo em alguns segundos."};
+function mensagemDeErro(e){
+  if(!e)return "Algo deu errado.";
+  if(e.corpo&&e.corpo.erro)return String(e.corpo.erro);
+  if(e.status!=null&&ERRO_HTTP[e.status])return ERRO_HTTP[e.status];
+  if(e.status>=500)return ERRO_HTTP[500];
+  if(e.name==="TypeError"||/fetch|network/i.test(String(e.message)))return ERRO_HTTP[0];
+  return String(e.message||e);
+}
 function api(url,opt,repetido){
   var orig=opt;
   opt=opt?Object.assign({},opt):{}; opt.credentials="same-origin"; opt.headers=Object.assign({},opt.headers||{});
@@ -83,7 +100,7 @@ function api(url,opt,repetido){
     opt.body=JSON.stringify(opt.body); }
   var m=(opt.method||"GET").toUpperCase();
   if(m!=="GET"&&m!=="HEAD"){ var t=cookie("XSRF-TOKEN"); if(t)opt.headers["X-XSRF-TOKEN"]=t; }
-  return fetch(url,opt).then(function(r){
+  return fetch(url,opt).catch(function(){ var x=new Error(ERRO_HTTP[0]); x.status=0; throw x; }).then(function(r){
     if(r.status===401){ location.href="/paginas/login.html"; throw new Error("sessão expirada"); }
     if(r.status===204)return null;
     var ct=r.headers.get("content-type")||"";
@@ -91,23 +108,33 @@ function api(url,opt,repetido){
       if(r.status===403&&b&&b.codigo==="csrf"&&!repetido&&m!=="GET")
         return renovaCsrf().then(function(){ return api(url,orig,true); });
       if(!r.ok){ if(r.status===507)avisoArmazenamento();
-        var e=new Error((b&&b.erro)||("HTTP "+r.status)); e.status=r.status; e.corpo=b; throw e; }
+        var e=new Error((b&&b.erro)||ERRO_HTTP[r.status]||(r.status>=500?ERRO_HTTP[500]:"Erro "+r.status)); e.status=r.status; e.corpo=b; throw e; }
       return b; }); });
 }
+/* Indicador de gravacao do guia: um ponto (ambar salvando, verde salvo, vermelho erro) e o
+   texto. "salvo" some sozinho em 3s; erro fica ate a proxima gravacao dar certo. Sair da pagina
+   com gravacao pendente pede confirmacao ao navegador. */
+var SALVA_PENDENTE=false, svT=null;
 function estadoSalvo(t,erro){ var n=document.getElementById("saveSt"); if(!n)return;
-  n.textContent=t||""; n.classList.toggle("erro",!!erro); }
+  var tx=n.querySelector(".svtx")||n; tx.textContent=t||"";
+  n.classList.toggle("erro",!!erro); n.classList.toggle("salvando",/salvando/.test(t||""));
+  n.classList.toggle("ok",t==="salvo"); n.classList.toggle("vazio",!t);
+  clearTimeout(svT); if(t==="salvo")svT=setTimeout(function(){ estadoSalvo(""); },3000); }
+window.addEventListener("beforeunload",function(e){ if(SALVA_PENDENTE){ e.preventDefault(); e.returnValue=""; } });
+window.addEventListener("online",function(){ document.body.classList.remove("offline"); toast("Conexão de volta.","ok"); if(SALVA_PENDENTE&&GM&&CID)save(); });
+window.addEventListener("offline",function(){ document.body.classList.add("offline"); toast("Sem conexão com a internet. O que você mudar fica guardado neste aparelho e é enviado quando ela voltar.","aviso"); });
 function save(){ if(!GM)return;
   if(!CID||!D.campanha){ toast("Não vou salvar: o guia não está carregado"); return; }
   /* guia que nao chegou inteiro nao pode ser regravado por cima do que esta no banco */
   if(BOOTERR){ toast("Não vou salvar por cima: o guia não chegou inteiro. Recarregue a página."); return; }
   var j=JSON.stringify(D); cacheGM(j);
-  estadoSalvo("salvando…");
+  SALVA_PENDENTE=true; estadoSalvo("salvando…");
   clearTimeout(saveT);
   saveT=setTimeout(function(){ gravaDoc("/guia",j,"guia"); },700); }
 function gravaDoc(url,j,qual){
   function tenta(v,repetir){
     return api(cAPI(url),{method:"PUT",body:{json:j,versao:v}}).then(function(r){
-      if(qual==="guia"){ VGUIA=r.versao; estadoSalvo("salvo"); } else VMESA=r.versao; })
+      if(qual==="guia"){ VGUIA=r.versao; SALVA_PENDENTE=false; estadoSalvo("salvo"); } else VMESA=r.versao; })
      .catch(function(e){
        if(e.status===409&&e.corpo&&repetir){
          if(qual==="guia")VGUIA=e.corpo.versao; else VMESA=e.corpo.versao;
@@ -130,7 +157,7 @@ function aplicaMesa(m){ if(!m||!m.json)return; try{ var v=JSON.parse(m.json);
     iaNome:v.iaNome||"",iaArt:v.iaArt||"ao",tema:v.tema||"",titulo:v.titulo||"",
     sistema:v.sistema||"",vocab:v.vocab||{},referencia:v.referencia||[],
     sinonimos:v.sinonimos||{},canonicas:v.canonicas||{},categoriasBusca:v.categoriasBusca||[],at:v.at||0,
-    ini:v.ini||null,fichaModelo:v.fichaModelo||null,fichaFormula:v.fichaFormula}; } }catch(e){} }
+    ini:v.ini||null,fichaModelo:v.fichaModelo||null,fichaFormula:v.fichaFormula}; } }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } }
 function iaNome(){ return String(MESA.iaNome||"").trim()||"Claude"; }
 function iaArt(){ var a=String(MESA.iaArt||"ao").trim(); return (a==="à"||a==="a")?a:"ao"; }
 function iaPergunta(){ return "Perguntar "+iaArt()+" "+iaNome(); }
@@ -142,7 +169,7 @@ function refreshMesa(){ if(!PRONTO||S.view!=="mesa")return;
     /* ficha aberta para edicao nao pode ser redesenhada por baixo de quem esta mexendo */
     if(S.msec==="fichas")return;
     var b=$("#mbody"); if(!b)return;
-    try{ b.innerHTML=mesaSec(); hydrateMesa(); }catch(e){} },300); }
+    try{ b.innerHTML=mesaSec(); hydrateMesa(); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } },300); }
 function sondaMesa(){ clearInterval(sondaT);
   sondaT=setInterval(function(){ if(document.hidden||!CID)return;
     api(cAPI("/mesa/versao")).then(function(r){
@@ -155,9 +182,24 @@ function sondaMesa(){ clearInterval(sondaT);
     }).catch(function(){});
     puxaRolagens(true); },6000); }
 
+/* Le o JSON do guia e decide se ele entra em D; devolve o motivo quando nao entra. O boot e o
+   "Tentar de novo" passam os dois por aqui: guia num formato anterior nunca pode chegar a D,
+   senao normalizaCampanha() o carimba como versao atual e o proximo save() o regrava. */
+var MSG_FORMATO_ANTIGO="este guia está num formato antigo, que esta versão do Grimório não converte mais. Nada foi alterado: o conteúdo continua salvo no servidor.";
+function aceitaGuia(json,c){
+  var v;
+  try{ v=JSON.parse(json||"{}"); }catch(e){ return "JSON inválido no guia: "+((e&&e.message)||e); }
+  if(v&&v.campanha&&(Number(v.versao)||0)<FORMATO_GUIA)return MSG_FORMATO_ANTIGO;
+  if(v&&v.campanha){ D=v; return ""; }
+  /* guia vazio so e aceito na entrada, quando ha a campanha para dar o nome */
+  if(!c)return "o guia no servidor está vazio";
+  D=JSON.parse(JSON.stringify(VAZIO)); D.campanha={titulo:c.nome,sistema:c.sistema||""};
+  return "";
+}
+
 function boot(){
-  try{ aplicarFx(); aplicarTema(temaAtivo()); }catch(e){}
-  try{ $("#view").innerHTML=htmlDe("t-carregando"); }catch(e){}
+  try{ aplicarFx(); aplicarTema(temaAtivo()); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+  try{ $("#view").innerHTML=htmlDe("t-carregando"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   api("/api/sessao").then(function(s){
     EU=s; ADMIN=!!s.admin; IACFG=!!s.iaConfigurada; MYID=String(s.id||"");
     CAMPANHAS=s.campanhas||[];
@@ -165,19 +207,24 @@ function boot(){
     if(!cv)return null;
     return api("/api/convites/"+encodeURIComponent(cv),{method:"POST"})
       .then(function(c){ limparUrl(); toast("Você entrou em "+c.nome);
-        try{ localStorage.setItem("grim_cid",String(c.id)); }catch(e){}
+        try{ localStorage.setItem("grim_cid",String(c.id)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
         return api("/api/sessao").then(function(s2){ EU=s2; CAMPANHAS=s2.campanhas||[]; }); })
       .catch(function(e){ limparUrl(); toast((e&&e.message)||"convite inválido"); });
   }).then(function(){ escolherCampanha(); })
-   .catch(function(e){ try{console.error("boot falhou:",e);}catch(_){}
-     BOOTERR=(e&&(e.stack||e.message))||"sem sessão"; PRONTO=true; render(); });
+   .catch(function(e){ try{console.error("boot falhou:",e);}catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+     BOOTERR=mensagemDeErro(e); PRONTO=true; render(); });
 }
 
 function escolherCampanha(){
   if(!CAMPANHAS.length){ PRONTO=true; S.view="semcampanha"; render(); return; }
   var alvo=null;
-  try{ var g=localStorage.getItem("grim_cid");
-    if(g)alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(g);})[0]||null; }catch(e){}
+  /* o endereco manda: F5 ou link reabre a tela em que a pessoa estava */
+  var r=lerRota(location.hash);
+  if(r&&r.cid){ alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(r.cid);})[0]||null; if(alvo)ROTA_PENDENTE=r; }
+  else if(r&&r.view==="escolher"){ PRONTO=true; S.view="escolher"; render(); return; }
+  else if(r&&r.view==="ajustes"){ PRONTO=true; S.view="ajustes"; S.aj=r.sub||""; render(); return; }
+  if(!alvo){ try{ var g=localStorage.getItem("grim_cid");
+    if(g)alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(g);})[0]||null; }catch(e){ alvo=null; /* sem armazenamento: escolhe na lista */ } }
   if(!alvo&&CAMPANHAS.length===1)alvo=CAMPANHAS[0];
   if(!alvo){ PRONTO=true; S.view="escolher"; render(); return; }
   entrarNaCampanha(alvo.id);
@@ -187,34 +234,30 @@ function entrarNaCampanha(cid){
   var c=CAMPANHAS.filter(function(x){return String(x.id)===String(cid);})[0];
   if(!c){ toast("Campanha não encontrada"); return; }
   CID=c.id; PAPEL=c.papel; GM=(c.papel==="MESTRE"); MIDIABASE="/midia/c"+CID+"/";
-  try{ localStorage.setItem("grim_cid",String(CID)); }catch(e){}
+  try{ localStorage.setItem("grim_cid",String(CID)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   PRONTO=false; BOOTERR=""; VGUIA=-1; VMESA=-1;
   D=JSON.parse(JSON.stringify(VAZIO));
   MESA={resumos:[],ev:[],npcs:[],locais:[],at:0};
   IDX=null; IDXp=null; CATp=null; PDFC={}; LIB={ok:false,faixas:{},docs:{}};
-  try{ invalidaIndice(); }catch(e){}
+  try{ invalidaIndice(); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   S.view=GM?"home":"mesa"; S.sessao=0; S.aberta=null; S.rbox=null; CV.init=false;
   S.msec="resumos"; S.resAb=null; S.el="personagens"; S.bib="livros"; S.aj=""; S.antes=null;
-  try{ $("#view").innerHTML=htmlDe("t-abrindo",{logo:logoCss(""),nome:c.nome}); }catch(e){}
+  try{ $("#view").innerHTML=htmlDe("t-abrindo",{logo:logoCss(""),nome:c.nome}); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
 
   var ps=[ api(cAPI("/mesa")).then(function(m){ VMESA=m.versao; aplicaMesa(m); }).catch(function(){}) ];
-  if(GM) ps.push( api(cAPI("/guia")).then(function(g){ VGUIA=g.versao;
-      try{ var v=JSON.parse(g.json||"{}");
-        if(v&&v.campanha&&(Number(v.versao)||0)<FORMATO_GUIA)
-          BOOTERR="este guia está num formato antigo, que esta versão do Grimório não converte mais. Nada foi alterado: o conteúdo continua salvo no servidor.";
-        else if(v&&v.campanha)D=v;
-        else { D=JSON.parse(JSON.stringify(VAZIO)); D.campanha={titulo:c.nome,sistema:c.sistema||""}; }
-      }catch(e){ BOOTERR="JSON inválido no guia: "+((e&&e.message)||e); } })
+  if(GM) ps.push( api(cAPI("/guia")).then(function(g){ VGUIA=g.versao; BOOTERR=aceitaGuia(g.json,c); })
     .catch(function(e){ BOOTERR="não consegui ler o guia: "+((e&&e.message)||e); }) );
 
   Promise.all(ps).then(function(){
     if(GM&&!D.campanha)D.campanha={titulo:c.nome,sistema:c.sistema||""};
     normalizaCampanha();
     PRONTO=true; aplicarTema(temaAtivo()); pintarMarca();
+    if(ROTA_PENDENTE&&String(ROTA_PENDENTE.cid)===String(CID))aplicaRota(ROTA_PENDENTE);
+    ROTA_PENDENTE=null;
     render(); zeraDados(); puxaRolagens(false); sondaMesa();
     /* primeira vez com este papel: o tour vem antes, e a sugestao de tema espera ele acabar */
     if(!tourInicial())sugereTema();
-    var rpOn=false; try{ rpOn=localStorage.getItem("grim_rolp")==="1"; }catch(e){}
+    var rpOn=false; try{ rpOn=localStorage.getItem("grim_rolp")==="1"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     if(rpOn)painelRolagens(true); else if(rpAberto()){ feedDados([]); } if(GM)carregaCatalogo().then(function(){ if(S.view==="home")render(); });
   });
 }
@@ -255,13 +298,15 @@ function normalizaCampanha(){
   D.elenco.personagens.forEach(function(p){ if(!Array.isArray(p.fichas))p.fichas=[]; });
   D.sessoes.forEach(normalizaSessao);
 }
+/* fora de campanha a marca e o app; dentro, o nome da campanha (antes ficava o da ultima aberta) */
 function tituloApp(){
-  if(GM&&D&&D.campanha&&D.campanha.titulo)return D.campanha.titulo;
-  return (MESA&&MESA.titulo)||"Grimório";
+  if(!CID)return "Grimório";
+  if(GM&&D?.campanha?.titulo)return D.campanha.titulo;
+  return MESA?.titulo||"Grimório";
 }
 function pintarMarca(){
-  var b=document.getElementById("brandNome"); if(b)b.textContent=tituloApp();
+  var b=document.getElementById("brandNome");
+  if(b)b.textContent=tituloApp();
   var sb=document.getElementById("brandSub");
-  if(sb)sb.textContent=GM?"Mesa do Mestre":"Mesa";
-  try{ document.title=tituloApp(); }catch(e){}
+  if(sb)sb.textContent=CID?(GM?"Mesa do "+V("mestre"):Vm("mesa")):"Suas "+vmin("campanhas");
 }

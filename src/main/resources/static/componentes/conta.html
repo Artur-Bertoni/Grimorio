@@ -1,11 +1,11 @@
 <!-- Seletor de imagem (js/imagens.js) e Minha conta (js/conta.js) -->
 
 <template id="t-imagens">
-  <p class="sm muted" style="margin:0 0 .625rem">As imagens da {{ campanha }}. Envie uma nova se a que você quer ainda não está aqui.</p>
+  <p class="sm muted mb-3 mt-0">As imagens da {{ campanha }}. Envie uma nova se a que você quer ainda não está aqui.</p>
   <div id="eiList"><p class="muted sm">carregando…</p></div>
-  <div class="addrow" style="margin-top:.875rem">
-    <button class="btn" id="eiUp">Enviar imagem nova</button>
-    <button class="btn sec" id="eiClr">Deixar sem imagem</button>
+  <div class="addrow mt-4">
+    <button type="button" class="btn" id="eiUp">Enviar imagem nova</button>
+    <button type="button" class="btn sec" id="eiClr">Deixar sem imagem</button>
   </div>
 </template>
 
@@ -13,22 +13,25 @@
   <p v-if="!figuras.length" class="empty">Nenhuma imagem nesta {{ campanha }} ainda.</p>
   <div v-else class="eigrid">
     <button v-for="x in figuras" type="button" :data-pick="x.rel" :class="x.rel === atual ? 'on' : null">
-      <img :src="x.url" alt="" loading="lazy"><span class="cap">{{ x.nome }}</span>
+      <img :src="x.mini" alt="" loading="lazy"><span class="cap">{{ x.nome }}</span>
     </button>
   </div>
 </template>
 
 <template id="t-conta">
-  <div class="fld"><span class="flb">Login</span>
-    <p class="lead" style="margin:0"><b style="color:var(--gold)">{{ login }}</b></p>
-    <p class="sm muted">O login não muda: é a chave dos convites e de tudo que você já criou.</p></div>
-  <div class="fld"><span class="flb">Nome na mesa</span>
-    <div class="addrow"><input class="inp" id="cnNome" v-attr:value="nome" placeholder="como a mesa te vê">
-      <button class="btn" id="cnNomeOk">Salvar</button></div></div>
-  <div class="fld"><span class="flb">Trocar a senha</span>
-    <div class="addrow"><input class="inp" id="cnAtual" type="password" placeholder="senha atual" autocomplete="current-password">
-      <input class="inp" id="cnNova" type="password" placeholder="senha nova" autocomplete="new-password">
-      <input class="inp" id="cnNova2" type="password" placeholder="repita a nova" autocomplete="new-password">
-      <button class="btn" id="cnSenhaOk">Trocar</button></div>
-    <p class="sm muted">6 caracteres ou mais, com letra, número e caractere especial. Pedimos a atual de propósito: sessão esquecida aberta em navegador alheio não deve virar conta perdida.</p></div>
+  <section class="fld" aria-labelledby="cnLoginT"><h3 class="flb" id="cnLoginT">Login</h3>
+    <p class="lead m0"><b class="dourado">{{ login }}</b></p>
+    <p class="sm muted">O login não muda: é a chave dos convites e de tudo que você já criou.</p></section>
+  <section class="fld form" aria-labelledby="cnNomeT"><h3 class="flb" id="cnNomeT">Nome na mesa</h3>
+    <label>Como a mesa te vê<input class="inp" id="cnNome" v-attr:value="nome" autocomplete="name"></label>
+    <div class="linha"><button type="button" class="btn" id="cnNomeOk">Salvar o nome</button></div></section>
+  <section class="fld form" aria-labelledby="cnEmailT"><h3 class="flb" id="cnEmailT">E-mail de recuperação</h3>
+    <label>E-mail<input class="inp" id="cnEmail" type="email" autocomplete="email" v-attr:value="email" aria-describedby="cnEmailD"><span class="dica" id="cnEmailD">Opcional. Só serve para receber o link de redefinir a senha se você esquecer. Ninguém da mesa vê. Deixe vazio para tirar.</span></label>
+    <div class="linha"><button type="button" class="btn" id="cnEmailOk">Salvar o e-mail</button></div></section>
+  <section class="fld form" aria-labelledby="cnSenhaT"><h3 class="flb" id="cnSenhaT">Trocar a senha</h3>
+    <label>Senha atual<input class="inp" id="cnAtual" type="password" autocomplete="current-password"></label>
+    <label>Senha nova<input class="inp" id="cnNova" type="password" autocomplete="new-password" aria-describedby="cnSenhaD"></label>
+    <label>Repita a senha nova<input class="inp" id="cnNova2" type="password" autocomplete="new-password"></label>
+    <p class="sm muted m0" id="cnSenhaD">6 caracteres ou mais, com letra, número e caractere especial. Pedimos a atual de propósito: sessão esquecida aberta em navegador alheio não deve virar conta perdida.</p>
+    <div class="linha"><button type="button" class="btn" id="cnSenhaOk">Trocar a senha</button></div></section>
 </template>

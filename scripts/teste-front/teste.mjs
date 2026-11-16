@@ -12,8 +12,10 @@
  * existe, seletor que mudou, e imagem que nao carrega.
  */
 import { chromium } from 'playwright-core';
-import { existsSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const AQUI = dirname(fileURLToPath(import.meta.url));
 
 const B = process.env.BASE || 'http://127.0.0.1:8099';
 const FOTOS = process.env.FOTOS || '';
@@ -174,8 +176,8 @@ ok((await pg.locator('.ov .form label').count()) >= 3, 'formulario com campos ro
 await pg.locator('.ov [data-f="apresentacao"]').fill('Linha um.\nLinha dois.');
 await salvar();
 ok(/Linha um\.\s*\n\s*Linha dois\./.test(await pg.locator('#view').innerText()), 'quebra de linha preservada');
-await espera(900);
-ok(/salvo/i.test(await pg.locator('#saveSt').innerText()), 'indicador mostra salvo');
+await espera(300);
+ok(await pg.waitForFunction(() => /salvo/i.test(document.querySelector('#saveSt').innerText), null, { timeout: 2500 }).then(() => true, () => false), 'indicador mostra salvo');
 
 titulo('secao nova nao joga a tela para o topo');
 await pg.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -199,7 +201,7 @@ await espera(300);
 await pg.locator('.ov [data-del]').click();
 await espera(400);
 ok((await pg.locator('[data-sec]').count()) === nSec - 1, 'secao removida');
-await pg.locator('.toast.act button').click();
+await pg.locator('.toast.act [data-acao]').click();
 await espera(400);
 ok((await pg.locator('[data-sec]').count()) === nSec, 'desfazer trouxe de volta');
 
@@ -231,6 +233,10 @@ await espera(300);
 await pg.locator('.ov [data-f="titulo"]').fill('NOME ERRADO');
 await pg.locator('.ov [data-no]').click();
 await espera(300);
+ok(await pg.locator('.ov [role=alertdialog]').isVisible(), 'descartar pede confirmacao numa janela do app, nao no confirm do navegador');
+await pg.locator('.ov [data-sim]').click();
+await espera(300);
+ok((await pg.locator('.ov').count()) === 0, 'confirmado o descarte, as duas janelas fecham');
 ok(!/NOME ERRADO/.test(await pg.locator('#view').innerText()), 'cancelado nao muda nada');
 
 titulo('elenco: personagens e fotos');
@@ -566,7 +572,8 @@ titulo('ajustes');
 await pg.click('#btnAjustes');
 await espera(450);
 const secs = await pg.locator('[data-aj]').allInnerTexts();
-ok(secs.length === 10, 'dez secoes para mestre admin: ' + secs.join(' | '));
+ok(secs.length === 13, 'treze secoes para mestre admin: ' + secs.join(' | '));
+ok((await pg.locator('#ajBody h2').first().innerText()).trim() === secs[0].trim(), 'o titulo da secao e o mesmo nome do item do menu');
 ok(/^configurações$/i.test((await pg.locator('h1.page').innerText()).trim()) && /configurações/i.test(await pg.locator('#btnAjustes').innerText()), 'a area se chama Configuracoes');
 ok(/direitos reservados/i.test(await pg.locator('#rodape').innerText()), 'rodape com direitos reservados');
 await pg.locator('#rdSup').click();
@@ -850,9 +857,14 @@ await foto('15-resumos');
 titulo('abertura de capitulo e iniciativa');
 await pg.locator('#tabs .tab').nth(1).click();
 await espera(500);
+await pg.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('grim_cap_')).forEach(k => localStorage.removeItem(k)));
 await pg.locator('[data-ses]').first().click();
 await espera(250);
 ok((await pg.locator('.capitulo').count()) === 1, 'abrir uma sessao mostra o cartao de capitulo');
+await espera(1300);
+await pg.locator('#sesVolta').click(); await espera(300);
+await pg.locator('[data-ses]').first().click(); await espera(250);
+ok((await pg.locator('.capitulo').count()) === 0, 'reabrir a mesma sessao no mesmo dia nao cobre a tela de novo');
 await espera(2700);
 ok((await pg.locator('.capitulo').count()) === 0, 'o cartao some sozinho');
 await pg.locator('#iniBtn').click();
@@ -918,7 +930,7 @@ ok(lia.some(c => /vida/i.test(c.rot) && c.tipo === 'barra' && c.val === '7' && c
 ok(lia.some(c => /conceito/i.test(c.rot) && c.sec === 'Identidade'), 'rotulo que existe no modelo cai na secao do modelo');
 const pdfImg = await (await ctx.request.get(B + '/__ficha-imagem.pdf')).body();
 await pg.evaluate(() => { window.__toasts = []; new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
-  if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document.body, { childList: true }); });
+  if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document.body, { childList: true, subtree: true }); });
 await pg.locator('#fxArq').setInputFiles({ name: 'escaneada.pdf', mimeType: 'application/pdf', buffer: pdfImg });
 await espera(1500);
 ok((await pg.evaluate(() => window.__toasts)).some(x => /só imagem.*IA/i.test(x)), 'PDF so imagem sem IA explica que precisa da IA');
@@ -988,6 +1000,11 @@ const vAntes = (await (await ctx.request.get(B + '/api/c/2/guia')).json()).versa
 await pg.reload();
 await espera(2200);
 ok(/formato antigo/i.test(await pg.locator('#view').innerText()), 'guia em formato antigo abre com aviso, sem converter');
+await pg.locator('#vwRetry').click();
+await espera(900);
+ok(/formato antigo/i.test(await pg.locator('#view').innerText()), '"Tentar de novo" continua recusando o guia antigo');
+await pg.evaluate(() => { try { save(); } catch (e) {} });
+await espera(1200);
 const gDep = await (await ctx.request.get(B + '/api/c/2/guia')).json();
 ok(gDep.versao === vAntes && /Velha/.test(gDep.json) && JSON.parse(gDep.json).versao === 2, 'e o que esta no servidor nao e regravado');
 
@@ -996,10 +1013,10 @@ await pg.click('#brandHome');
 await espera(600);
 await pg.locator('[data-entrar="3"]').click();
 await espera(1100);
-ok((await pg.locator('#tabs .tab').count()) === 1, 'jogador so tem a aba Mesa');
+ok((await pg.locator('#tabs .tab:not(.tabmais)').count()) === 7, 'as secoes da mesa sao as abas do jogador');
 ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do jogador abre o tour do jogador');
 const tj = await andaTour();
-ok(tj.faltas.length === 0 && tj.n >= 12, 'tour do jogador acha todos os ' + tj.n + ' passos' + (tj.faltas.length ? ': ' + tj.faltas.join(' | ') : ''));
+ok(tj.faltas.length === 0 && tj.n >= 7 && tj.n <= 9, 'o primeiro tour do jogador e o curto, com ' + tj.n + ' passos que acham o elemento' + (tj.faltas.length ? ': ' + tj.faltas.join(' | ') : ''));
 await espera(600);
 ok(/Luar/.test(await pg.locator('.sugtema').innerText().catch(() => '')), 'jogador ve o tema sugerido ao entrar pela primeira vez');
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'luar', 'e a campanha abre no tema do mestre');
@@ -1054,7 +1071,7 @@ await espera(300);
 if (DOM) await foto('r039-msec-resumos');
 await pg.click('#btnAjustes');
 await espera(400);
-ok((await pg.locator('[data-aj]').count()) === 5 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, tour, conta, suporte, admin');
+ok((await pg.locator('[data-aj]').count()) === 8 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, privacidade, tour, conta, suporte e as tres da administracao');
 
 titulo('cadastro: regras de senha');
 await pg.goto(B + '/paginas/login.html');
@@ -1095,6 +1112,123 @@ await pg.locator('[data-cp="cp-ed"]').click();
 await espera(350);
 await foto('12-celular-formulario');
 await pg.locator('.ov [data-no]').click();
+await espera(300);
+ok(await pg.locator('nav.tabs').evaluate(n => getComputedStyle(n).position === 'fixed' && n.getBoundingClientRect().bottom >= innerHeight - 1),
+  'no celular as abas ficam na barra de baixo');
+ok(await pg.locator('#btnMais').isVisible(), 'no celular as acoes do topo moram no menu Mais');
+await pg.locator('#btnMais').click();
+await espera(250);
+ok(await pg.locator('.menumais [role=menuitem]').count() >= 3 && await pg.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'),
+  'o menu Mais abre com o foco no primeiro item');
+await pg.keyboard.press('Escape');
+await espera(200);
+ok(await pg.evaluate(() => document.activeElement?.id === 'btnMais'), 'Esc fecha o menu e devolve o foco ao botao');
+
+titulo('larguras de tablet e notebook: navegacao inteira e sem rolagem lateral');
+for (const w of [600, 768, 1024, 1180, 1440]) {
+  await pg.setViewportSize({ width: w, height: 900 });
+  await espera(350);
+  const m = await pg.evaluate(() => {
+    const abas = [...document.querySelectorAll('#tabs .tab')];
+    const vis = abas.filter(t => { const r = t.getBoundingClientRect(); return r.width > 0 && r.left >= -1 && r.right <= innerWidth + 1; }).length;
+    return { vis, total: abas.length, sobra: document.documentElement.scrollWidth - innerWidth };
+  });
+  ok(m.vis === m.total && m.total > 0 && m.sobra <= 1, w + 'px: ' + m.vis + '/' + m.total + ' abas visiveis, sobra ' + m.sobra + 'px');
+}
+
+titulo('regressoes da segunda auditoria');
+await pg.setViewportSize({ width: 1024, height: 800 });
+await pg.locator('#tabs .tab[data-aba="sessoes"]').click(); await espera(500);
+await pg.locator('[data-ses]').first().click(); await espera(900);
+const vaza = await pg.evaluate(() => [...document.querySelectorAll('.boardbar button, .bbacoes button')].filter(b => { if (!b.offsetWidth) return false; const r = document.createRange(); r.selectNodeContents(b); const t = r.getBoundingClientRect(), c = b.getBoundingClientRect(); return t.left < c.left - 1 || t.right > c.right + 1; }).map(b => b.textContent.trim()));
+ok(vaza.length === 0, 'em 1024px nenhum botao da barra da sessao tem o texto vazando' + (vaza.length ? ': ' + vaza.join(', ') : ''));
+await pg.setViewportSize({ width: 390, height: 800 }); await espera(300);
+await pg.evaluate(() => { S.vmodeEscolhido = false; S.vmode = 'roteiro'; render(); }); await espera(500);
+ok(await pg.locator('.sessbarra').isVisible(), 'no celular a sessao tem a barra de jogo');
+await pg.locator('.sessbarra [data-sb="painel"]').click(); await espera(400);
+ok(await pg.evaluate(() => document.body.classList.contains('painel-aberto') && getComputedStyle(document.querySelector('#railSessao')).visibility === 'visible'), 'o painel abre como gaveta');
+await pg.locator('.sessbarra [data-sb="painel"]').click(); await espera(400);
+ok(await pg.evaluate(() => getComputedStyle(document.querySelector('#railSessao')).visibility === 'hidden'), 'e fecha no mesmo botao');
+const sobreBarra = await pg.evaluate(() => { const b = document.querySelector('nav.tabs').getBoundingClientRect();
+  return [...document.querySelectorAll('body *')].filter(e => { const s = getComputedStyle(e); if (s.position !== 'fixed' || e.closest('nav.tabs') || e.offsetParent === null && s.position !== 'fixed') return false;
+    const r = e.getBoundingClientRect(); return r.width && r.height && s.visibility !== 'hidden' && r.bottom > b.top + 1 && r.top < b.bottom && !e.matches('nav.tabs,.sessbarra,.sessbarra *,#toasts,.toasts,.atmo,.atmo *,body::before') && +s.zIndex > 55; }).map(e => e.className || e.tagName); });
+ok(sobreBarra.length === 0, 'nenhuma camada fixa cobre a barra de abas no celular' + (sobreBarra.length ? ': ' + sobreBarra.join(', ') : ''));
+await pg.click('#btnMais'); await espera(250);
+await pg.locator('.menumais [data-mais="btnAjustes"]').click(); await espera(600);
+await pg.evaluate(() => { S.aj = ''; render(); }); await espera(400);
+ok(await pg.locator('.ajgrade.so-lista').count() === 1 && !(await pg.locator('#ajBody').isVisible()), 'no celular Configuracoes abre como lista de secoes');
+await pg.locator('[data-aj="aparencia"]').click(); await espera(500);
+ok(await pg.locator('#ajVolta').isVisible() && await pg.locator('#ajBody').isVisible(), 'a secao abre na tela inteira, com voltar');
+await pg.locator('#ajVolta').click(); await espera(400);
+ok(await pg.locator('.ajgrade.so-lista').count() === 1, 'voltar leva a lista');
+await pg.setViewportSize({ width: 1600, height: 900 }); await espera(300);
+await pg.evaluate(() => { S.view = 'ajustes'; S.aj = 'campanha'; render(); }); await espera(500);
+const lado = await pg.evaluate(() => { const m = document.querySelector('.ajmenu').getBoundingClientRect(), b = document.querySelector('#ajBody').getBoundingClientRect();
+  return { volta: getComputedStyle(document.querySelector('#ajVolta')).display, aoLado: b.left >= m.right - 1 && Math.abs(b.top - m.top) < 40 }; });
+ok(lado.volta === 'none' && lado.aoLado, 'na tela larga o menu de Configuracoes fica ao lado da secao, sem o voltar do celular');
+ok(await pg.evaluate(() => getComputedStyle(document.querySelector('#saveSt .svdot')).opacity === '0'), 'sem nada gravando, o ponto de gravacao fica escondido');
+await pg.setViewportSize({ width: 390, height: 800 }); await espera(300);
+await pg.click('#btnAjustes').catch(() => {});
+await pg.evaluate(() => { S.view = 'home'; render(); }); await espera(500);
+await pg.setViewportSize({ width: 320, height: 700 }); await espera(400);
+const m320 = await pg.evaluate(() => ({ sobra: document.documentElement.scrollWidth - innerWidth,
+  fora: [...document.querySelectorAll('#tabs .tab')].filter(t => t.offsetWidth && t.getBoundingClientRect().right > innerWidth + 1).length }));
+ok(m320.sobra <= 1 && m320.fora === 0, '320px: sem rolagem lateral e as cinco abas inteiras (sobra ' + m320.sobra + 'px, ' + m320.fora + ' fora)');
+
+titulo('janela e dialogo: foco e fundo');
+await pg.setViewportSize({ width: 1366, height: 900 });
+await aba('Campanha');
+await pg.locator('[data-cp="cp-ed"]').focus();
+await pg.keyboard.press('Enter');
+await espera(350);
+ok(await pg.locator('.ov [role=dialog][aria-modal=true]').count() === 1, 'janela e um dialogo de verdade (role e aria-modal)');
+ok(await pg.evaluate(() => !!document.activeElement?.closest('.ov')), 'o foco entra na janela');
+ok(await pg.evaluate(() => document.querySelector('#view').inert && document.querySelector('header.top').inert), 'o fundo fica inerte enquanto a janela esta aberta');
+for (let i = 0; i < 12; i++) await pg.keyboard.press('Tab');
+ok(await pg.evaluate(() => !!document.activeElement?.closest('.ov')), 'Tab gira dentro da janela');
+await pg.keyboard.press('Escape');
+await espera(350);
+ok(await pg.evaluate(() => document.activeElement?.dataset?.cp === 'cp-ed'), 'fechar devolve o foco ao botao que abriu');
+ok(await pg.evaluate(() => !document.querySelector('#view').inert), 'e o fundo volta a responder');
+
+titulo('endereco por tela');
+await aba('Elenco');
+ok(/#\/c\/1\/elenco/.test(await pg.evaluate(() => location.hash)), 'a tela aparece no endereco');
+await pg.goBack();
+await espera(500);
+ok(/#\/c\/1\/campanha/.test(await pg.evaluate(() => location.hash)) && /campanha de teste/i.test(await pg.locator('h1').first().innerText()), 'Voltar do navegador volta uma tela');
+await aba('Biblioteca');
+await pg.reload();
+await espera(1800);
+ok(await pg.locator('#tabs .tab[aria-current="page"]').innerText().then(t => /biblioteca/i.test(t)), 'F5 reabre a mesma tela');
+
+titulo('qualidade de cor: contraste dos temas e nenhuma cor solta');
+{
+  const temaJs = readFileSync(join(AQUI, '..', '..', 'src', 'main', 'resources', 'static', 'js', 'tema.js'), 'utf8');
+  const ini = temaJs.indexOf('var TEMAS={'), fim = temaJs.indexOf('\n};', ini) + 3;
+  const TEMAS = (0, eval)('(' + temaJs.slice(ini + 10, fim - 1) + ')');
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const lum = c => { const a = c.map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * a[0] + .7152 * a[1] + .0722 * a[2]; };
+  const cr = (a, b) => { const x = lum(hex(a)), y = lum(hex(b)); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  const ruins = [];
+  for (const [id, t] of Object.entries(TEMAS)) {
+    const v = t.v;
+    for (const k of ['fg', 'fg2', 'fg3', 'gold']) for (const f of ['bg', 'bg2', 'bg3', 'bg4']) if (cr(v[k], v[f]) < 4.5) ruins.push(id + ' ' + k + '/' + f + ' ' + cr(v[k], v[f]).toFixed(2));
+    for (const k of ['blood2', 'ok']) for (const f of ['bg', 'bg2', 'bg3']) if (cr(v[k], v[f]) < 4.5) ruins.push(id + ' ' + k + '/' + f + ' ' + cr(v[k], v[f]).toFixed(2));
+    if (cr(v['sobre-gold'], v.gold) < 4.5) ruins.push(id + ' sobre-gold');
+    if (cr(v['sobre-blood'], v.blood) < 4.5) ruins.push(id + ' sobre-blood');
+    for (const f of ['bg', 'bg2']) if (cr(v['campo-borda'], v[f]) < 3) ruins.push(id + ' campo-borda/' + f);
+  }
+  ok(ruins.length === 0, 'texto 4,5:1 e borda de campo 3:1 nos ' + Object.keys(TEMAS).length + ' temas' + (ruins.length ? ': ' + ruins.join(', ') : ''));
+  const pasta = join(AQUI, '..', '..', 'src', 'main', 'resources', 'static', 'css'), soltas = [];
+  for (const f of readdirSync(pasta).filter(x => x.endsWith('.css'))) {
+    readFileSync(join(pasta, f), 'utf8').split('\n').forEach((l, i) => {
+      const semDef = l.replace(/--[a-z0-9-]+\s*:[^;]+;?/gi, '').replace(/mask[^;]*/g, '').replace(/url\([^)]*\)/g, '');
+      if (/rgba?\(|#[0-9a-f]{3,8}\b/i.test(semDef)) soltas.push(f + ':' + (i + 1));
+    });
+  }
+  ok(soltas.length === 0, 'cor so por token nas folhas (fora de definicao de token e de mascara)' + (soltas.length ? ': ' + soltas.join(', ') : ''));
+}
 
 await nav.close();
 console.log('\n================');

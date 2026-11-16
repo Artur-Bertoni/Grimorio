@@ -1,27 +1,33 @@
 <!-- Estados da tela principal: carregando, abrindo uma campanha, aba que falhou (js/nucleo.js, js/render.js) -->
 
+<!-- esqueleto na forma de uma pagina (sobrancelha, titulo e cartoes), no lugar de "Carregando…" solto -->
 <template id="t-carregando">
-  <p class="empty" style="padding:4.5rem 0">Carregando…</p>
+  <div class="esqueleto" role="status" aria-live="polite"><span class="sr-only">Carregando…</span>
+    <i class="esq-linha curta" aria-hidden="true"></i><i class="esq-titulo" aria-hidden="true"></i>
+    <div class="esq-grade" aria-hidden="true"><i class="esq-cartao"></i><i class="esq-cartao"></i><i class="esq-cartao"></i></div></div>
 </template>
 
-<!-- mensagem de lista vazia ou de erro, usada pelo app todo -->
+<!-- mensagem de lista vazia, usada pelo app inteiro -->
 <template id="t-vazio">
   <p class="empty">{{ texto }}</p>
 </template>
 
-<!-- espera curta dentro de uma janela ou caixa; texto troca o "carregando…" por um aviso discreto -->
+<!-- espera curta dentro de uma janela ou caixa: tres linhas de esqueleto; texto troca por um aviso discreto -->
 <template id="t-carregando-sm">
-  <p class="muted sm">{{ texto || 'carregando…' }}</p>
+  <p v-if="texto" class="muted sm" role="status">{{ texto }}</p>
+  <div v-else class="esqueleto pequeno" role="status"><span class="sr-only">Carregando…</span><i class="esq-linha" aria-hidden="true"></i><i class="esq-linha" aria-hidden="true"></i><i class="esq-linha curta" aria-hidden="true"></i></div>
 </template>
 
 <template id="t-abrindo">
-  <div class="abrindo"><span data-solta v-html="logo"></span><b>{{ nome }}</b><span>Carregando…</span></div>
+  <div class="abrindo" role="status"><span data-solta v-html="logo"></span><b>{{ nome }}</b><span>Carregando…</span></div>
 </template>
 
+<!-- a tela quebrou ao montar: o detalhe tecnico fica no console, a pessoa ve o que fazer -->
 <template id="t-aba-falhou">
-  <div class="panel" style="padding:1.125rem;margin-top:1.25rem">
-    <h2 class="sec">Falhou ao montar esta aba</h2>
-    <p class="lead">{{ mensagem }}</p>
-    <p class="sm muted">{{ pilha }}</p>
+  <div class="panel estado-erro" role="alert">
+    <h1 class="page" tabindex="-1">Esta tela não abriu</h1>
+    <p class="lead">Algo deu errado ao montar esta parte. O que está salvo continua salvo.</p>
+    <p class="sm muted">Detalhe: {{ mensagem }}</p>
+    <div class="linha"><button type="button" class="btn" onclick="location.reload()">Recarregar a página</button></div>
   </div>
 </template>

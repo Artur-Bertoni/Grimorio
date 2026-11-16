@@ -110,6 +110,79 @@ public class UsuarioService implements UserDetailsService {
         repo.save(u);
     }
 
+    private static final java.util.regex.Pattern EMAIL = java.util.regex.Pattern.compile("[^@\\s]{1,100}@[^@\\s]{1,90}\\.[^@\\s]{1,10}");
+    private static final java.time.Duration VALIDADE_RESET = java.time.Duration.ofHours(1);
+    private final java.security.SecureRandom sorte = new java.security.SecureRandom();
+
+    /** E-mail de recuperacao: vazio tira; formato errado ou repetido em outra conta e recusado. */
+    @Transactional
+    public void definirEmail(Long id, String email) {
+        Usuario u = buscar(id);
+        String e = email == null ? "" : email.trim();
+        if (e.isEmpty()) { u.setEmail(null); repo.save(u); return; }
+        if (e.length() > 200 || !EMAIL.matcher(e).matches()) throw new IllegalArgumentException("esse e-mail parece errado");
+        repo.findByEmailIgnoreCase(e).filter(o -> !o.getId().equals(id)).ifPresent(o -> {
+            throw new IllegalArgumentException("esse e-mail já está em outra conta"); });
+        u.setEmail(e);
+        repo.save(u);
+    }
+
+    /** Pedido de redefinicao: devolve a conta e o token em texto (para o link do e-mail) quando a
+     *  conta existe, esta ativa e tem e-mail. Guarda so o hash do token, valido por uma hora. */
+    @Transactional
+    public java.util.Optional<java.util.Map.Entry<Usuario, String>> pedirRedefinicao(String loginOuEmail) {
+        String k = loginOuEmail == null ? "" : loginOuEmail.trim();
+        if (k.isEmpty()) return java.util.Optional.empty();
+        java.util.Optional<Usuario> achou = k.contains("@") ? repo.findByEmailIgnoreCase(k) : repo.findByLoginIgnoreCase(k);
+        return achou.filter(u -> u.isAtivo() && u.getEmail() != null && !u.getEmail().isBlank()).map(u -> {
+            byte[] b = new byte[32];
+            sorte.nextBytes(b);
+            String token = java.util.HexFormat.of().formatHex(b);
+            u.setResetHash(sha256(token));
+            u.setResetAte(java.time.Instant.now().plus(VALIDADE_RESET));
+            repo.save(u);
+            return java.util.Map.entry(u, token);
+        });
+    }
+
+    /** Troca a senha com o token do e-mail. Token usado, vencido ou desconhecido da o mesmo erro. */
+    @Transactional
+    public Usuario redefinir(String token, String senha) {
+        String t = token == null ? "" : token.trim();
+        Usuario u = t.isEmpty() ? null : repo.findByResetHash(sha256(t)).orElse(null);
+        if (u == null || u.getResetAte() == null || u.getResetAte().isBefore(java.time.Instant.now()))
+            throw new IllegalArgumentException("este link de redefinição venceu ou já foi usado; peça outro");
+        validaSenha(senha);
+        u.setSenhaHash(enc.encode(senha));
+        u.setResetHash(null);
+        u.setResetAte(null);
+        return repo.save(u);
+    }
+
+    private static String sha256(String s) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 indisponível", e);
+        }
+    }
+
+    /** Marca um tour guiado como visto na conta. So aceita os nomes conhecidos. */
+    @Transactional
+    public void marcarTour(Long id, String tour) {
+        if (tour == null || !tour.matches("mestre|jogador|passos-\\d{1,12}")) return;
+        Usuario u = buscar(id);
+        java.util.Set<String> vistos = new java.util.TreeSet<>(toursVistos(u));
+        String junto = String.join(",", vistos);
+        if (vistos.add(tour) && junto.length() + tour.length() < 990) { u.setTours(String.join(",", vistos)); repo.save(u); }
+    }
+
+    public static java.util.List<String> toursVistos(Usuario u) {
+        String t = u.getTours();
+        return t == null || t.isBlank() ? java.util.List.of() : java.util.List.of(t.split(","));
+    }
+
     @Transactional
     public void renomear(Long id, String nome) {
         Usuario u = buscar(id);

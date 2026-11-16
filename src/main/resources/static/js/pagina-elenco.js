@@ -57,16 +57,16 @@ function viewElenco(){
 function hydrateElenco(v){
   var tp=EL[S.el]?S.el:"personagens";
   ligarPdfs(v);
-  $$("[data-el]",v).forEach(function(b){ b.onclick=function(){ S.el=b.getAttribute("data-el"); render(); }; });
+  $$("[data-el]",v).forEach(function(b){ b.onclick=function(){ S.el=b.dataset.el; render(); }; });
   var n=$("#elNovo",v); if(n)n.onclick=function(){ editarElenco(tp,null); };
   $$("[data-eled]",v).forEach(function(b){ b.onclick=function(e){ e.stopPropagation();
-    var x=elDe(tp,b.getAttribute("data-eled")); if(x)editarElenco(tp,x); }; });
+    var x=elDe(tp,b.dataset.eled); if(x)editarElenco(tp,x); }; });
   $$("[data-elver]",v).forEach(function(c){
-    function abre(){ abrirItem(tp,elDe(tp,c.getAttribute("data-elver"))); }
+    function abre(){ abrirItem(tp,elDe(tp,c.dataset.elver)); }
     c.onclick=abre; c.onkeydown=function(e){ if(e.key==="Enter"&&e.target===c)abre(); }; });
   $$("[data-ellib]",v).forEach(function(b){ b.onclick=function(e){ e.stopPropagation();
-    var x=elDe(tp,b.getAttribute("data-ellib")); if(!x)return;
+    var x=elDe(tp,b.dataset.ellib); if(!x)return;
     var on=alternaLib(tp,x); render(); toast(on?"Liberado para a mesa":"Tirado da mesa"); }; });
   $$("[data-fichas]",v).forEach(function(b){ b.onclick=function(){
-    abrirFichasP(elDe("personagens",b.getAttribute("data-fichas"))); }; });
+    abrirFichasP(elDe("personagens",b.dataset.fichas)); }; });
 }

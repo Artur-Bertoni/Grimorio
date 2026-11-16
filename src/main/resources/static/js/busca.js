@@ -208,6 +208,7 @@ function abrirPagina(ab,num,q,back){
   var pp=$("#pgPrev",ov); if(pp)pp.onclick=function(){ ov.close(); abrirPagina(ab,num-1,q,back); };
   var pn=$("#pgNext",ov); if(pn)pn.onclick=function(){ ov.close(); abrirPagina(ab,num+1,q,back); };
   var kp=function(e){ if(!document.body.contains(ov)){document.removeEventListener("keydown",kp);return;}
+    if(!teclaDaCamada(e,ov))return;
     if(e.target&&(e.target.isContentEditable||/input|textarea|select/i.test(e.target.tagName)))return;
     if(e.key==="ArrowLeft"){e.preventDefault();ov.close();abrirPagina(ab,num-1,q,back);}
     else if(e.key==="ArrowRight"){e.preventDefault();ov.close();abrirPagina(ab,num+1,q,back);} };
@@ -245,7 +246,7 @@ function abrirBusca(){
   var inp=$("#bq",ov);
   var SEL=-1;
   function ritens(){ return $$(".rit",$("#br",ov)); }
-  function selMark(){ var L=ritens(); L.forEach(function(b,i){b.classList.toggle("sel",i===SEL);});
+  function selMark(){ var L=ritens(); L.forEach(function(b,i){ b.classList.toggle("sel",i===SEL); if(i===SEL){ b.setAttribute("aria-current","true"); } else { b.removeAttribute("aria-current"); } });
     if(SEL>=0&&L[SEL]&&L[SEL].scrollIntoView)L[SEL].scrollIntoView({block:"nearest"}); }
   function selInit(){ SEL=ritens().length?0:-1; selMark(); }
   function selMov(d){ var L=ritens(); if(!L.length)return;
@@ -265,8 +266,8 @@ function abrirBusca(){
     f.innerHTML=htmlDe("t-busca-filtros",{todos:BUSCA.fdoc==="todos",
       livros:ds.map(function(d){ return {id:d.id,nome:d.nome||d.abrev,on:BUSCA.fdoc===d.id}; }),
       assuntos:cs.map(function(c){ return {id:c.id,nome:c.nome,on:BUSCA.fcat===c.id}; })});
-    $$("[data-fd]",f).forEach(function(b){b.onclick=function(){BUSCA.fdoc=b.getAttribute("data-fd");filtros();run();};});
-    $$("[data-fc]",f).forEach(function(b){b.onclick=function(){BUSCA.fcat=b.getAttribute("data-fc");filtros();run();};}); }
+    $$("[data-fd]",f).forEach(function(b){b.onclick=function(){BUSCA.fdoc=b.dataset.fd;filtros();run();};});
+    $$("[data-fc]",f).forEach(function(b){b.onclick=function(){BUSCA.fcat=b.dataset.fc;filtros();run();};}); }
 
   /* o = {n: contador ao lado do titulo} ou {carregando: true} */
   function grupo(box,titulo,o){ o=o||{};
