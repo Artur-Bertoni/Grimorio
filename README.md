@@ -63,9 +63,9 @@ administradora.
 
 ### Pacote de campanha
 
-**Configurações → Campanha → Exportar pacote** gera um zip com guia, mesa, índices de
-busca e imagens. **Importar pacote** faz o caminho de volta, em qualquer instância.
-PDFs e áudio ficam de fora porque são grandes e cada mestre tem os seus.
+**Configurações → Campanha → Exportar pacote** gera um zip com a campanha inteira: guia,
+mesa, fichas, livros em PDF, trilha, imagens e índices de busca. **Importar pacote** faz o
+caminho de volta, em qualquer instância ou conta, sem enviar arquivo de novo.
 
 É assim que uma campanha pronta muda de servidor, e é por isso que o repositório
 não precisa carregar conteúdo.

@@ -35,12 +35,15 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 400MB
-      max-request-size: 420MB
+      max-file-size: 2GB
+      max-request-size: 2100MB
       file-size-threshold: 2MB
   mvc:
     problemdetails:
       enabled: false
+    # o pacote sai em fluxo, com PDFs e trilha: o padrao de 30s do Tomcat cortaria o download
+    async:
+      request-timeout: 60m
 
 grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}

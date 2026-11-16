@@ -67,6 +67,18 @@ function pdfMinimo(texto) {
 // PNG 1x1 valido.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
 
+/* nomes das entradas de um zip, lidos do diretorio central (o conteudo comprimido pode citar
+   os mesmos caminhos, entao procurar o texto no arquivo inteiro engana) */
+function entradasZip(buf) {
+  const nomes = [];
+  for (let i = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06])), p = buf.readUInt32LE(i + 16); buf.readUInt32LE(p) === 0x02014b50;) {
+    const n = buf.readUInt16LE(p + 28), x = buf.readUInt16LE(p + 30), c = buf.readUInt16LE(p + 32);
+    nomes.push(buf.toString("utf8", p + 46, p + 46 + n));
+    p += 46 + n + x + c;
+  }
+  return nomes;
+}
+
 function forma(campo, buf, nome, tipo, extras = {}) {
   const f = new FormData();
   for (const [k, v] of Object.entries(extras)) f.append(k, v);
@@ -278,9 +290,20 @@ console.log("\n=== midia, PDF e indice ===");
 
 console.log("\n=== pacote: exportar e importar ===");
 {
-  let r = await mestre.get(`/api/c/${cid}/pacote?imagens=true`);
+  /* o mesmo PDF da secao de upload (o conteudo e deterministico) e uma faixa, para conferir
+     que livro e trilha tambem viajam no pacote */
+  const pdf = pdfMinimo("O dragao vermelho dorme na caverna");
+  const som = Buffer.concat([Buffer.from("ID3"), Buffer.alloc(2048, 7)]);
+  let r = await mestre.req("POST", `/api/c/${cid}/midia/audio`, undefined, { form: forma("arquivo", som, "chuva.mp3", "audio/mpeg", { categoria: "Clima", nome: "Chuva fina" }) });
+  ok(r.s === 200, "mestre sobe uma faixa", r.d);
+  r = await mestre.get(`/api/c/${cid}/pacote`);
   ok(r.s === 200 && r.bruto.length > 100 && r.bruto.slice(0, 2).toString() === "PK", "exporta zip", { s: r.s, n: r.bruto.length });
   const zip = r.bruto;
+  const nomes = entradasZip(zip);
+  ok(nomes.includes("pdf/LV.pdf") && nomes.includes("audio/clima/chuva-fina.mp3"), "o zip leva o PDF e a faixa", nomes);
+  r = await mestre.get(`/api/c/${cid}/pacote?arquivos=false`);
+  const soDados = r.s === 200 ? entradasZip(r.bruto) : [];
+  ok(soDados.includes("campanha.json") && !soDados.some(n => /^(pdf|audio|img)\//.test(n)), "sem arquivos, o zip leva so os dados", soDados);
   r = await jogador.get(`/api/c/${cid}/pacote`);
   ok(r.s === 403, "jogador nao exporta", r.s);
   r = await mestre.post("/api/campanhas", { nome: "Destino", sistema: "generico" });
@@ -289,6 +312,17 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(r.s === 200, "importa o pacote em outra campanha", r.d);
   r = await mestre.get(`/api/c/${novo}/guia`);
   ok(r.s === 200 && JSON.parse(r.d.json).versao === 3, "guia chegou na campanha nova");
+  r = await mestre.get(`/api/c/${novo}/midia`);
+  const doc = r.d?.docs?.[0], fx = r.d?.faixas?.[0];
+  ok(r.d?.docs?.length === 1 && doc.abrev === "LV" && doc.nome === "Livro" && doc.publico === true && doc.paginas === 1,
+    "o PDF chega com nome, visibilidade e paginas", r.d?.docs);
+  ok(r.d?.faixas?.length === 1 && fx.nome === "Chuva fina" && fx.cat === "Clima", "a faixa chega com nome e categoria", r.d?.faixas);
+  r = await mestre.get(`/midia/c${novo}/pdf/LV.pdf`);
+  ok(r.s === 200 && r.bruto.equals(pdf), "o PDF importado e o mesmo arquivo", r.s);
+  r = await mestre.get(`/midia/c${novo}/audio/clima/chuva-fina.mp3`);
+  ok(r.s === 200 && r.bruto.equals(som), "a faixa importada e o mesmo arquivo", r.s);
+  r = await mestre.get(`/api/c/${novo}/indice`);
+  ok(r.s === 200 && /dragao/i.test(r.bruto.toString()), "a busca da campanha nova acha o texto do PDF");
   r = await mestre.get(`/api/c/${novo}/fichas`);
   ok(r.s === 200 && r.d.some(f => /Heroi/.test(f.nome)), "fichas entram em nome de quem importou", r.d);
   r = await mestre.del(`/api/campanhas/${novo}`);

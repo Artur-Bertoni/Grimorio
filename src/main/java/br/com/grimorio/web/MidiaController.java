@@ -120,10 +120,13 @@ public class MidiaController {
     @GetMapping("/pacote")
     public ResponseEntity<StreamingResponseBody> exportar(
             @PathVariable Long cid,
-            @RequestParam(required = false, defaultValue = "true") boolean imagens) {
+            @RequestParam(required = false) Boolean arquivos,
+            @RequestParam(required = false) Boolean imagens) {
         camp.exigeMestre(cid, atual.id());
         String nome = "campanha-" + cid + ".zip";
-        StreamingResponseBody corpo = out -> pacote.exportar(cid, imagens, out);
+        /* "imagens" e o nome antigo do parametro, de quando so as imagens iam no pacote */
+        boolean comArquivos = !Boolean.FALSE.equals(arquivos != null ? arquivos : imagens);
+        StreamingResponseBody corpo = out -> pacote.exportar(cid, comArquivos, out);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nome + "\"")
