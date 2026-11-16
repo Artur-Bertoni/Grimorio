@@ -42,7 +42,7 @@
       <button class="chip btn" id="plLoop" :aria-pressed="String(loop)">Loop {{ loop ? 'ligado' : 'desligado' }}</button>
       <span class="muted sm">Troca com fade de 1,8s</span></div>
   </div>
-  <div v-if="temFaixas" class="catgrid" style="margin-top:.875rem">
+  <div v-if="temFaixas" class="catgrid mt-4">
     <div v-for="c in categorias" class="catblk">
       <b><i :style="'background:' + c.cor"></i>{{ c.nome }} <span class="muted">({{ c.faixas.length }})</span></b>
       <div class="tracks"><button v-for="f in c.faixas" class="trk" :data-trk="f.nome"><span class="eq"><i></i><i></i><i></i></span><span>{{ f.nome }}</span></button></div>

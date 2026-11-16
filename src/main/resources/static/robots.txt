@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /paginas/login.html
+Allow: /icones/
+Disallow: /

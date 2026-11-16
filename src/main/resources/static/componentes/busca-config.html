@@ -1,10 +1,10 @@
 <!-- Dados de busca da campanha e textos de envio de livros e trilha (js/busca-config.js) -->
 
 <template id="t-ajustes-busca">
-  <h2 class="sec" style="margin-bottom:1rem">Busca</h2>
+  <h2 class="sec mb-3">Busca</h2>
   <p class="lead">A busca varre a {{ campanha }} e o texto dos livros. Aqui você ensina a ela o jeito do seu sistema. Nada vem pronto.</p>
-  <div v-for="b in blocos" class="fld" style="margin-top:1rem"><span class="flb">{{ b.titulo }} ({{ b.n }})</span>
-    <p class="sm muted" style="margin:0">{{ b.texto }}</p>
+  <div v-for="b in blocos" class="fld mt-4"><span class="flb">{{ b.titulo }} ({{ b.n }})</span>
+    <p class="sm muted m0">{{ b.texto }}</p>
     <div class="addrow"><button class="btn sec ico" :id="b.id" v-attr:title="'Editar ' + b.titulo.toLowerCase()" v-attr:aria-label="'Editar ' + b.titulo.toLowerCase()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div></div>
 </template>
 
@@ -23,7 +23,7 @@
 
 <template id="t-confirma-faixas">
   <div class="aviso" v-html="texto"></div>
-  <div class="fld" style="margin-top:.875rem"><span class="flb">Como vão entrar</span>
-    <ul class="fl"><li v-for="c in categorias"><b style="color:var(--fg)">{{ c.nome }}</b> · {{ c.n }} {{ c.n === 1 ? 'faixa' : 'faixas' }}</li></ul></div>
+  <div class="fld mt-4"><span class="flb">Como vão entrar</span>
+    <ul class="fl"><li v-for="c in categorias"><b class="forte">{{ c.nome }}</b> · {{ c.n }} {{ c.n === 1 ? 'faixa' : 'faixas' }}</li></ul></div>
   <div class="formft"><button class="btn" id="cfOk">Enviar</button><button class="btn sec" id="cfNo">Cancelar</button></div>
 </template>

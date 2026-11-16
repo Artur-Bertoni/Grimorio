@@ -1,0 +1,243 @@
+/* ---------- CONTROLES ----------
+   Botao, aba, campo, chip e aviso moram so aqui. Antes cada um tinha duas ou tres definicoes
+   espalhadas (janelas, paginas, quadro, pele) e 17 jeitos de ser botao.
+
+   Botao: 4 variantes x 3 tamanhos.
+     primario   .btn                       acao principal da tela ou da janela
+     secundario .btn.sec  .ibtn .edb .tbtn .backb .x .selmini .cvtools button
+     perigo     .btn.dang .tbtn.d .delx
+     fantasma   .btn.fant .addbtn           acao discreta, "adicionar"
+   Tamanho: grande (40px) e o .btn; medio (32px) e o .ibtn, o .x e o .btn.m; pequeno (24px) e o
+   resto. O pequeno ganha area de toque invisivel ate 32px (::after), sem crescer o desenho.
+   Texto de botao, aba e aviso e em caixa normal: caixa alta fica para rotulo curto (eyebrow,
+   chip, rotulo de campo). Cor so por token. */
+
+/* ---- base comum ---- */
+.btn,.ibtn,.edb,.tbtn,.addbtn,.backb,.x,.delx,.selmini,.cvtools button,.vmodes button,.tab,.mesanav button,.toast button{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);
+  font-family:var(--ui);font-weight:600;letter-spacing:.02em;text-transform:none;line-height:1.1;
+  white-space:nowrap;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2),box-shadow var(--dur-2),
+    transform var(--dur-1) var(--ease),opacity var(--dur-2)}
+:is(.btn,.ibtn,.edb,.tbtn,.addbtn,.backb,.x,.delx,.selmini,.cvtools button,.vmodes button,.tab,.mesanav button):active{transform:scale(.96)}
+:is(.btn,.ibtn,.edb,.tbtn,.addbtn,.backb,.x,.delx,.cvtools button):disabled,
+:is(.btn,.ibtn,.edb,.tbtn,.addbtn,.backb,.x,.delx):is([aria-disabled="true"]){opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+/* ocupado: o botao fica, desativado, com um anel girando no lugar do icone */
+:is(.btn,.ibtn,.edb,.tbtn)[aria-busy="true"]{cursor:progress;opacity:.8}
+:is(.btn,.ibtn,.edb,.tbtn)[aria-busy="true"]::before{content:"";width:.875em;height:.875em;border-radius:50%;flex:0 0 auto;
+  border:2px solid currentColor;border-right-color:transparent;animation:gira .7s linear infinite}
+@keyframes gira{to{rotate:1turn}}
+
+/* ---- tamanhos ---- */
+.btn{min-height:var(--ctl-g);padding:0 var(--s-4);font-size:var(--fs-3);border-radius:var(--rb)}
+.btn.m{min-height:var(--ctl-m);padding:0 var(--s-3)}
+.ibtn,.x,.cvtools button{min-height:var(--ctl-m);min-width:var(--ctl-m);padding:0 var(--s-2);font-size:var(--fs-3);border-radius:var(--rb)}
+.edb,.tbtn,.addbtn,.backb,.delx,.selmini{position:relative;min-height:var(--ctl-p);padding:0 var(--s-2);font-size:var(--fs-2);border-radius:var(--r-xs)}
+.edb::after,.tbtn::after,.addbtn::after,.backb::after,.delx::after{content:"";position:absolute;inset:-4px}
+.delx{min-width:var(--ctl-p);padding:0}
+/* icone sozinho: quadrado, com o nome em title e aria-label */
+.ico{gap:0;padding:0}
+.btn.ico{width:var(--ctl-g);min-width:var(--ctl-g)}
+.btn.m.ico,.ibtn.ico{width:var(--ctl-m)}
+.edb.ico,.tbtn.ico{width:var(--ctl-p);min-width:var(--ctl-p)}
+.ico svg{width:.875rem;height:.875rem;flex:0 0 auto}
+.btn.ico svg,.ibtn svg{width:1rem;height:1rem;flex:0 0 auto}
+
+/* ---- variantes ---- */
+/* primario preenchido: ganha a comparacao com qualquer vizinho. Um por regiao da tela. */
+.btn{border:1px solid var(--gold);color:var(--sobre-gold);background:var(--gold)}
+.btn:not(.sec):not(.fant):not(.dang){box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 25%,transparent)}
+.btn:not(.sec):not(.fant):not(.dang):hover{box-shadow:var(--brilho)}
+.btn:hover{background:var(--gold2);border-color:var(--gold2);color:var(--sobre-gold);transform:translateY(-1px);
+  box-shadow:var(--brilho)}
+.btn.sec,.ibtn,.edb,.tbtn,.backb,.x,.selmini,.cvtools button{border:1px solid var(--line2);color:var(--fg2);background:var(--bg2)}
+.btn.sec:hover,.ibtn:hover,.edb:hover,.tbtn:hover,.backb:hover,.x:hover,.cvtools button:hover{border-color:var(--fg3);color:var(--fg);background:var(--bg4)}
+.btn.sec:hover,.ibtn:hover{box-shadow:var(--e1)}
+.edb:hover{color:var(--gold);border-color:var(--gold)}
+.btn.dang,.tbtn.d,.delx{border:1px solid var(--blood);color:var(--blood2);background:color-mix(in srgb,var(--blood) 9%,transparent)}
+.btn.dang:hover,.tbtn.d:hover,.delx:hover{background:var(--blood);color:var(--sobre-blood);border-color:var(--blood)}
+.btn.dang:hover{box-shadow:0 .3rem 1.1rem -.3rem var(--blood)}
+/* acao destrutiva discreta numa barra: texto em cor de perigo, sem borda, para nao gritar mais que o primario */
+.tbtn.d.encerra{border-color:transparent;background:none;text-decoration:underline;text-underline-offset:3px}
+.tbtn.d.encerra:hover{background:var(--blood);color:var(--sobre-blood);text-decoration:none}
+.btn.fant,.addbtn{border:1px solid transparent;color:var(--gold);background:none}
+.btn.fant:hover,.addbtn:hover{background:color-mix(in srgb,var(--gold) 10%,transparent);color:var(--gold2)}
+/* adicionar: a borda tracejada diz "aqui entra mais um" */
+.addbtn{border-color:color-mix(in srgb,var(--gold) 55%,transparent);border-style:dashed;align-self:flex-start}
+.x{color:var(--fg3)}
+.x:hover{transform:rotate(90deg)}
+.selmini{font-weight:500;background:var(--bg)}
+
+/* ---- botoes do topo ---- */
+.acts{display:flex;gap:var(--s-1);flex:0 1 auto;min-width:0;align-items:center}
+.ibtn{position:relative}
+.ibtn .lbl{font-size:var(--fs-3)}
+/* alternancia ligada nao e dourada (o dourado e do primario): fundo mais claro, texto forte e o traco */
+.ibtn.on,.ibtn[aria-pressed="true"],.ibtn[aria-expanded="true"]{border-color:var(--fg3);color:var(--fg);background:var(--bg4)}
+/* estado ligado nao e so cor: um traco embaixo do icone */
+.ibtn.on::after,.ibtn[aria-pressed="true"]::after{content:"";position:absolute;left:25%;right:25%;bottom:3px;height:2px;
+  border-radius:var(--r-xs);background:currentColor}
+.ibtn.live{border-color:var(--blood);color:var(--blood2)}
+.kbd{font-family:var(--ui);font-size:var(--fs-1);font-weight:500;border:1px solid var(--line2);border-radius:var(--r-xs);
+  padding:0 var(--s-1);color:var(--fg3);line-height:1.4}
+@media (hover:none){ .kbd{display:none} }
+
+/* ---- abas: uma so, no topo, na barra do celular e nas subabas ---- */
+.tab,.mesanav button{position:relative;min-height:var(--ctl-m);padding:0 var(--s-3);font-size:var(--fs-3);color:var(--fg2);
+  border:1px solid transparent;border-radius:var(--rb);background:none;flex:0 0 auto}
+.tab:hover,.mesanav button:hover{color:var(--fg);background:var(--bg2)}
+.tab[aria-current="page"],.mesanav button[aria-pressed="true"],.mesanav button[aria-current="page"]{color:var(--fg);background:var(--bg3);border-color:var(--line2);font-weight:700}
+.tab .tabico{display:none;width:1.25rem;height:1.25rem;flex:0 0 auto}
+.tab .tabico svg{width:100%;height:100%}
+
+/* ---- segmentado (Quadro/Roteiro e parecidos) ---- */
+.vmodes{display:inline-flex;gap:2px;border:1px solid var(--line2);border-radius:var(--rb);padding:2px;background:var(--bg2)}
+.vmodes button{min-height:calc(var(--ctl-m) - 6px);padding:0 var(--s-3);font-size:var(--fs-3);color:var(--fg2);border-radius:calc(var(--rb) - 2px)}
+.vmodes button:hover{color:var(--fg)}
+.vmodes button[aria-pressed="true"]{background:var(--bg4);color:var(--fg);box-shadow:inset 0 -2px 0 var(--gold)}
+
+/* ---- chips: rotulo curto, o unico controle em caixa alta ---- */
+.chip,.fchip{font-family:var(--ui);font-size:var(--fs-1);font-weight:600;letter-spacing:var(--tr-caixa);text-transform:uppercase;
+  border:1px solid var(--line2);border-radius:var(--r-pill);padding:2px var(--s-2);color:var(--fg2);white-space:nowrap;line-height:1.4;
+  transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2)}
+.chip.b{border-color:var(--blood);color:var(--blood2)}
+.chip.g{border-color:var(--gold);color:var(--gold)}
+.chip.ok{border-color:var(--ok);color:var(--ok)}
+.chip.btn{min-height:0;font-size:var(--fs-1);background:none}
+.chip.btn:hover{background:var(--bg4);color:var(--fg);cursor:pointer;transform:none;box-shadow:none}
+.fchips{display:flex;gap:var(--s-1);flex-wrap:wrap;margin:var(--s-3) 0}
+.fchip{position:relative;min-height:var(--ctl-p);color:var(--fg2);cursor:pointer}
+.fchip:hover{border-color:var(--fg3);color:var(--fg)}
+.fchip[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent)}
+/* filtro ligado tambem ganha o visto, para nao depender so da cor */
+.fchip[aria-pressed="true"]::before{content:"✓ "}
+
+/* ---- campos ---- */
+.inp,.form input,.form textarea,.form select,.sfield{background:var(--bg);color:var(--fg);border:1px solid var(--campo-borda);
+  border-radius:var(--r);font-family:var(--body);font-size:var(--fs-4);font-weight:400;letter-spacing:0;text-transform:none;
+  transition:border-color var(--dur-2),box-shadow var(--dur-2),background-color var(--dur-2)}
+.inp,.form input,.form textarea,.form select{padding:var(--s-2) var(--s-3);min-height:var(--ctl-g)}
+.inp{flex:1;min-width:7.5rem}
+.form textarea{resize:vertical;line-height:var(--lh-texto)}
+.inp::placeholder,.form input::placeholder,.form textarea::placeholder,.sfield input::placeholder{color:var(--fg3);opacity:1}
+.inp:hover,.form input:hover,.form textarea:hover,.form select:hover,.sfield:hover{border-color:var(--fg3)}
+.inp:focus,.form input:focus,.form textarea:focus,.form select:focus,.sfield:focus-within{outline:none;border-color:var(--gold);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 22%,transparent)}
+.inp[aria-invalid="true"],.form [aria-invalid="true"]{border-color:var(--blood2);box-shadow:0 0 0 1px var(--blood2)}
+.inp[readonly],.form input[readonly]{background:var(--bg2);color:var(--fg2)}
+.sfield{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3)}
+.sfield input{flex:1;background:none;border:none;outline:none;font-size:var(--fs-4);min-width:0;color:inherit}
+.sfield input:focus{box-shadow:none}
+
+/* rotulo de campo: curto, em caixa alta, com contraste de texto */
+.form{display:flex;flex-direction:column;gap:var(--s-4)}
+.form label,.rotulo{display:flex;flex-direction:column;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-2);font-weight:600;
+  letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2)}
+.form label>input,.form label>textarea,.form label>select{margin-top:2px}
+.frot,.form legend{font-family:var(--ui);font-size:var(--fs-2);font-weight:600;letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
+.form fieldset{border:0;margin:0;padding:0;min-width:0}
+.form .dica,.dica{font-family:var(--body);font-size:var(--fs-3);font-weight:400;letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
+.dica.erro{color:var(--blood2);font-weight:600}
+.dica.erro::before{content:"! ";font-weight:800}
+/* obrigatorio aparece no rotulo, antes de salvar, e nao so no aviso depois */
+.obrig{color:var(--blood2);margin-left:.25em;letter-spacing:0}
+.form label.ck{flex-direction:row;align-items:center;gap:var(--s-2);font-family:var(--body);font-size:var(--fs-4);font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--fg2);min-height:var(--ctl-m)}
+.form label.ck input{width:1.125rem;height:1.125rem;min-height:0;accent-color:var(--gold);padding:0;flex:0 0 auto;margin:0}
+.form label.ck input:focus{box-shadow:none}
+.form select{appearance:auto}
+
+/* ---- avisos (toast): pilha no canto, com tipo, sem caixa alta ---- */
+.toasts{position:fixed;z-index:var(--z-toast);left:50%;translate:-50% 0;bottom:calc(var(--barra-h) + var(--s-5) + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column-reverse;gap:var(--s-2);align-items:center;width:min(32rem,calc(100vw - 2rem));pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:var(--s-3);max-width:100%;background:var(--bg4);color:var(--fg);
+  border:1px solid var(--line2);border-left:3px solid var(--fg3);border-radius:var(--rb);padding:var(--s-2) var(--s-3);
+  font-family:var(--body);font-size:var(--fs-3);line-height:var(--lh-ui);box-shadow:var(--e2);animation:toastin var(--dur-3) var(--ease)}
+.toast .tico{flex:0 0 auto;width:1.125rem;height:1.125rem;display:grid;place-items:center;font:700 var(--fs-2)/1 var(--ui);
+  border-radius:50%;background:var(--fg3);color:var(--bg)}
+.toast .ttx{flex:1;min-width:0}
+.toast.ok{border-left-color:var(--ok)} .toast.ok .tico{background:var(--ok)}
+.toast.erro{border-left-color:var(--blood2)} .toast.erro .tico{background:var(--blood2);color:var(--sobre-blood)}
+.toast.aviso{border-left-color:var(--warn)} .toast.aviso .tico{background:var(--warn)}
+.toast button{min-height:var(--ctl-p);padding:0 var(--s-2);font-size:var(--fs-2);color:var(--gold);border:1px solid var(--gold);
+  border-radius:var(--r-xs);flex:0 0 auto;background:none}
+.toast button:hover{background:var(--gold);color:var(--sobre-gold)}
+.toast button.tx{border-color:transparent;color:var(--fg3);font-size:var(--fs-4);padding:0 var(--s-1)}
+.toast button.tx:hover{background:var(--bg3);color:var(--fg)}
+@keyframes toastin{from{opacity:0;transform:translateY(.75rem)}}
+
+/* ---- toque: no celular e no tablet o alvo cresce ---- */
+@media (pointer:coarse){
+  .btn{min-height:var(--alvo)}
+  .ibtn,.x,.cvtools button{min-height:var(--alvo);min-width:var(--alvo)}
+  .ibtn.ico,.x{width:var(--alvo)}
+  .edb,.tbtn,.addbtn,.backb,.selmini{min-height:2rem}
+  .edb.ico,.tbtn.ico{width:2rem;min-width:2rem}
+  .edb::after,.tbtn::after,.addbtn::after,.backb::after,.delx::after{inset:-6px}
+  .inp,.form input,.form select{min-height:var(--alvo)}
+}
+
+/* ---- alvos pequenos de desenho, grandes de toque ---- */
+/* a caixinha de feito e a alca continuam do tamanho do desenho; a area clicavel cresce por fora */
+.ckbox{position:relative}
+.ckbox::after,.alca::after{content:"";position:absolute;inset:-5px}
+.cv .ckbox::after{inset:-6px}
+@media (pointer:coarse){ .alca{width:2rem;height:2rem} .ckbox::after{inset:-10px} }
+
+/* ---- estado que nao depende so de cor ---- */
+/* a vez na iniciativa ganha a seta; a faixa tocando, o sublinhado; o resultado escolhido, a barra */
+.inichip.vez::before{content:"▶";font-size:.7em;margin-right:.25em}
+.trk.on{text-decoration:underline;text-underline-offset:3px;font-weight:600}
+.rit.sel{box-shadow:inset 3px 0 0 var(--gold)}
+.libdot.on{box-shadow:0 0 0 2px var(--bg2),0 0 0 3px var(--gold)}
+
+.subtit{display:block;font-family:var(--ui);font-weight:700;font-size:var(--fs-3);color:var(--fg2);margin-bottom:var(--s-1)}
+/* tela de 360px ou menos: o topo aperta o espaco entre os botoes, que ficam com 40px (acima do minimo de 24) */
+@media (max-width:360px){ .topin{gap:var(--s-1)} .acts{gap:0} .acts .ibtn{min-width:2.5rem;width:2.5rem} }
+
+/* ---- toque: nenhum alvo abaixo de 24px de desenho, e area invisivel ate ~44px nos pequenos ---- */
+@media (pointer:coarse){
+  :where(button,[role=button],select,summary,input[type=checkbox],input[type=radio]){min-height:1.5rem;min-width:1.5rem}
+  input[type=checkbox],input[type=radio]{width:1.5rem;height:1.5rem}
+  .fchip,.chip.btn{min-height:2rem;display:inline-flex;align-items:center}
+  .fchip::after,.chip.btn::after{content:"";position:absolute;inset:-6px -2px}
+  .chip.btn{position:relative}
+  .ckbox::after{inset:-14px}
+  .alca::after{inset:-6px}
+  .pnum input,.inp[type=number]{min-height:var(--alvo)}
+}
+
+/* chip de acao (filtro, rolagem pronta, escolha) e texto: caixa normal. A caixa alta fica no chip
+   de estado, que e curto ("encerrada", "você mestra") */
+.fchip{text-transform:none;letter-spacing:.01em;font-size:var(--fs-2)}
+
+/* ---- controles especiais, no mesmo sistema: player, trilha tocando, faixa da cena, liberar, menu ---- */
+.pbtn,.nbb,.tplay,.libdot,.mi{cursor:pointer;transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2),
+  box-shadow var(--dur-2),transform var(--dur-1) var(--ease)}
+:is(.pbtn,.nbb,.tplay,.libdot):active{transform:scale(.96)}
+.pbtn{width:var(--ctl-g);height:var(--ctl-g)}
+.pbtn.main{width:var(--alvo);height:var(--alvo)}
+.nbb{width:var(--ctl-m);height:var(--ctl-m)}
+.libdot{width:var(--ctl-p);height:var(--ctl-p);position:relative}
+.libdot::after{content:"";position:absolute;inset:-4px;border-radius:50%}
+.tplay{min-height:var(--ctl-m);font-size:var(--fs-2)}
+.mi{min-height:var(--ctl-m);border-radius:var(--r-xs)}
+@media (pointer:coarse){ .nbb{width:var(--alvo);height:var(--alvo)} .libdot::after{inset:-10px} .tplay,.mi{min-height:var(--alvo)} }
+
+/* ---- formularios fora do formulario() (Configuracoes) ---- */
+/* convite: os campos lado a lado, alinhados pela base, e nao uma coluna encostada a direita */
+.form.cvform{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr));gap:var(--s-3);align-items:end}
+.form.cvform>.btn{justify-self:start}
+/* caixa de marcar: o texto ao lado da caixa e a explicacao embaixo dele, ocupando a linha toda */
+.form label.ck{flex-wrap:wrap;align-items:flex-start;row-gap:var(--s-1)}
+.form label.ck>input{margin-top:.15em}
+.form label.ck>.dica{flex-basis:100%;padding-left:calc(1.125rem + var(--s-2))}
+/* cada grupo de uma secao de Configuracoes respira em relacao ao anterior */
+.ajbody .fld+.fld,.ajbody .fld+.addrow,.ajbody .form+.fld{margin-top:var(--s-6)}
+.ajbody .fld>.linha:last-child,.ajbody .fld>.addrow:last-child{margin-top:var(--s-2)}
+/* linha com campos rotulados e um botao: o botao alinha com os campos, sem esticar ate o rotulo */
+.addrow:has(>.rotulo){align-items:flex-end;gap:var(--s-2) var(--s-3)}
+.addrow:has(>.rotulo)>.btn,.addrow:has(>.rotulo)>button{flex:0 0 auto;align-self:flex-end}
+/* o dialogo recebe o foco ao abrir (para o leitor de tela anunciar o titulo); o contorno fica
+   para os controles dentro dele, e nao em volta da janela inteira */
+:is([role=dialog],[role=alertdialog],[role=menu]):focus{outline:none}

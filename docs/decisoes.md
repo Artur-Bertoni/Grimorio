@@ -226,6 +226,67 @@ um PDF de verdade; compilar não pegou.
 - **Renomear faixa de trilha.** O roteiro cita a faixa pelo nome; renomear pede
   atualizar todas as cenas que a usam. Só a categoria é editável.
 
+## A auditoria de produto (16/11/2026)
+
+Uma auditoria de design e acessibilidade achou 60 problemas (6 graves). As decisões que vieram
+dela, e o porquê:
+
+- **As abas nunca somem.** Entre 561 e ~1190px elas encolhiam até zero atrás dos botões do
+  topo, e no tablet não havia como chegar a Sessões ou Elenco. Agora os rótulos dos botões saem
+  abaixo de 1280px e, abaixo de 900px, as abas descem para uma barra fixa embaixo, com as ações
+  num menu "Mais". O Artur escolheu a barra de baixo em vez de manter as abas no topo.
+- **Caixa alta só em rótulo curto** (decisão do Artur). Botões, abas, avisos e títulos de seção
+  passaram para caixa normal; eyebrow, chip e rótulo de campo continuam em caixa alta.
+- **Os efeitos de tema ficaram como estavam** (decisão do Artur): o sangue, a vinha e o LED
+  continuam também nos blocos de leitura. Só entrou a parte de desempenho que não muda o
+  visual: o fundo animado para com a aba escondida e após 20s parado, e o topo trocou o
+  desfoque por fundo opaco.
+- **Escalas em tokens** (`css/tokens.css`) no lugar de mais de 60 tamanhos de letra, 104
+  paddings e 26 z-index soltos; os valores antigos foram arredondados para o degrau mais perto
+  por script, e a ordem relativa das camadas locais do quadro foi mantida à mão.
+- **Contraste corrigido nos temas**, clareando (ou escurecendo, nos claros) só a cor que falhava
+  até 4,5:1. Ficou o teste automático para tema novo não regredir.
+- **Endereço por hash, não por caminho**: o jar só serve arquivos e /api, e hash não exige rota
+  nova no servidor nem mexe na segurança.
+- **"Tentar de novo" carimbava guia antigo como versão 3**: o boot recusava o formato antigo, o
+  botão não. Os dois agora passam por `aceitaGuia()`, e as telas que dependem do guia mostram o
+  aviso em vez de uma tela vazia que convidava a editar.
+- **Miniatura gerada pelo servidor sob demanda** (`?mini=1`), e não no envio: assim vale também
+  para imagem que veio por pacote ou por upload direto no volume. O WebP é lido pela
+  TwelveMonkeys (`imageio-webp`); a miniatura sai em JPEG, ou PNG se tiver transparência.
+- **Recuperação de senha por e-mail, privacidade, termos e contagem de uso** entraram a pedido do
+  Artur. A contagem é própria e anônima (dia, evento, total), sem serviço externo e sem cookie
+  novo, por isso não há banner de cookies: o único cookie continua sendo o de sessão.
+- **Tour curto na primeira entrada** (7 passos) com convite para o completo; o completo continua
+  em Configurações. O Enter deixou de avançar o tour de qualquer lugar.
+
+O que ficou de fora dessa leva: converter as animações dos efeitos de tema para só transform e
+opacity (mexeria no desenho dos efeitos, que o Artur quis manter), e a varredura completa dos
+avisos de estilo do Sonar nos arquivos antigos que não foram reescritos.
+
+### Segunda rodada (16/11/2026)
+
+A segunda auditoria achou 26 itens, nenhum grave; os corrigidos foram:
+- a regressão dos botões da sessão entre 861 e 1280px;
+- os 320px;
+- a sugestão de tema sobre a barra;
+- o primário preenchido;
+- Configurações em lista no celular, com gravação ao sair do campo;
+- a barra do jogador com "Mais";
+- a barra de jogo e a gaveta da sessão no celular;
+- as escalas em momentos e efeitos;
+- sombras em `--e`/`--brilho`;
+- janelas sem desfoque;
+- texto nítido no quadro (sem `will-change` fixo);
+- territórios que se afastam ao soltar;
+- o menu de posição dos painéis;
+- a cor do mestre fora do texto;
+- uma varredura mecânica do Sonar nos JS antigos.
+
+Ficaram de propósito:
+- os dois loops de efeito que repintam (maré do Abismo e LED do Neon). Só rodam no hover de um bloco, numa área pequena, e convertê-los mudaria o desenho;
+- o efeito nos blocos de leitura, por decisão de produto.
+
 ## Pendências e ideias
 
 - Renomear o repositório de `campanha` para `grimorio`.

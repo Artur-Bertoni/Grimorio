@@ -113,7 +113,7 @@ function renomearLivro(id,nome,depois){
   formulario("Nome do livro",[{k:"nome",rot:"Nome que aparece",obrig:true}],{nome:nome},{salvar:function(w){
     api(cAPI("/midia/"+id),{method:"PUT",body:{nome:String(w.nome).trim()}})
       .then(function(){ recarregaCatalogo(); recarregaIndice(); depois(); toast("Nome salvo"); })
-      .catch(function(e){ toast((e&&e.message)||"não deu"); }); }});
+      .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }});
 }
 /* A categoria mora em cada faixa (no servidor); a cor mora no guia. Renomear a
    categoria percorre as faixas dela e os blocos de trilha que a citam. */
@@ -142,5 +142,5 @@ function moverFaixa(id,nome,atual,cats,depois){
     {categoria:atual},{salvar:function(w){
       api(cAPI("/midia/"+id),{method:"PUT",body:{categoria:String(w.categoria).trim()}})
         .then(function(){ recarregaCatalogo(); depois(); toast("Faixa movida"); })
-        .catch(function(e){ toast((e&&e.message)||"não deu"); }); }});
+        .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }});
 }

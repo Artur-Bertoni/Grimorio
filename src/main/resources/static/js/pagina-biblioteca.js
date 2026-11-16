@@ -11,7 +11,7 @@ function viewBiblioteca(){
 }
 function hydrateBiblioteca(v){
   var k=S.bib;
-  $$("[data-bib]",v).forEach(function(b){ b.onclick=function(){ S.bib=b.getAttribute("data-bib"); render(); }; });
+  $$("[data-bib]",v).forEach(function(b){ b.onclick=function(){ S.bib=b.dataset.bib; render(); }; });
   function aqui(){ return S.view==="biblioteca"&&S.bib===k&&!!$("#bbList",v); }
   function lista(){
     api(cAPI("/midia")).then(function(c){ if(!aqui())return; c=c||{};
@@ -23,30 +23,31 @@ function hydrateBiblioteca(v){
           return {nome:ct,cor:catColor(ct),faixas:porCat[ct]}; })}); }
       if(k==="imagens")alvo.innerHTML=htmlDe("t-bib-imagens",{imagens:c.imagens||[]});
       $$("[data-pub]",alvo).forEach(function(b){ b.onclick=function(){ b.disabled=true;
-        api(cAPI("/midia/"+b.getAttribute("data-pub")),{method:"PUT",body:{publico:b.getAttribute("data-v")==="1"}})
+        api(cAPI("/midia/"+b.dataset.pub),{method:"PUT",body:{publico:b.dataset.v==="1"}})
           .then(function(){ recarregaIndice(); lista(); })
-          .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); }); }; });
+          .catch(function(e){ b.disabled=false; toast(mensagemDeErro(e),"erro"); }); }; });
       $$("[data-reidx]",alvo).forEach(function(b){ b.onclick=function(){ b.disabled=true; b.textContent="lendo…";
-        api(cAPI("/midia/"+b.getAttribute("data-reidx")+"/reindexar"),{method:"POST"}).then(function(r){ r=r||{};
+        api(cAPI("/midia/"+b.dataset.reidx+"/reindexar"),{method:"POST"}).then(function(r){ r=r||{};
           recarregaIndice(); if(aqui())lista();
           toast(r.comCapitulo?(r.comCapitulo+" de "+r.paginas+" páginas ganharam capítulo")
             :"Índice refeito. Este PDF não traz sumário interno, então fica sem capítulos"); })
-        .catch(function(e){ b.disabled=false; b.textContent="Reler capítulos"; toast((e&&e.message)||"não deu"); }); }; });
-      $$("[data-ren]",alvo).forEach(function(b){ b.onclick=function(){ renomearLivro(b.getAttribute("data-ren"),b.getAttribute("data-nome"),lista); }; });
-      $$("[data-cated]",alvo).forEach(function(b){ b.onclick=function(){ var ct=b.getAttribute("data-cated");
+        .catch(function(e){ b.disabled=false; b.textContent="Reler capítulos"; toast(mensagemDeErro(e),"erro"); }); }; });
+      $$("[data-ren]",alvo).forEach(function(b){ b.onclick=function(){ renomearLivro(b.dataset.ren,b.dataset.nome,lista); }; });
+      $$("[data-cated]",alvo).forEach(function(b){ b.onclick=function(){ var ct=b.dataset.cated;
         editarCategoria(ct,(porCat&&porCat[ct])||[],function(){ if(aqui())lista(); }); }; });
       $$("[data-fxcat]",alvo).forEach(function(b){ b.onclick=function(){
-        moverFaixa(b.getAttribute("data-fxcat"),b.getAttribute("data-nome"),b.getAttribute("data-cat"),Object.keys(porCat||{}).sort(),function(){ if(aqui())lista(); }); }; });
-      $$("[data-abrir]",alvo).forEach(function(b){ b.onclick=function(){ abrirPdf(b.getAttribute("data-abrir"),1); }; });
-      $$("[data-toca]",alvo).forEach(function(b){ b.onclick=function(){ tocar(b.getAttribute("data-toca")); }; });
-      $$("[data-ver]",alvo).forEach(function(n){ n.onclick=function(){ projetar(n.getAttribute("data-ver"),n.getAttribute("data-cap")); }; });
+        moverFaixa(b.dataset.fxcat,b.dataset.nome,b.dataset.cat,Object.keys(porCat||{}).sort(),function(){ if(aqui())lista(); }); }; });
+      $$("[data-abrir]",alvo).forEach(function(b){ b.onclick=function(){ abrirPdf(b.dataset.abrir,1); }; });
+      $$("[data-toca]",alvo).forEach(function(b){ b.onclick=function(){ tocar(b.dataset.toca); }; });
+      $$("[data-ver]",alvo).forEach(function(n){ n.onclick=function(){ projetar(n.dataset.ver,n.dataset.cap); }; });
       $$("[data-del]",alvo).forEach(function(b){ b.onclick=function(){
         /* arquivo apagado no servidor nao volta: aqui a confirmacao e de verdade */
-        if(!confirm('Remover "'+b.getAttribute("data-nome")+'"? O arquivo sai do servidor e não dá para desfazer.'))return;
-        b.disabled=true;
-        api(cAPI("/midia/"+b.getAttribute("data-del")),{method:"DELETE"})
-          .then(function(){ recarregaCatalogo(); recarregaIndice(); lista(); })
-          .catch(function(e){ b.disabled=false; toast((e&&e.message)||"não deu"); }); }; });
+        confirmar("O arquivo sai do servidor e não dá para desfazer.",{titulo:"Apagar “"+b.dataset.nome+"”?",sim:"Apagar o arquivo"}).then(function(sim){
+          if(!sim)return;
+          b.disabled=true; b.setAttribute("aria-busy","true");
+          api(cAPI("/midia/"+b.dataset.del),{method:"DELETE"})
+            .then(function(){ toast("Arquivo apagado","ok"); recarregaCatalogo(); recarregaIndice(); lista(); })
+            .catch(function(e){ b.disabled=false; b.removeAttribute("aria-busy"); toast(mensagemDeErro(e),"erro"); }); }); }; });
     }).catch(function(){ if(aqui())$("#bbList",v).innerHTML=htmlDe("t-vazio",{texto:"Não consegui listar."}); });
   }
   lista();
@@ -98,5 +99,5 @@ function hydrateBiblioteca(v){
       recarregaCatalogo(); recarregaIndice(); lista();
       var n=(r.pdfs||0)+(r.audios||0)+(r.imagens||0);
       toast(n?((r.pdfs||0)+" PDFs, "+(r.audios||0)+" faixas e "+(r.imagens||0)+" imagens registrados"):"Nada novo no volume");
-    }).catch(function(e){ sc.disabled=false; sc.textContent="Reescanear o volume"; toast((e&&e.message)||"não deu"); }); };
+    }).catch(function(e){ sc.disabled=false; sc.textContent="Reescanear o volume"; toast(mensagemDeErro(e),"erro"); }); };
 }

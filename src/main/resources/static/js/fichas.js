@@ -12,7 +12,7 @@ var FICHA_PADRAO=[{sec:"Identidade",rot:"Conceito",tipo:"texto"},{sec:"Identidad
   {sec:"Equipamento",rot:"Itens",tipo:"area"},{sec:"Anotações",rot:"Notas",tipo:"area"}];
 function fichaModelo(){ return (Array.isArray(MESA.fichaModelo)&&MESA.fichaModelo.length)?MESA.fichaModelo:FICHA_PADRAO; }
 function fichaFormula(){ return typeof MESA.fichaFormula==="string"?MESA.fichaFormula:"1d20+{v}"; }
-function fichaDados(f){ if(f._c)return f._c; var c={}; try{ c=JSON.parse(f.json||"{}")||{}; }catch(e){}
+function fichaDados(f){ if(f._c)return f._c; var c={}; try{ c=JSON.parse(f.json||"{}")||{}; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   if(!Array.isArray(c.campos))c.campos=[]; f._c=c; return c; }
 function fichaCampoLimpo(x){ var t=String((x&&x.tipo)||"texto");
   if(!FICHA_TIPOS.some(function(o){ return o[0]===t; }))t="texto";
@@ -34,7 +34,7 @@ function pintaFichas(){
     return {id:f.id,nome:f.nome,dono:GM&&!f.minha?f.dono:"",campos:c.campos.length,
       barras:c.campos.filter(function(x){ return x.tipo==="barra"&&x.max; }).slice(0,2)}; })});
   $$("[data-ficha]",box).forEach(function(b){ b.onclick=function(){
-    abrirFicha(FICHAS.filter(function(f){ return String(f.id)===b.getAttribute("data-ficha"); })[0]); }; });
+    abrirFicha(FICHAS.filter(function(f){ return String(f.id)===b.dataset.ficha; })[0]); }; });
 }
 function ligarFichas(){
   carregaFichas().then(pintaFichas).catch(function(){ var b=$("#fxList"); if(b)b.innerHTML=htmlDe("t-vazio",{texto:"Não consegui ler as fichas."}); });
@@ -61,10 +61,11 @@ function editarFicha(f,depois){
     salvar:function(w){ f.nome=String(w.nome).trim()||"Sem nome";
       c.campos=(w.campos||[]).map(fichaCampoLimpo).filter(function(x){ return x.rot||x.val; });
       gravaFicha(f,true); pintaFichas(); if(depois)depois(); },
-    remover:function(){ if(!confirm("Apagar esta ficha? Não tem volta."))return;
+    remover:function(){ confirmar("A ficha sai do servidor e não dá para desfazer.",{titulo:"Apagar esta ficha?",sim:"Apagar a ficha"}).then(function(sim){
+      if(!sim)return;
       api(cAPI("/fichas/"+f.id),{method:"DELETE"}).then(function(){
-        FICHAS=FICHAS.filter(function(x){ return x!==f; }); pintaFichas(); if(depois)depois(true); toast("Ficha apagada"); })
-       .catch(function(e){ toast((e&&e.message)||"não deu"); }); }
+        FICHAS=FICHAS.filter(function(x){ return x!==f; }); pintaFichas(); if(depois)depois(true); toast("Ficha apagada","ok"); })
+       .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); }
   });
 }
 function editarModeloFicha(){
@@ -84,7 +85,7 @@ function fichaCorpoHtml(f){
   return htmlDe("t-ficha-corpo",{rola:!!fichaFormula(),secoes:secs.map(function(s){ var l=mapa[s];
     return {nome:s,nums:l.filter(function(o){ return o.x.tipo==="num"; }),
       resto:l.filter(function(o){ return o.x.tipo!=="num"; }).map(function(o){
-        var mx=parseFloat(o.x.max)||0, v=parseFloat(o.x.val)||0;
+        var mx=Number.parseFloat(o.x.max)||0, v=Number.parseFloat(o.x.val)||0;
         return {x:o.x,i:o.i,pc:mx>0?Math.max(0,Math.min(100,v/mx*100)):0}; })}; })});
 }
 function abrirFicha(f){
@@ -92,19 +93,22 @@ function abrirFicha(f){
   var ov=overlay(f.nome,"",{wide:true,cls:"fichasheet",head:htmlDe("t-ficha-cabeca",{mestre:GM})});
   $(".sbodyscroll",ov).appendChild(el("div",{id:"fxBody"}));
   var fm=$("#fxMod",ov); if(fm)fm.onclick=function(){
-    if(!confirm("Trocar o modelo de ficha da campanha pelos campos desta ficha? As fichas que já existem não mudam."))return;
+    /* reversivel: troca na hora e oferece desfazer, como as outras remocoes */
+    var antes=MESA.fichaModelo;
     MESA.fichaModelo=fichaDados(f).campos.map(function(x){ return {sec:x.sec,rot:x.rot,tipo:x.tipo}; }).filter(function(x){ return x.rot; });
-    salvarMesa(); toast("Modelo trocado: "+MESA.fichaModelo.length+" campos"); };
+    salvarMesa();
+    toastAcao("Modelo trocado: "+MESA.fichaModelo.length+" campos. As fichas que já existem não mudam.","Desfazer",function(){
+      MESA.fichaModelo=antes; salvarMesa(); toast("Desfeito","ok"); }); };
   function pinta(){
     if(!document.body.contains(ov))return;
-    ov.querySelector("h3").textContent=f.nome+(GM&&!f.minha?" · "+f.dono:"");
+    ov.querySelector(".stit").textContent=f.nome+(GM&&!f.minha?" · "+f.dono:"");
     var b=$("#fxBody",ov), c=fichaDados(f); b.innerHTML=fichaCorpoHtml(f);
-    $$("[data-fb]",b).forEach(function(bt){ bt.onclick=function(e){ var x=c.campos[+bt.getAttribute("data-fb")];
-      var mx=parseFloat(x.max), v=(parseFloat(x.val)||0)+(+bt.getAttribute("data-d"))*(e.shiftKey?5:1);
+    $$("[data-fb]",b).forEach(function(bt){ bt.onclick=function(e){ var x=c.campos[+bt.dataset.fb];
+      var mx=Number.parseFloat(x.max), v=(Number.parseFloat(x.val)||0)+(+bt.dataset.d)*(e.shiftKey?5:1);
       if(v<0)v=0; if(isFinite(mx)&&mx>0&&v>mx)v=mx; x.val=String(v); gravaFicha(f); pinta(); pintaFichas(); }; });
-    $$("[data-fc]",b).forEach(function(ck){ ck.onchange=function(){ c.campos[+ck.getAttribute("data-fc")].val=ck.checked?"1":""; gravaFicha(f); }; });
-    $$("[data-fn]",b).forEach(function(bt){ bt.onclick=function(){ var x=c.campos[+bt.getAttribute("data-fn")], fo=fichaFormula(); if(!fo)return;
-      var n=parseInt(String(x.val).replace(/[^\d+-]/g,""),10)||0;
+    $$("[data-fc]",b).forEach(function(ck){ ck.onchange=function(){ c.campos[+ck.dataset.fc].val=ck.checked?"1":""; gravaFicha(f); }; });
+    $$("[data-fn]",b).forEach(function(bt){ bt.onclick=function(){ var x=c.campos[+bt.dataset.fn], fo=fichaFormula(); if(!fo)return;
+      var n=Number.parseInt(String(x.val).replace(/[^\d+-]/g,""),10)||0;
       abrirDados({formula:fo.replace(/\{v\}/g,(n<0?"-":"")+Math.abs(n)).replace(/\+-/g,"-"),rotulo:x.rot+" · "+f.nome,auto:true}); }; });
   }
   $("#fxEd",ov).onclick=function(){ editarFicha(f,function(apagou){ if(apagou)ov.close(); else pinta(); }); };

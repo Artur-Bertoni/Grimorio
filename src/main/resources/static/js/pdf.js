@@ -20,7 +20,7 @@ async function abrirPdf(ab,page,back){
   var st={p:page||1,z:1,pdf:null,busy:false};
   try{ st.pdf=await carregaPdf(ab); }catch(e){ $("#pCanvas",ov).innerHTML=htmlDe("t-vazio",{texto:"Falha ao abrir o PDF."}); return; }
   if(!st.pdf)return;
-  ov.querySelector("h3").textContent=st.pdf.nome;
+  ov.querySelector(".stit").textContent=st.pdf.nome;
   $("#pTot",ov).textContent=st.pdf.doc.numPages;
   async function draw(dir){
     if(st.busy)return; st.busy=true;
@@ -31,8 +31,8 @@ async function abrirPdf(ab,page,back){
       /* o padding cresce com a raiz: descontar um numero fixo deixava a pagina 4px maior que a
          caixa no ultrawide, e isso acendia a barra de rolagem */
       var cs=getComputedStyle(box);
-      var w=box.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-2,
-          h=box.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-2;
+      var w=box.clientWidth-Number.parseFloat(cs.paddingLeft)-Number.parseFloat(cs.paddingRight)-2,
+          h=box.clientHeight-Number.parseFloat(cs.paddingTop)-Number.parseFloat(cs.paddingBottom)-2;
       var v1=pg.getViewport({scale:1});
       var fit=Math.min((w>80?w:900)/v1.width,(h>80?h:1200)/v1.height);
       var vp=pg.getViewport({scale:Math.max(.2,fit*st.z)});
@@ -53,7 +53,7 @@ async function abrirPdf(ab,page,back){
         st.vt=setTimeout(function(){ $$("canvas.sai",box).forEach(function(x){ x.remove(); });
           $$("canvas.vem",box).forEach(function(x){ x.className=""; }); box.classList.remove("virando"); },650);
       } else { box.innerHTML=""; box.appendChild(cv); box.classList.remove("virando"); }
-    }catch(e){}
+    }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     st.busy=false;
   }
   function vai(d){ var n=Math.max(1,Math.min(st.pdf.doc.numPages,st.p+d)); if(n===st.p)return; st.p=n; som("pagina"); draw(d); }
@@ -70,7 +70,7 @@ async function abrirPdf(ab,page,back){
       sheet.classList.add("fs"); if(r&&r.catch)r.catch(function(){toast("Tela cheia não permitida aqui");});
       setTimeout(draw,220); } };
   document.addEventListener("fullscreenchange",function(){ if(!document.fullscreenElement)sheet.classList.remove("fs"); setTimeout(draw,180); });
-  var kh=function(e){ if(!document.body.contains(ov))return;
+  var kh=function(e){ if(!document.body.contains(ov)||!teclaDaCamada(e,ov))return;
     if(e.key==="ArrowRight"||e.key==="PageDown"){e.preventDefault();vai(1);}
     else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();vai(-1);} };
   document.addEventListener("keydown",kh);

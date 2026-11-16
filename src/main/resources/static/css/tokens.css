@@ -1,0 +1,57 @@
+/* ---------- ESCALAS ----------
+   Primeira folha de proposito: todas as outras falam nestes nomes. Tamanho de letra, espaco,
+   canto, sombra, camada e tempo saem daqui; valor solto no meio de uma regra e o que fazia o
+   app ter mais de 60 tamanhos de fonte e 100 paddings diferentes. Cor nao mora aqui: e do tema
+   (TEMAS em js/tema.js), com o padrao do Sangue em base.css. */
+:root{
+  /* letra: 7 degraus. O menor (12px) e o piso de leitura; texto corrido e o 4 */
+  --fs-1:.75rem;
+  --fs-2:.8125rem;
+  --fs-3:.875rem;
+  --fs-4:1rem;
+  --fs-5:1.25rem;
+  --fs-6:1.625rem;
+  --fs-7:clamp(1.875rem,4.6vw,2.75rem);
+  /* altura de linha: titulo, interface, texto */
+  --lh-titulo:1.15; --lh-ui:1.35; --lh-texto:1.6;
+  /* caixa alta so em rotulo curto: dois espacamentos */
+  --tr-caixa:.1em; --tr-caixa-larga:.2em;
+
+  /* espaco: base de 4px */
+  --s-1:.25rem; --s-2:.5rem; --s-3:.75rem; --s-4:1rem;
+  --s-5:1.25rem; --s-6:1.5rem; --s-7:2rem; --s-8:3rem;
+
+  /* cantos: --r-xs para chip e tag, --r-pill para o que e redondo. --rb (botao) e --rc (bloco)
+     sao do estilo e moram em pele.css e estilos.css */
+  --r-xs:.1875rem; --r-pill:999px;
+
+  /* controles: tres alturas, e o alvo minimo de toque */
+  --ctl-p:1.5rem; --ctl-m:2rem; --ctl-g:2.5rem; --alvo:2.75rem;
+
+  /* camadas, de baixo para cima */
+  --z-fundo:-1;
+  --z-elevado:2;
+  --z-fixo:50;
+  --z-barra:55;
+  --z-painel:65;
+  --z-janela:80;
+  --z-menu:90;
+  --z-projecao:95;
+  --z-momento:110;
+  --z-toast:120;
+  --z-tour:140;
+
+  /* tempo: rapido (resposta ao toque), medio (estado), lento (entrada). Efeito longo de
+     momento ou de tema fica fora da escala de proposito */
+  --dur-1:.12s; --dur-2:.2s; --dur-3:.32s;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --ease-sai:cubic-bezier(.4,0,1,1);
+
+  /* fundo de quem projeta imagem ou PDF: preto em qualquer tema, como uma tela de cinema */
+  --palco:#000;
+  /* base das sombras; a intensidade de cada uma vem de --sh, que o esquema claro troca */
+  --sombra:#000;
+
+  /* altura da barra de abas do celular; 0 quando ela nao existe */
+  --barra-h:0px;
+}

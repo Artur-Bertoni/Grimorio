@@ -37,6 +37,8 @@ function rotuloDaAlca(alca){
   if(!t)return "mover";
   return t.length>48?t.slice(0,46)+"…":t;
 }
+function emGrade(lista){ var cs=getComputedStyle(lista);
+  return cs.display==="grid"&&cs.gridTemplateColumns.trim().split(/\s+/).length>1; }
 /* quem rola quando o arraste chega perto da borda: a janela do formulario ou a pagina */
 function rolavelDe(n){
   for(var p=n;p&&p!==document.body;p=p.parentElement){
@@ -67,7 +69,8 @@ function ligarOrdem(raiz,tratador){
       var dx=Math.max(r.left-x,0,x-r.right), dy=Math.max(r.top-y,0,y-r.bottom), d=dx*dx+dy*dy;
       if(d<dist){ dist=d; melhor={k:k,r:r}; } });
     if(!melhor)return null;
-    var r=melhor.r, depois=arr.x?x>r.left+r.width/2:y>r.top+r.height/2;
+    /* numa grade de varias colunas a ordem corre em linhas: antes/depois e pela metade da largura */
+    var r=melhor.r, depois=(arr.x||arr.grade)?x>r.left+r.width/2:y>r.top+r.height/2;
     return {k:melhor.k+(depois?1:0),r:r,depois:depois};
   }
   function marca(){
@@ -75,7 +78,7 @@ function ligarOrdem(raiz,tratador){
     arr.para=a?a.k:null; l.hidden=!a;
     if(!a)return;
     var r=a.r;
-    if(arr.x){ l.style.left=((a.depois?r.right:r.left)-2)+"px"; l.style.top=r.top+"px";
+    if(arr.x||arr.grade){ l.style.left=((a.depois?r.right:r.left)-2)+"px"; l.style.top=r.top+"px";
       l.style.width="3px"; l.style.height=r.height+"px"; }
     else { l.style.left=r.left+"px"; l.style.top=((a.depois?r.bottom:r.top)-2)+"px";
       l.style.width=r.width+"px"; l.style.height="3px"; }
@@ -142,7 +145,7 @@ function ligarOrdem(raiz,tratador){
     e.preventDefault();
     arr={fn:o.fn,lista:o.lista,item:o.item,i:o.i,x:o.x,alca:alca,itens:itens,
       sx:e.clientX,sy:e.clientY,cx:e.clientX,cy:e.clientY,ativo:false,para:null,
-      sc:rolavelDe(o.lista),pid:e.pointerId};
+      sc:rolavelDe(o.lista),pid:e.pointerId,grade:emGrade(o.lista)};
     escuta(true);
   });
   /* imagem de alca nao pode abrir o arrastar nativo do navegador */
@@ -158,11 +161,32 @@ function ligarOrdem(raiz,tratador){
     e.preventDefault(); e.stopPropagation();
     var para=o.i+passo;
     if(para<0||para>=itensDaLista(o.lista).length)return;
-    var chave=chaveDaLista(o.lista);
-    o.fn(o.lista,o.i,para);
-    setTimeout(function(){ var l=document.querySelector(chave), n=l&&itensDaLista(l)[para];
-      n?.querySelector(".alca")?.focus(); },0);
+    moverPara(o,para);
   });
+
+  /* Clique na alca (sem arrastar) abre "Mover para…": quem nao consegue arrastar nem usar as
+     setas escolhe a posicao num menu (WCAG 2.5.7). */
+  raiz.addEventListener("click",function(e){
+    var g=e.target.closest?.("button.alca"); if(!g)return;
+    var o=alvoDeOrdem(raiz,g,tratador); if(!o)return;
+    var itens=itensDaLista(o.lista), n=itens.length; if(n<2)return;
+    var ops=[];
+    if(o.i>0)ops.push({v:"0",rot:"Para o início"});
+    if(o.i>0)ops.push({v:String(o.i-1),rot:"Uma posição "+(o.x?"para trás":"acima")});
+    if(o.i<n-1)ops.push({v:String(o.i+1),rot:"Uma posição "+(o.x?"para a frente":"abaixo")});
+    if(o.i<n-1)ops.push({v:String(n-1),rot:"Para o fim"});
+    itens.forEach(function(it,k){ if(k===o.i||k===o.i+1||ops.length>14)return;
+      var a=it.querySelector("[data-alca]")||it;
+      ops.push({v:String(k>o.i?k-1:k),rot:"Antes de: "+rotuloDaAlca(a)}); });
+    menuSolto(g,htmlDe("t-menu",{titulo:"Mover para",itens:ops}),function(b){ moverPara(o,+b.dataset.v); },{alinha:"esquerda"});
+  });
+}
+/* move, devolve o foco a alca do item na posicao nova e anuncia onde ele ficou */
+function moverPara(o,para){
+  var chave=chaveDaLista(o.lista), n=itensDaLista(o.lista).length;
+  o.fn(o.lista,o.i,para);
+  setTimeout(function(){ var l=document.querySelector(chave), it=l&&itensDaLista(l)[para];
+    it?.querySelector(".alca")?.focus(); anunciar("Posição "+(para+1)+" de "+n+"."); },0);
 }
 
 ligarOrdem(document,function(lista){ return ORDENA[lista.dataset.ordena]; });

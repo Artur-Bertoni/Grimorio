@@ -31,7 +31,7 @@ function painelRolagens(abrir){
     var hd=$("#rpHd",p), gp=$("#rpGrip",p);
     var atual=function(){ var r=p.getBoundingClientRect(); return {x:r.left,y:r.top,w:r.width,h:r.height}; };
     var arrastar=function(alvo,muda){ alvo.addEventListener("pointerdown",function(e){
-      if(e.button!==0||e.target.closest(".x")){ return; }
+      if(e.button!==0||e.target.closest("button")){ return; }
       e.preventDefault();
       var g0=atual(), sx=e.clientX, sy=e.clientY;
       try{ alvo.setPointerCapture(e.pointerId); }catch(_erro){ /* sem captura, o arraste segue pelo alvo */ }
@@ -43,6 +43,9 @@ function painelRolagens(abrir){
     arrastar(gp,function(g,dx,dy){ return {x:g.x,y:g.y,w:g.w+dx,h:g.h+dy}; });
     hd.addEventListener("dblclick",function(){ rpGeo(null); rpAplica(p,null); });
     $("#rpX",p).onclick=function(){ painelRolagens(false); };
+    $("#rpPos",p).onclick=function(){ menuPainel($("#rpPos",p),function(v){
+      var g=geometriaPainel(v,atual(),window.innerWidth,window.innerHeight);
+      rpGeo(g); rpAplica(p,g); }); };
     $("#rpForm",p).onsubmit=function(e){ e.preventDefault(); var v=$("#rpF",p).value.trim(); if(v)rolarDireto({formula:v}); };
     window.addEventListener("resize",function(){ if(!p.hidden)rpAplica(p,rpGeo()); });
   }

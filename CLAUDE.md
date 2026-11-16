@@ -45,9 +45,14 @@ src/main/resources/
                       redireciona para ela (WebConfig)
   static/componentes/ templates HTML dos componentes (janelas, formulário, busca, dados,
                       fichas, momentos, logo, estados de carregando/vazio…)
-  static/css/         folhas de estilo, na ordem da cascata (pele.css em diante: tema)
+  static/css/         folhas de estilo, na ordem da cascata: tokens.css (escalas) primeiro,
+                      controles.css (botão, aba, campo, chip, aviso) antes de pele.css, e de
+                      pele.css em diante o tema
   static/js/          o JS que preenche e liga cada página ou componente (nucleo,
-                      componentes, tema, tour, cena, pagina-*, configuracoes, render…)
+                      componentes, camadas, tema, tour, cena, pagina-*, configuracoes,
+                      rotas, render…)
+  static/paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
+  static/icones/, favicon.ico, manifest.webmanifest, robots.txt   gerados por scripts/teste-front/icones.mjs
   static/vendor/      pdf.js (módulos .mjs), petite-vue e as fontes, para não depender de CDN
   application.yml
 ```
@@ -93,6 +98,55 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
 - Recuo com quebra de linha some do HTML final (`limpaAncoras`); espaço na mesma linha
   (`</b> <span>`) fica. Entre botões inline, quebre a linha para não criar vão.
 - Para criar só a casca de um elemento (toast, janela), use `el()`.
+
+### Escalas, controles e camadas
+
+- **Valor solto não entra em regra nova.** Letra é `--fs-1`…`--fs-7` (12px é o piso), espaço é
+  `--s-1`…`--s-8` (base de 4px), canto é `--r-xs`/`--rb`/`--rc`/`--r-pill`, sombra é `--e1`
+  (cartão) / `--e2` (menu, painel, aviso) / `--e3` (janela), camada é `--z-*` e tempo é
+  `--dur-1/2/3` com `--ease`. Tudo em `css/tokens.css` (as sombras em `pele.css`, porque dependem
+  de `--sh`). Efeito longo de momento ou de tema fica fora da escala de propósito.
+- **Botão, aba, campo, chip e aviso moram só em `controles.css`.** Quatro variantes (`.btn`,
+  `.btn.sec`, `.btn.dang`, `.btn.fant`) em três alturas (40, 32, 24px); o pequeno ganha área de
+  toque invisível. Não crie outra classe de botão: use uma variante e um tamanho (`.btn.m`).
+- **O primário é preenchido** (`.btn`: fundo dourado, texto `--sobre-gold`) e há no máximo um por
+  região. Alternância ligada (`.ibtn.on`, `aria-pressed`) usa fundo `--bg4`, nunca dourado, para
+  não competir com o primário. Ação destrutiva numa barra é `.tbtn.d.encerra` (texto, sem borda).
+  Brilho de destaque é `--brilho`; borda de bloco é `--borda-bloco` (3:1 contra o fundo).
+- **Cor escolhida pelo mestre nunca é cor de texto** (território, categoria de trilha): passa como
+  `--cor` para a borda e para um ponto; o texto fica em `--fg`.
+- **Camada fixa no celular respeita `--barra-h`**: nada fixo ocupa a área da barra de abas (o
+  teste confere).
+- **Caixa alta só em rótulo curto**: eyebrow, chip, rótulo de campo. Botão, aba, aviso e título
+  de seção em caixa normal, e o texto do botão começa com maiúscula no próprio HTML.
+- **Contraste é testado.** O teste de tela calcula 4,5:1 de `fg/fg2/fg3/gold` sobre `bg…bg4`,
+  3:1 de `--campo-borda` e o texto sobre `--blood` e `--gold` nos 11 temas, e falha com `rgba(`
+  ou hex fora de definição de token. Tema novo precisa de `sobre-blood` e `campo-borda`.
+- **Tudo que abre por cima passa por `js/camadas.js`.** `overlay()` já é um diálogo (role,
+  aria-modal, foco preso, fundo `inert`, foco devolvido a quem abriu). Menu solto é
+  `menuSolto(ancora, html, escolheu)`; o que não tem volta usa `confirmar(texto, {titulo, sim})`,
+  que devolve Promise (nunca `confirm()`/`prompt()` do navegador); o resto usa `comDesfazer`.
+  Aviso é `toast(msg, "ok"|"erro"|"aviso")` (sem tipo, ele adivinha pelo começo da frase) e fica
+  numa pilha que pausa com o mouse. Atalho de teclado é `atalho({tecla, ctrl, quando, faz})`:
+  ele já respeita campo de texto, janela aberta, tour e a preferência `grim_atalhos`. Tecla de
+  navegação dentro de janela confere `teclaDaCamada(e, ov)`.
+- **Cada tela tem endereço** (`js/rotas.js`, hash: `#/c/{id}/elenco/npcs`). `render()` grava o
+  endereço, o Voltar do navegador fecha a janela de cima ou volta uma tela, e o F5 reabre onde a
+  pessoa estava. Tela nova entra em `NOME_TELA`, `TELA_DO_NOME`, `SUB_DA_TELA`/`APLICA_SUB` e
+  `TITULO_DA_TELA`. `render()` também devolve o foco ao mesmo controle no redesenho
+  (`seletorEstavel`: id ou `data-*`) e leva o foco ao `h1` na troca de tela.
+- **No celular, a sessão tem barra de jogo** (`.sessbarra`: Painel, Iniciativa, Liberar e ⋯) acima
+  das abas, e o painel abre como gaveta; cada botão aciona o controle de verdade (`#iniBtn`,
+  `#libBtn`), que continua existindo. Configurações abaixo de 1000px é uma lista de seções, cada
+  uma numa tela com voltar (`S.aj` vazio é a lista). Na tela larga a grade da Campanha se acomoda
+  por `arranjaGrade()` enquanto o navegador não tiver `masonry`. Painel solto (quadro, rolagens)
+  tem o botão "Posição e tamanho" (`menuPainel`) como alternativa ao arraste.
+- **Abaixo de 900px as abas viram a barra de baixo** e Trilha, Dados, Rolagens e Configurações
+  vão para o menu "Mais" (`#btnMais`). O jogador não tem aba "Mesa": as seções da mesa são as
+  abas dele; na barra de baixo cabem 4 e o resto vai para a aba "Mais". Ícone de aba novo é um
+  ramo em `componentes/navegacao.html`.
+- Imagem em lista ou miniatura usa `IMG(caminho, "mini")`: o servidor gera e guarda a versão de
+  até 512px (`Miniaturas`, em `img/.mini/`) na primeira vez que alguém pede.
 
 ## Modelo de dados
 
@@ -147,6 +201,15 @@ segundo plano, as cópias iguais que ficaram de antes. Duas regras seguram isso:
 Antes de gravar, o servidor confere o espaço livre. Sem espaço, ainda aceita conteúdo que já
 existe (o link não ocupa nada); senão responde **507** com `codigo: "armazenamento-cheio"`,
 e a tela mostra `avisoArmazenamento()` com o caminho para o suporte.
+
+**Conta**: o e-mail é opcional e só serve para redefinir a senha (`/api/publico/senha/esqueci` e
+`/redefinir`, token de uma hora guardado só como hash; sem SMTP a tela manda pedir à
+administração). A resposta do "esqueci" é a mesma exista a conta ou não. Tours vistos ficam na
+conta (`usuario.tours`). **Privacidade e termos** são texto do administrador (`texto.*` na tabela
+`config`, Administração › Textos legais), com um padrão em `TextosService`, e abrem sem login em
+`/privacidade` e `/termos`. **Uso** (`metrica`) é contagem anônima por dia e evento, sem pessoa
+nem campanha; o front manda `tela:{nome}` a cada troca de tela, e quem quiser desliga em
+Configurações › Privacidade e acessibilidade (`grim_metricas=0`).
 
 **Suporte** (`/api/suporte`, Configurações › Suporte): a mensagem é gravada na tabela `chamado`
 sempre e enviada por SMTP quando ele está configurado em Administração (`smtp.*` na tabela
@@ -383,7 +446,13 @@ cd scripts/teste-front && npm install      # uma vez
 node stub.mjs &
 node teste.mjs                             # FOTOS=pasta grava capturas das telas
 FOTOS=pasta node fotos-temas.mjs           # as telas principais em um tema de cada estilo
+node icones.mjs                            # refaz favicon, ícones e a prévia do convite a partir de logoSvg()
 ```
+
+Além das telas, o roteiro confere: barra de baixo e menu "Mais" no celular, todas as abas
+visíveis e nenhuma rolagem lateral em 600/768/1024/1180/1440px, janela como diálogo (foco preso,
+fundo inerte, foco devolvido), endereço por tela (Voltar e F5), contraste dos 11 temas e cor só
+por token nas folhas.
 
 O stub gera as imagens na hora e lê a campanha de teste de `campanha-teste.json`, no
 formato do guia de verdade, então roda em qualquer máquina sem conteúdo por perto. O

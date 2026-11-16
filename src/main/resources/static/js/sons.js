@@ -8,7 +8,7 @@ var SOM={ctx:null};
 var TIMBRE={fantasia:{o:"triangle",f:1},terror:{o:"sawtooth",f:.5},misterio:{o:"sine",f:.75},
   investigacao:{o:"square",f:.6},ficcao:{o:"square",f:1.5}};
 function somLigado(){ try{ return localStorage.getItem("grim_som")!=="0"; }catch(e){ return true; } }
-function somVol(){ var v=NaN; try{ v=parseFloat(localStorage.getItem("grim_somvol")); }catch(e){}
+function somVol(){ var v=NaN; try{ v=Number.parseFloat(localStorage.getItem("grim_somvol")); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   return isFinite(v)?Math.max(0,Math.min(1,v)):.5; }
 function som(n){
   if(!somLigado())return;
@@ -16,7 +16,7 @@ function som(n){
     var AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
     var c=SOM.ctx||(SOM.ctx=new AC()); if(c.state==="suspended")c.resume();
     var t0=c.currentTime, vol=somVol()*.35;
-    var tb=TIMBRE[document.documentElement.getAttribute("data-estilo")]||TIMBRE.terror;
+    var tb=TIMBRE[document.documentElement.dataset.estilo]||TIMBRE.terror;
     var nota=function(fr,ini,dur,v,tipo,ate){ var o=c.createOscillator(), g=c.createGain();
       o.type=tipo||tb.o; o.frequency.setValueAtTime(fr*tb.f,t0+ini);
       if(ate)o.frequency.exponentialRampToValueAtTime(ate*tb.f,t0+ini+dur);
@@ -39,5 +39,5 @@ function som(n){
     else if(n==="capitulo"){ nota(98,0,1.4,.9,null,98); nota(196,.05,1.2,.5); nota(294,.3,1,.4); }
     else if(n==="pedido"){ nota(660,0,.15,.6); nota(880,.16,.25,.6); }
     else if(n==="vez"){ nota(330,0,.1,.5); nota(495,.1,.18,.5); }
-  }catch(e){}
+  }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
 }

@@ -33,7 +33,10 @@ function alternaLib(tp,x){ var on=jaLib(tp,x); if(on)tirar(tp,x); else liberar(t
 function sincLib(tp,x){ if(jaLib(tp,x)){ liberar(tp,x); salvarMesa(); } }
 
 function viewMesa(){
-  return htmlDe("t-mesa",{titulo:tituloApp(),mestre:GM,ini:iniPubHtml(),abas:subnav(MSECS(),S.msec,"data-msec"),corpo:mesaSec()});
+  /* o jogador navega pelas abas do topo (ou da barra de baixo): a pagina so tem o titulo da secao */
+  var sec=(MSECS().find(function(x){ return x[0]===S.msec; })||[])[1]||Vm("mesa");
+  return htmlDe("t-mesa",{titulo:tituloApp(),mestre:GM,cabeca:GM?Vm("mesa"):sec,ini:iniPubHtml(),
+    abas:GM?subnav(MSECS(),S.msec,"data-msec"):"",corpo:mesaSec()});
 }
 function vazio(t){ return htmlDe("t-vazio",{texto:t}); }
 function linhasDe(t){ return String(t||"").split("\n"); }
@@ -59,21 +62,21 @@ function hydrateMesa(){
   var v=$("#view");
   if(S.msec==="fichas")ligarFichas();
   ligarRefEditar();
-  $$("[data-msec]",v).forEach(function(b){ b.onclick=function(){ S.msec=b.getAttribute("data-msec"); render(); }; });
+  $$("[data-msec]",v).forEach(function(b){ b.onclick=function(){ S.msec=b.dataset.msec; render(); }; });
   $$("details.resitem",v).forEach(function(d){ d.addEventListener("toggle",function(){
-    var i=+d.getAttribute("data-res");
+    var i=+d.dataset.res;
     if(d.open){ S.resAb=i; $$("details.resitem[open]",v).forEach(function(x){ if(x!==d)x.open=false; }); }
     else if(S.resAb===i)S.resAb=-1; }); });
   $$("[data-mloc]",v).forEach(function(c){ c.onclick=function(){
-    var x=(MESA.locais||[])[+c.getAttribute("data-mloc")]; if(x&&x.img)projetar(x.img,x.nome); }; });
+    var x=(MESA.locais||[])[+c.dataset.mloc]; if(x&&x.img)projetar(x.img,x.nome); }; });
   $$("[data-mev]",v).forEach(function(f){ f.onclick=function(){
-    var x=MESA.ev[+f.getAttribute("data-mev")]; if(x&&x.img)projetar(x.img,x.nome); }; });
+    var x=MESA.ev[+f.dataset.mev]; if(x&&x.img)projetar(x.img,x.nome); }; });
   var ml=$("#mLib",v); if(ml)ml.onclick=abrirLiberar;
   var ar=$("#mAddRes",v); if(ar)ar.onclick=function(){ editarResumo(-1); };
-  $$("[data-mres]",v).forEach(function(b){ b.onclick=function(){ editarResumo(+b.getAttribute("data-mres")); }; });
+  $$("[data-mres]",v).forEach(function(b){ b.onclick=function(){ editarResumo(+b.dataset.mres); }; });
   $$("[data-mresd]",v).forEach(function(b){ b.onclick=function(){
-    if(!confirm("Remover este resumo? Os jogadores deixam de ver."))return;
-    MESA.resumos.splice(+b.getAttribute("data-mresd"),1); S.resAb=null; salvarMesa(); render(); }; });
+    var i=+b.dataset.mresd;
+    comDesfazer("Resumo removido",function(){ MESA.resumos.splice(i,1); S.resAb=null; salvarMesa(); }); }; });
   if(S.msec==="notas")carregarNotas();
   if(S.msec==="mural")carregarMural();
 }
@@ -115,8 +118,8 @@ function abrirLiberar(){
       return {id:x.id,nome:x.nome,on:jaLib(tp,x),daSessao:ids.indexOf(x.id)>=0}; })}; });
   var ov=overlay("Liberar para a "+V("mesa").toLowerCase(),htmlDe("t-liberar",{grupos:grupos}),{wide:true});
   $$("[data-lib]",ov).forEach(function(b){ b.onclick=function(){
-    var tp=b.getAttribute("data-lib"), x=elDe(tp,b.getAttribute("data-id")); if(!x)return;
-    var on=alternaLib(tp,x); b.classList.toggle("on",on); $(".libck",b).textContent=on?"✓":""; }; });
+    var tp=b.dataset.lib, x=elDe(tp,b.dataset.id); if(!x)return;
+    var on=alternaLib(tp,x); b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); $(".libck",b).textContent=on?"✓":""; }; });
   var fechar=ov.close; ov.close=function(){ fechar(); render(); };
 }
 /* notas privadas */
@@ -125,25 +128,25 @@ function ligarRefEditar(){ var b=document.getElementById("refEd");
 /* a caixa de anotacoes cresce pelo canto e lembra o tamanho neste aparelho */
 function ligaTamNota(t){
   try{ var g=JSON.parse(localStorage.getItem("grim_notas_tam")||"null");
-    if(g&&g.w&&g.h){ t.style.width=g.w+"px"; t.style.height=g.h+"px"; } }catch(e){}
+    if(g&&g.w&&g.h){ t.style.width=g.w+"px"; t.style.height=g.h+"px"; } }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   if(window.ResizeObserver){ var ro=new ResizeObserver(function(){
     if(!document.body.contains(t)){ ro.disconnect(); return; }
     if(!t.offsetWidth||!t.style.width&&!t.style.height&&!t.dataset.mexeu)return;
-    try{ localStorage.setItem("grim_notas_tam",JSON.stringify({w:t.offsetWidth,h:t.offsetHeight})); }catch(e){} });
+    try{ localStorage.setItem("grim_notas_tam",JSON.stringify({w:t.offsetWidth,h:t.offsetHeight})); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } });
     ro.observe(t); }
   /* so grava depois que a pessoa puxa o canto: sem isso a caixa padrao viraria "tamanho escolhido" */
   t.addEventListener("pointerdown",function(){ t.dataset.mexeu="1"; });
   var r=$("#mNotaTam"); if(r)r.onclick=function(){ t.style.width=t.style.height=""; delete t.dataset.mexeu;
-    try{ localStorage.removeItem("grim_notas_tam"); }catch(e){} };
+    try{ localStorage.removeItem("grim_notas_tam"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } };
 }
 function carregarNotas(){ var t=$("#mNotas"), st=$("#mNotaSt"), b=$("#mNotaSave"); if(!t)return;
   ligaTamNota(t);
-  try{ t.value=localStorage.getItem(("grim_notas_"+CID+"_"+MYID))||""; }catch(e){}
+  try{ t.value=localStorage.getItem(("grim_notas_"+CID+"_"+MYID))||""; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   api(cAPI("/notas")).then(function(r){ if(r&&typeof r.texto==="string")t.value=r.texto;
     if(st)st.textContent="na sua conta"; })
    .catch(function(){ if(st)st.textContent="guardado só neste navegador"; });
   if(b)b.onclick=function(){
-    try{localStorage.setItem(("grim_notas_"+CID+"_"+MYID),t.value);}catch(e){}
+    try{localStorage.setItem(("grim_notas_"+CID+"_"+MYID),t.value);}catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     if(st)st.textContent="salvando…";
     api(cAPI("/notas"),{method:"PUT",body:{texto:t.value}})
       .then(function(){ if(st)st.textContent="salvo"; })
@@ -157,7 +160,7 @@ function pintarMural(){ var box=$("#mural"); if(!box)return;
   box.innerHTML=htmlDe("t-mural-posts",{posts:MURAL.map(function(p){
     return {id:p.id,autor:p.autor||"Alguém",quando:quando(p.em),meu:(String(p.usuarioId)===MYID)||GM,linhas:linhasDe(p.texto)}; })});
   $$("[data-mdel]",box).forEach(function(b){ b.onclick=function(){
-    api(cAPI("/mural/"+encodeURIComponent(b.getAttribute("data-mdel"))),{method:"DELETE"})
+    api(cAPI("/mural/"+encodeURIComponent(b.dataset.mdel)),{method:"DELETE"})
       .then(carregarMural).catch(function(){toast("Não consegui apagar");}); }; });
 }
 function carregarMural(){ var box=$("#mural"); if(!box)return;

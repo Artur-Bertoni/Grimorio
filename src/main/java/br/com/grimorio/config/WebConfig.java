@@ -32,6 +32,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addRedirectViewController("/login.html", "/paginas/login.html").setKeepQueryParams(true);
+        /* privacidade e termos: endereco curto, a mesma pagina, que escolhe o texto pelo caminho */
+        registry.addViewController("/privacidade").setViewName("forward:/paginas/legal.html");
+        registry.addViewController("/termos").setViewName("forward:/paginas/legal.html");
     }
 
     @Override
@@ -58,7 +61,8 @@ public class WebConfig implements WebMvcConfigurer {
             String caminho = (pedido instanceof HttpServletRequest http)
                     ? http.getRequestURI() : "";
             if (caminho.endsWith("/") || caminho.endsWith(".html")
-                    || caminho.endsWith(".js") || caminho.endsWith(".mjs") || caminho.endsWith(".css")) {
+                    || caminho.endsWith(".js") || caminho.endsWith(".mjs") || caminho.endsWith(".css")
+                    || caminho.endsWith(".webmanifest") || caminho.equals("/privacidade") || caminho.equals("/termos")) {
                 resposta.setCharacterEncoding("UTF-8");
             }
             cadeia.doFilter(pedido, resposta);

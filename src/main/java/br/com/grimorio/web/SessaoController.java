@@ -4,6 +4,7 @@ import br.com.grimorio.model.Campanha;
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.ConfigService;
+import br.com.grimorio.service.MetricaService;
 import br.com.grimorio.service.UsuarioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -20,13 +21,26 @@ public class SessaoController {
     private final ConfigService config;
     private final UsuarioService usuarios;
     private final CampanhaService campanhas;
+    private final MetricaService metricas;
 
     public SessaoController(Atual atual, ConfigService config, UsuarioService usuarios,
-                            CampanhaService campanhas) {
+                            CampanhaService campanhas, MetricaService metricas) {
         this.atual = atual;
         this.config = config;
         this.usuarios = usuarios;
         this.campanhas = campanhas;
+        this.metricas = metricas;
+    }
+
+    public static class Uso {
+        public String evento;
+    }
+
+    /** Contagem anonima de uso (ver Metrica): so o nome do evento entra, nunca quem mandou. */
+    @PostMapping("/metrica")
+    public ResponseEntity<Void> metrica(@RequestBody Uso u) {
+        metricas.contar(u.evento);
+        return ResponseEntity.noContent().build();
     }
 
     /** Aberto: a tela de login (paginas/login.html) usa para pegar o cookie de CSRF antes de postar. */
@@ -46,6 +60,8 @@ public class SessaoController {
         m.put("id", u.getId());
         m.put("login", u.getLogin());
         m.put("nome", u.getNome());
+        m.put("email", u.getEmail());
+        m.put("toursVistos", UsuarioService.toursVistos(u));
         m.put("admin", u.isAdmin());
         m.put("campanhas", campanhas.minhas(u.getId()));
         m.putAll(config.publico());
@@ -56,6 +72,10 @@ public class SessaoController {
         public String nome;
         public String senhaAtual;
         public String senhaNova;
+        /* null deixa como esta; texto vazio tira o e-mail */
+        public String email;
+        /* "mestre" ou "jogador": tour guiado que a pessoa terminou ou pulou */
+        public String tourVisto;
     }
 
     /**
@@ -68,14 +88,17 @@ public class SessaoController {
         Usuario u = atual.usuario();
         boolean querSenha = p.senhaNova != null && !p.senhaNova.isBlank();
         if (querSenha && !usuarios.conferirSenha(u.getId(), p.senhaAtual))
-            return ResponseEntity.status(403).body(Map.of("erro", "a senha atual nao confere"));
+            return ResponseEntity.status(403).body(Map.of("erro", "a senha atual não confere"));
         if (p.nome != null && !p.nome.isBlank()) usuarios.renomear(u.getId(), p.nome);
+        if (p.email != null) usuarios.definirEmail(u.getId(), p.email);
+        if (p.tourVisto != null) usuarios.marcarTour(u.getId(), p.tourVisto);
         if (querSenha) usuarios.trocarSenha(u.getId(), p.senhaNova);
         Usuario d = usuarios.porId(u.getId());
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("id", d.getId());
         r.put("login", d.getLogin());
         r.put("nome", d.getNome());
+        r.put("email", d.getEmail());
         r.put("senhaTrocada", querSenha);
         return ResponseEntity.ok(r);
     }
@@ -96,7 +119,7 @@ public class SessaoController {
         boolean primeiro = usuarios.quantos() == 0;
         boolean temConvite = c.convite != null && !c.convite.isBlank();
         if (!primeiro && !config.registroAberto() && !temConvite)
-            return ResponseEntity.status(403).body(Map.of("erro", "esta instancia nao aceita cadastro aberto"));
+            return ResponseEntity.status(403).body(Map.of("erro", "esta instância não aceita cadastro aberto"));
 
         Usuario u = usuarios.criar(c.login, c.nome, c.senha, primeiro);
         Map<String, Object> r = new LinkedHashMap<>();

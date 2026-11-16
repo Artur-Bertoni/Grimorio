@@ -10,4 +10,6 @@ public interface UsuarioRepo extends JpaRepository<Usuario, Long> {
     boolean existsByLoginIgnoreCase(String login);
     List<Usuario> findAllByOrderByPapelAscNomeAsc();
     long countByAdminTrue();
+    Optional<Usuario> findByEmailIgnoreCase(String email);
+    Optional<Usuario> findByResetHash(String resetHash);
 }

@@ -3,16 +3,16 @@
 
 /* ---------- HOME ---------- */
 var BOOTERR="";
-function viewVazio(){ return htmlDe("t-guia-falhou",{motivo:BOOTERR}); }
+function viewVazio(){ return htmlDe("t-guia-falhou",{motivo:BOOTERR,antigo:BOOTERR===MSG_FORMATO_ANTIGO}); }
 function hydrateVazio(){
   var r=$("#vwRetry"); if(r)r.onclick=function(){ recarregarGuia(); };
 }
 function recarregarGuia(){
   toast("Buscando o guia…");
   api(cAPI("/guia")).then(function(g){ VGUIA=g.versao;
-    var v=JSON.parse(g.json||"{}");
-    if(v&&v.campanha){ D=v; BOOTERR=""; normalizaCampanha(); cacheGM(g.json); render(); toast("Guia carregado"); return; }
-    BOOTERR="o guia no servidor está vazio"; render(); toast(BOOTERR);
+    BOOTERR=aceitaGuia(g.json,null);
+    if(!BOOTERR){ normalizaCampanha(); cacheGM(g.json); render(); toast("Guia carregado"); return; }
+    render(); toast(BOOTERR);
   }).catch(function(e){ BOOTERR=(e&&e.message)||String(e); render(); toast("Falhou: "+BOOTERR); });
 }
 /* a capa e caminho relativo a midia DAQUELA campanha, nao da atual: por isso nao passa por IMG() */
@@ -37,50 +37,64 @@ function viewEscolher(){
 }
 function hydrateCampanhas(v){
   $$("[data-entrar]",v).forEach(function(b){ b.onclick=function(){
-    entrarNaCampanha(b.getAttribute("data-entrar")); }; });
+    entrarNaCampanha(b.dataset.entrar); }; });
 
   var pac=$("#ncPac",v);
   if(pac)pac.onclick=function(){ escolherArquivos(false,".zip").then(function(fs){
     PACOTE=fs[0]||null;
     var n=$("#ncPacNome",v); if(n)n.textContent=PACOTE?PACOTE.name:"Nenhum pacote escolhido"; }); };
 
+  /* com campanhas, criar e entrar abrem por botao; a caixa aberta leva o foco ao primeiro campo */
+  [["#ncAbreCriar","#cxCriar","#ncNome"],["#ncAbreEntrar","#cxEntrar","#ncChave"]].forEach(function(p){
+    var b=$(p[0],v), cx=$(p[1],v); if(!b||!cx)return;
+    b.onclick=function(){ var abre=cx.hidden; cx.hidden=!abre; b.setAttribute("aria-expanded",String(abre));
+      if(abre){ cx.scrollIntoView({block:"nearest"}); $(p[2],v).focus(); } }; });
+
   var ent=$("#ncEntrar",v);
   if(ent)ent.onclick=function(){
     var k=chaveDoTexto(($("#ncChave",v)||{}).value);
-    if(!k){ toast("Cole a chave do convite"); return; }
-    ent.disabled=true;
+    if(!k){ erroNoCampo($("#ncChave",v),"Cole a chave ou o link que quem mestra te passou."); return; }
+    ent.disabled=true; ent.setAttribute("aria-busy","true");
     api("/api/convites/"+encodeURIComponent(k),{method:"POST"})
       .then(function(c){ toast("Você entrou em "+c.nome);
         return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(c.id); }); })
-      .catch(function(e){ ent.disabled=false; toast((e&&e.message)||"chave inválida"); }); };
+      .catch(function(e){ ent.disabled=false; ent.removeAttribute("aria-busy"); erroNoCampo($("#ncChave",v),mensagemDeErro(e)); }); };
 
   var go=$("#ncGo",v);
   if(go)go.onclick=function(){
     var nome=($("#ncNome",v)||{}).value||"", sis=($("#ncSis",v)||{}).value||"";
-    if(!nome.trim()){ toast("Dê um nome à campanha"); return; }
-    go.disabled=true; go.textContent="Criando…";
+    if(!nome.trim()){ erroNoCampo($("#ncNome",v),"Dê um nome à campanha."); return; }
+    go.disabled=true; go.setAttribute("aria-busy","true"); go.textContent="Criando…";
     api("/api/campanhas",{method:"POST",body:{nome:nome,sistema:sis}})
       .then(function(r){
         if(!PACOTE) return r;
         go.textContent="Importando pacote…";
         var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
-        return upload("/api/c/"+r.id+"/pacote",fd,null)
+        return upload("/api/c/"+r.id+"/pacote",fd,function(fr){ go.textContent="Enviando o pacote… "+Math.round(fr*100)+"%"; })
           .then(function(imp){ toast((imp.indices||0)+" índices e "+(imp.imagens||0)+" imagens importados"); return r; })
-          .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+((e&&e.message)||e)); return r; });
+          .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+mensagemDeErro(e),"erro"); return r; });
       })
       .then(function(r){ PACOTE=null;
         return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
-      .catch(function(e){ go.disabled=false; go.textContent="Criar"; toast((e&&e.message)||"não deu"); }); };
+      .catch(function(e){ go.disabled=false; go.removeAttribute("aria-busy"); go.textContent="Criar campanha"; toast(mensagemDeErro(e),"erro"); }); };
+}
+/* erro de um campo solto (fora do formulario()): mensagem embaixo dele, aria-invalid e foco */
+function erroNoCampo(campo,msg){ if(!campo)return;
+  var id=campo.id+"-erro", e=document.getElementById(id);
+  if(!e){ e=el("span",{"class":"dica erro",id:id}); campo.insertAdjacentElement("afterend",e);
+    campo.setAttribute("aria-describedby",((campo.getAttribute("aria-describedby")||"")+" "+id).trim());
+    campo.addEventListener("input",function(){ campo.removeAttribute("aria-invalid"); e.textContent=""; e.hidden=true; }); }
+  e.textContent=msg; e.hidden=false; campo.setAttribute("aria-invalid","true"); campo.focus();
 }
 function trocarCampanha(){
   api("/api/sessao").then(function(s2){ EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
     CID=null; GM=false; PRONTO=true; S.view=CAMPANHAS.length?"escolher":"semcampanha";
-    try{ localStorage.removeItem("grim_cid"); }catch(e){}
-    render(); }).catch(function(){ toast("não consegui listar suas campanhas"); });
+    try{ localStorage.removeItem("grim_cid"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+    render(); }).catch(function(e){ toast("Não consegui listar suas campanhas. "+mensagemDeErro(e),"erro"); });
 }
 /* ---------- navegacao interna de uma pagina ---------- */
 function subnav(itens,atual,attr){
-  return htmlDe("t-subnav",{itens:itens.map(function(x){ var a={}; a[attr]=x[0];
+  return htmlDe("t-subnav",{rotulo:null,itens:itens.map(function(x){ var a={}; a[attr]=x[0];
     return {attrs:a,texto:x[1],on:atual===x[0]}; })});
 }
 
@@ -100,14 +114,22 @@ function passosCampanha(){
     {ok:null,t:"Convide a mesa",d:"Um link por pessoa. Quem não tem conta cria na hora.",b:"Convidar",a:"ir-mesa"}
   ];
 }
+/* Primeiros passos: dispensar vale para quem dispensou (neste aparelho), e a caixa some sozinha
+   quando todos os passos que da para conferir estao feitos. */
+function chavePassos(){ return "grim_passos_"+CID+"_"+(MYID||"0"); }
+/* dispensar vale para a conta (como o tour visto), com o navegador de reserva */
+function passosDispensados(){
+  if((EU?.toursVistos||[]).indexOf("passos-"+CID)>=0)return true;
+  try{ return localStorage.getItem(chavePassos())==="1"; }catch(error_){ return false; } }
 function viewHome(){
   var c=D.campanha;
   if(!c||BOOTERR)return viewVazio();
-  var ps=passosCampanha(), falta=ps.slice(0,3).some(function(p){return !p.ok;});
-  var prox=D.sessoes.filter(function(s){return s.status!=="encerrada";})[0];
+  var ps=passosCampanha(), falta=ps.some(function(p){return p.ok===false;});
+  var prox=D.sessoes.find(function(s){return s.status!=="encerrada";});
   return htmlDe("t-home",{c:c,
-    passos:falta&&!c.semPassos?ps:null,
-    nSessoes:D.sessoes.length,proxima:prox?linhaSessao(prox):"",
+    passos:falta&&!c.semPassos&&!passosDispensados()?ps:null,
+    nSessoes:D.sessoes.length,
+    proxima:prox?{id:prox.id,numero:prox.numero,titulo:prox.titulo,resumo:prox.resumo,estado:estadoSessao(prox)}:null,
     secoes:c.secoes.map(function(s,i){ var tem=s.itens.length&&(s.tipo==="lista"||s.tipo==="cartoes");
       return {i:i,titulo:s.titulo,tipo:s.tipo,texto:s.texto,itens:s.itens,vazia:!s.texto&&!tem}; }),
     /* o indice tem tres niveis (grupo, item, subitem); vira uma lista so, cada linha com a classe do nivel */
@@ -148,19 +170,38 @@ function editarSecao(i,tipo){
 }
 function ligarPdfs(v){
   $$("[data-doc]",v).forEach(function(b){b.onclick=function(){
-    var m=/([A-Z]+\d*)\s*p?\.?\s*(\d+)/i.exec(b.getAttribute("data-doc"));
+    var m=/([A-Z]+\d*)\s*p?\.?\s*(\d+)/i.exec(b.dataset.doc);
     if(m)abrirPdf(m[1].toUpperCase(),+m[2]);
   };});
   $$("[data-open]",v).forEach(function(b){b.onclick=function(){
-    var pr=b.getAttribute("data-open").split(":"); abrirPdf(pr[0],+pr[1]);
+    var pr=b.dataset.open.split(":"); abrirPdf(pr[0],+pr[1]);
   };});
 }
+/* Grade em linhas deixava vaos do tamanho da diferenca de altura entre vizinhas. Com linhas de
+   4px, cada secao pede as linhas da propria altura: fecha os vaos e mantem a ordem do DOM (a
+   mesma do arraste). Com masonry nativo do CSS nao faz nada. */
+var MASONRY=(typeof CSS!=="undefined")&&(CSS.supports("grid-template-rows","masonry")||CSS.supports("display","grid-lanes"));
+function arranjaGrade(g){
+  if(!g||MASONRY)return;
+  var colunas=getComputedStyle(g).gridTemplateColumns.trim().split(/\s+/).length;
+  g.classList.toggle("arranjada",colunas>1);
+  Array.prototype.forEach.call(g.children,function(s){
+    var mb=Number.parseFloat(getComputedStyle(s).marginBottom)||0;
+    s.style.gridRowEnd=colunas>1?"span "+Math.ceil((s.offsetHeight+mb)/4):""; });
+}
+var arranjoT=null;
+window.addEventListener("resize",function(){ clearTimeout(arranjoT);
+  arranjoT=setTimeout(function(){ arranjaGrade($("#view .seccols")); },120); });
 function hydrateHome(v){
   if(!D.campanha||BOOTERR){ hydrateVazio(); return; }
   ligarPdfs(v); ligarSessoes(v);
-  $$("[data-cp]",v).forEach(function(b){ b.onclick=function(){ var a=b.getAttribute("data-cp");
+  var grade=$(".seccols",v);
+  arranjaGrade(grade);
+  if(grade&&window.ResizeObserver){ var ro=new ResizeObserver(function(){ ro.disconnect(); arranjaGrade(grade); }); ro.observe(grade); }
+  $$("[data-cp]",v).forEach(function(b){ b.onclick=function(){ var a=b.dataset.cp;
     if(a==="cp-ed")editarCampanha();
-    else if(a==="cp-semp"){ D.campanha.semPassos=true; save(); render(); }
+    else if(a==="cp-semp"){ try{ localStorage.setItem(chavePassos(),"1"); }catch(error_){ /* sem armazenamento: vale a conta */ }
+      marcaTourVisto("passos-"+CID); render(); }
     else if(a==="ir-elenco"){ S.view="elenco"; S.el="personagens"; render(); }
     else if(a==="ir-sessoes"){ S.view="sessoes"; render(); }
     else if(a==="ir-bib"){ S.view="biblioteca"; render(); }
@@ -169,7 +210,7 @@ function hydrateHome(v){
     else if(a==="sec-add")escolher("Que tipo de seção?",TIPOS_SEC.map(function(t){return {v:t[0],l:t[1]};})
         .concat(D.campanha.indiceAS.length?[]:[{v:"indice",l:"Índice de livro (atalhos para páginas do PDF)"}]),
       function(t){ if(t==="indice")editarIndice(); else editarSecao(-1,t); }); }; });
-  $$("[data-sec]",v).forEach(function(b){ b.onclick=function(){ editarSecao(+b.getAttribute("data-sec")); }; });
+  $$("[data-sec]",v).forEach(function(b){ b.onclick=function(){ editarSecao(+b.dataset.sec); }; });
 }
 /* as secoes da pagina da campanha trocam de lugar arrastando pelo cabecalho (js/ordenar.js) */
 ORDENA.secoes=function(_l,de,para){ if(moverNaLista(D.campanha.secoes,de,para)){ save(); render(); } };

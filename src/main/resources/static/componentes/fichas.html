@@ -3,8 +3,8 @@
 <template id="t-fichas">
   <p class="lead"><span v-if="mestre" data-solta>Você vê as fichas de todo mundo. Cada {{ vmin('jogador') }} vê só as dele.</span><span v-else data-solta>Só você e o {{ vmin('mestre') }} veem as suas fichas.</span></p>
   <div class="addrow"><button class="btn" id="fxNova">+ ficha</button><button class="btn sec" id="fxPdf">Importar de PDF</button><input type="file" id="fxArq" accept="application/pdf,.pdf" hidden><button v-if="mestre" class="btn sec" id="fxModelo">Modelo da ficha</button></div>
-  <p class="sm muted" style="margin:.5rem 0 0">O PDF é lido no seu navegador{{ ia ? ' e a IA organiza os campos' : '' }}. Funciona melhor com ficha preenchível; PDF que é só foto escaneada não tem texto para ler.</p>
-  <div id="fxList" class="cadgrid" style="margin-top:.875rem"><p class="empty">Carregando…</p></div>
+  <p class="sm muted m0 mt-2">O PDF é lido no seu navegador{{ ia ? ' e a IA organiza os campos' : '' }}. Funciona melhor com ficha preenchível; PDF que é só foto escaneada não tem texto para ler.</p>
+  <div id="fxList" class="cadgrid mt-4"><p class="empty">Carregando…</p></div>
 </template>
 
 <!-- fichas: [{id, nome, dono (vazio quando nao precisa aparecer), campos, barras:[{rot, val, max}]}] -->

@@ -8,13 +8,13 @@ function upload(url,fd,onProg,repetido){
     x.open("POST",url,true); x.withCredentials=true;
     var t=cookie("XSRF-TOKEN"); if(t)x.setRequestHeader("X-XSRF-TOKEN",t);
     if(x.upload)x.upload.onprogress=function(e){ if(e.lengthComputable&&onProg)onProg(e.loaded/e.total); };
-    x.onload=function(){ var b=null; try{ b=JSON.parse(x.responseText); }catch(e){}
+    x.onload=function(){ var b=null; try{ b=JSON.parse(x.responseText); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
       if(x.status>=200&&x.status<300)res(b||{});
       else if(x.status===403&&b&&b.codigo==="csrf"&&!repetido){
         renovaCsrf().then(function(){ return upload(url,fd,onProg,true); }).then(res,rej); }
       else { if(x.status===507)avisoArmazenamento();
-        var er=new Error((b&&b.erro)||("HTTP "+x.status)); er.status=x.status; rej(er); } };
-    x.onerror=function(){ rej(new Error("falha de rede")); };
+        var er=new Error(b?.erro||ERRO_HTTP[x.status]||(x.status>=500?ERRO_HTTP[500]:"Erro "+x.status)); er.status=x.status; er.corpo=b; rej(er); } };
+    x.onerror=function(){ var er=new Error(ERRO_HTTP[0]); er.status=0; rej(er); };
     x.ontimeout=function(){ rej(new Error("tempo esgotado")); };
     x.send(fd);
   });

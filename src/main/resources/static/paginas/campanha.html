@@ -1,61 +1,68 @@
 <!-- Lista de campanhas, primeira entrada e aba Campanha (js/pagina-campanha.js) -->
 
 <template id="t-guia-falhou">
-  <div class="panel" style="padding:1.375rem;margin-top:1.625rem;max-width:80ch">
+  <div class="panel estado-erro">
     <span class="eyebrow">Guia não carregado</span>
-    <h1 class="page" style="margin:.375rem 0 .625rem">Seus dados não vieram</h1>
-    <p class="lead">O app está em modo mestre, mas não conseguiu ler o guia no banco. Nada foi perdido: o conteúdo continua salvo, só não chegou nesta sessão.</p>
-    <p v-if="motivo" class="sm muted" style="margin-top:.5rem">Motivo: {{ motivo }}</p>
-    <div class="addrow" style="margin-top:.875rem"><button class="btn" id="vwRetry">Tentar de novo</button></div></div>
+    <h1 class="page" tabindex="-1">{{ antigo ? 'Este guia está num formato antigo' : 'Seus dados não vieram' }}</h1>
+    <p v-if="antigo" class="lead">Esta versão do Grimório não converte mais guias desse formato. Nada foi alterado: o conteúdo continua salvo no servidor, e nenhuma edição será gravada por cima dele.</p>
+    <p v-else class="lead">O app está em modo mestre, mas não conseguiu ler o guia no banco. Nada foi perdido: o conteúdo continua salvo, só não chegou nesta sessão.</p>
+    <p v-if="motivo && !antigo" class="sm muted">Motivo: {{ motivo }}</p>
+    <div class="addrow"><button type="button" class="btn" id="vwRetry">Tentar de novo</button></div></div>
 </template>
 
 <!-- capa: url da imagem, ou vazio para mostrar a inicial -->
 <template id="t-capa">
-  <div class="ccimg"><img v-if="capa" :src="capa" alt="" loading="lazy"><span v-else class="ccini">{{ inicial }}</span></div>
+  <div class="ccimg"><img v-if="capa" :src="capa" alt="" loading="lazy"><span v-else class="ccini" aria-hidden="true">{{ inicial }}</span></div>
 </template>
 
-<!-- campanhas: [{id, nome, sistema, mestre, arquivada, capa (HTML)}]; sem campanhas, a tela de primeira entrada -->
+<!-- campanhas: [{id, nome, sistema, mestre, arquivada, capa (HTML)}]; sem campanhas, a tela de primeira entrada.
+     Com campanhas, criar e entrar ficam atras de dois botoes: a lista e o que importa nessa tela. -->
 <template id="t-campanhas">
   <p class="eyebrow">Grimório</p>
-  <span v-if="campanhas" data-solta><h1 class="page">Suas campanhas</h1>
+  <span v-if="campanhas" data-solta><div class="pagehd"><h1 class="page">Suas campanhas</h1>
+      <div class="linha"><button type="button" class="btn" id="ncAbreCriar" aria-expanded="false" aria-controls="cxCriar">+ Nova campanha</button><button type="button" class="btn sec" id="ncAbreEntrar" aria-expanded="false" aria-controls="cxEntrar">Entrar com convite</button></div></div>
     <div class="campgrid">
-      <button v-for="c in campanhas" :class="'ccard' + (c.arquivada ? ' arq' : '')" :data-entrar="c.id"><span data-solta v-html="c.capa"></span>
-        <div class="ccb"><b>{{ c.nome }}</b><span class="ccsis">{{ c.sistema || 'sem sistema definido' }}</span>
-          <div class="ccft"><span :class="'chip' + (c.mestre ? ' g' : '')">{{ c.mestre ? 'você mestra' : 'você joga' }}</span><span v-if="c.arquivada" class="chip">arquivada</span><span class="go">abrir ›</span></div></div></button>
+      <button v-for="c in campanhas" type="button" :class="'ccard' + (c.arquivada ? ' arq' : '')" :data-entrar="c.id" :aria-label="'Abrir ' + c.nome + (c.mestre ? ', você mestra' : ', você joga') + (c.arquivada ? ', arquivada' : '')"><span data-solta v-html="c.capa"></span>
+        <span class="ccb"><b>{{ c.nome }}</b><span class="ccsis">{{ c.sistema || 'sem sistema definido' }}</span>
+          <span class="ccft"><span :class="'chip' + (c.mestre ? ' g' : '')">{{ c.mestre ? 'você mestra' : 'você joga' }}</span><span v-if="c.arquivada" class="chip">arquivada</span><span class="go" aria-hidden="true">abrir ›</span></span></span></button>
     </div></span>
   <span v-else data-solta><h1 class="page">Comece pela sua campanha</h1>
     <p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou entre numa com a chave que quem mestra te passou.</p></span>
   <div class="campforms">
-    <div class="caixa"><span class="flb">Criar uma campanha</span>
-      <div class="addrow"><input class="inp" id="ncNome" placeholder="nome da campanha"><input class="inp" id="ncSis" placeholder="sistema de regras (opcional)"><button class="btn" id="ncGo">Criar</button></div>
-      <div class="addrow" style="align-items:center"><button class="btn sec" id="ncPac">Escolher pacote (.zip)</button><span class="sm muted" id="ncPacNome">Nenhum pacote escolhido</span></div>
-      <p class="sm muted">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar e ele entra junto, com guia, índices de busca e imagens.</p></div>
-    <div class="caixa"><span class="flb">Entrar numa campanha existente</span>
-      <div class="addrow"><input class="inp" id="ncChave" placeholder="cole aqui a chave ou o link do convite"><button class="btn" id="ncEntrar">Entrar</button></div>
-      <p class="sm muted">Quem mestra gera essa chave em Configurações › Mesa e convites.</p></div>
+    <section class="caixa" id="cxCriar" aria-labelledby="cxCriarT" v-attr:hidden="campanhas ? true : null"><h2 class="flb" id="cxCriarT">Criar uma campanha</h2>
+      <div class="form">
+        <label><span class="frotx">Nome da campanha<span class="obrig" aria-hidden="true">*</span></span><input class="inp" id="ncNome" autocomplete="off" aria-required="true" placeholder="A Maldição de Strahd, Mesa de sexta…"></label>
+        <label>Sistema de regras<input class="inp" id="ncSis" autocomplete="off" aria-describedby="ncSisD" placeholder="D&amp;D 5e, Ordem Paranormal, Tormenta…"><span class="dica" id="ncSisD">Opcional. Entra no contexto que a IA recebe.</span></label>
+        <div class="linha"><button type="button" class="btn sec m" id="ncPac">Escolher pacote (.zip)</button><output class="sm muted" id="ncPacNome">Nenhum pacote escolhido</output></div>
+        <p class="sm muted m0">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar e ele entra junto, com guia, índices de busca e imagens.</p>
+        <div class="linha"><button type="button" class="btn" id="ncGo">Criar campanha</button></div></div></section>
+    <section class="caixa" id="cxEntrar" aria-labelledby="cxEntrarT" v-attr:hidden="campanhas ? true : null"><h2 class="flb" id="cxEntrarT">Entrar numa campanha existente</h2>
+      <div class="form">
+        <label><span class="frotx">Chave ou link do convite<span class="obrig" aria-hidden="true">*</span></span><input class="inp" id="ncChave" autocomplete="off" aria-required="true" aria-describedby="ncChaveD"><span class="dica" id="ncChaveD">Quem mestra gera essa chave em Configurações › Mesa e convites.</span></label>
+        <div class="linha"><button type="button" class="btn" id="ncEntrar">Entrar</button></div></div></section>
   </div>
 </template>
 
-<!-- passos: so vem quando ainda falta algum dos tres primeiros; proxima: HTML da linha da sessao;
+<!-- passos: so vem quando ainda falta algum; proxima: {id, numero, titulo, resumo, estado} da proxima sessao;
      secoes: [{i, titulo, tipo, texto, itens}], reordenadas arrastando pelo cabecalho (js/ordenar.js); indice: [{nome, linhas:[{cls, t, ref, p}]}] -->
 <template id="t-home">
-  <div class="pagehd"><div><p class="eyebrow">{{ c.sistema || 'sistema não definido' }}</p><h1 class="page">{{ c.titulo || 'Sem título' }}</h1></div><button class="edb ico" data-cp="cp-ed" title="Editar" aria-label="Editar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div>
-  <p v-if="c.apresentacao" class="lead sectxt" style="margin-top:.625rem">{{ c.apresentacao }}</p>
+  <div class="pagehd"><div><p class="eyebrow">{{ c.sistema || 'sistema não definido' }}</p><div class="titlinha"><h1 class="page">{{ c.titulo || 'Sem título' }}</h1><button type="button" class="edb ico" data-cp="cp-ed" :title="'Editar nome e apresentação da ' + vmin('campanha')" :aria-label="'Editar nome e apresentação da ' + vmin('campanha')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></div></div></div>
+  <p v-if="c.apresentacao" class="lead sectxt mt-3">{{ c.apresentacao }}</p>
+  <section v-if="proxima" class="proxima" aria-labelledby="proxT"><div class="proxtx"><span class="eyebrow">Próxima {{ vmin('sessao') }}</span><h2 id="proxT">{{ proxima.titulo || 'Sem título' }}</h2><p v-if="proxima.resumo" class="lead sm m0">{{ proxima.resumo }}</p><span class="sm muted">{{ Vm('sessao') }} {{ proxima.numero }} · {{ proxima.estado }}</span></div>
+    <div class="proxacoes"><button type="button" class="btn" :data-ses="proxima.id">Abrir a {{ vmin('sessao') }}</button><button type="button" class="btn fant m" data-cp="ir-sessoes">Ver todas ({{ nSessoes }})</button></div></section>
+  <p v-else-if="nSessoes" class="muted sm mt-4">Todas as {{ vmin('sessoes') }} estão encerradas. <button type="button" class="btn fant m" data-cp="ir-sessoes">Ver todas ({{ nSessoes }})</button></p>
   <div class="seccols" data-ordena="secoes">
-    <div v-if="passos" class="sec-wrap"><div class="sechd"><h2 class="sec">Primeiros passos</h2><button class="tbtn" data-cp="cp-semp">dispensar</button></div>
-      <div class="passos"><div v-for="(p, i) in passos" :class="'passo' + (p.ok ? ' ok' : '')"><span class="pn">{{ p.ok ? '✓' : i + 1 }}</span><div><b>{{ p.t }}</b><p>{{ p.d }}</p></div><button class="btn sec" :data-cp="p.a">{{ p.b }}</button></div></div></div>
-    <div v-if="nSessoes" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ proxima ? 'Próxima ' + vmin('sessao') : Vm('sessoes') }}</h2><button class="tbtn" data-cp="ir-sessoes">ver todas ({{ nSessoes }})</button></div>
-      <div v-if="proxima" class="eps" v-html="proxima"></div>
-      <p v-else class="muted sm" style="margin:0">Todas as {{ vmin('sessoes') }} estão encerradas.</p></div>
-    <div v-for="s in secoes" class="sec-wrap" :data-item="s.i"><div class="sechd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" aria-label="Arrastar para mudar a ordem (setas do teclado também movem)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><h2 class="sec">{{ s.titulo || 'Sem título' }}</h2>
-        <span class="blktools"><button class="edb ico" :data-sec="s.i" title="Editar seção" aria-label="Editar seção"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
-      <p v-if="s.texto" class="lead sectxt" style="margin:0">{{ s.texto }}</p>
+    <section v-if="passos" class="sec-wrap" aria-labelledby="passosT"><div class="sechd"><h2 class="sec" id="passosT">Primeiros passos</h2><button type="button" class="tbtn" data-cp="cp-semp">Dispensar</button></div>
+      <ol class="passos"><li v-for="(p, i) in passos" :class="'passo' + (p.ok ? ' ok' : '')"><span class="pn" aria-hidden="true">{{ p.ok ? '✓' : i + 1 }}</span><div><b>{{ p.t }}<span v-if="p.ok" class="sr-only"> (feito)</span></b><p>{{ p.d }}</p></div><button type="button" class="btn sec m" :data-cp="p.a">{{ p.b }}</button></li></ol></section>
+    <section v-for="s in secoes" class="sec-wrap" :data-item="s.i" :aria-label="s.titulo || 'Seção sem título'"><div class="sechd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover a seção ' + (s.titulo || 'sem título') + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><h2 class="sec">{{ s.titulo || 'Sem título' }}</h2>
+        <span class="blktools"><button type="button" class="edb ico" :data-sec="s.i" :title="'Editar a seção ' + (s.titulo || 'sem título')" :aria-label="'Editar a seção ' + (s.titulo || 'sem título')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
+      <p v-if="s.texto" class="lead sectxt m0">{{ s.texto }}</p>
       <ul v-if="s.tipo === 'lista' && s.itens.length" class="fl"><li v-for="x in s.itens">{{ x }}</li></ul>
-      <div v-if="s.tipo === 'cartoes' && s.itens.length" class="grid met"><div v-for="m in s.itens" class="c"><b>{{ m.t }}</b><p class="sectxt">{{ m.d }}</p></div></div>
-      <p v-if="s.vazia" class="muted sm" style="margin:0">Seção vazia.</p></div>
+      <div v-if="s.tipo === 'cartoes' && s.itens.length" class="grid met"><div v-for="m in s.itens" class="c"><h3 class="ctit">{{ m.t }}</h3><p class="sectxt">{{ m.d }}</p></div></div>
+      <p v-if="s.vazia" class="muted sm m0">Seção vazia.</p></section>
   </div>
-  <div class="addrow" style="margin-top:1.75rem"><button class="btn sec" data-cp="sec-add">+ seção</button></div>
-  <div v-if="indice.length" class="sec-wrap"><div class="sechd"><h2 class="sec">{{ c.indiceTitulo || 'Índice dos livros' }}</h2><span class="blktools"><button class="edb ico" data-cp="idx-ed" title="Editar índice" aria-label="Editar índice"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
-    <p class="sm muted" style="margin:0">Clique numa página para abrir o PDF direto nela.</p>
-    <div class="grid idx"><div v-for="d in indice" class="doc"><b>{{ d.nome }}</b><ul><li v-for="l in d.linhas" :class="l.cls">{{ l.t }}<span v-if="l.p" data-solta> <span class="pg" :data-open="l.ref + ':' + l.p">p{{ l.p }}</span></span></li></ul></div></div></div>
+  <div class="addrow mt-7"><button type="button" class="addbtn" data-cp="sec-add">+ seção</button></div>
+  <section v-if="indice.length" class="sec-wrap" aria-labelledby="idxT"><div class="sechd"><h2 class="sec" id="idxT">{{ c.indiceTitulo || 'Índice dos livros' }}</h2><span class="blktools"><button type="button" class="edb ico" data-cp="idx-ed" title="Editar o índice" aria-label="Editar o índice"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></div>
+    <p class="sm muted m0">Clique numa página para abrir o PDF direto nela.</p>
+    <div class="grid idx"><div v-for="d in indice" class="doc"><h3 class="doctit">{{ d.nome }}</h3><ul><li v-for="l in d.linhas" :class="l.cls">{{ l.t }}<span v-if="l.p" data-solta> <button type="button" class="pg" :data-open="l.ref + ':' + l.p" :aria-label="'Abrir ' + d.nome + ' na página ' + l.p">P{{ l.p }}</button></span></li></ul></div></div></section>
 </template>

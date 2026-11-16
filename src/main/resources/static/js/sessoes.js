@@ -39,7 +39,7 @@ function viewSessoes(){
     linhas:D.sessoes.map(linhaSessao).join("")});
 }
 function ligarSessoes(v){
-  $$("[data-ses]",v).forEach(function(b){ b.onclick=function(){ var id=b.getAttribute("data-ses");
+  $$("[data-ses]",v).forEach(function(b){ b.onclick=function(){ var id=b.dataset.ses;
     for(var i=0;i<D.sessoes.length;i++) if(D.sessoes[i].id===id){ irSessao(i); return; } }; });
   var n=$("#sesNova",v); if(n)n.onclick=function(){ editarSessao(null); };
 }
@@ -100,6 +100,6 @@ function aplicarEncerramento(s){
   var ov=overlay(Um+" encerrada",htmlDe("t-encerrada",{Um:Um,numero:s.numero,prox:prox?prox.numero:null,blocos:blocos}));
   $("#encDep",ov).onclick=function(){ ov.close(); };
   $("#encRes",ov).onclick=function(){ ov.close();
-    var hoje=""; try{ hoje=new Date().toLocaleDateString("pt-BR"); }catch(e){}
+    var hoje=""; try{ hoje=new Date().toLocaleDateString("pt-BR"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     editarResumo(-1,{n:s.numero,titulo:s.titulo,data:hoje,texto:""}); };
 }

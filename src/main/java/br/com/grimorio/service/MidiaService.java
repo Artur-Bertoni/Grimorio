@@ -322,6 +322,7 @@ public class MidiaService {
                 .orElseThrow(() -> new IllegalArgumentException("midia nao encontrada"));
         Path p = raiz(campanhaId).resolve(m.getArquivo()).normalize();
         if (p.startsWith(raiz(campanhaId))) Files.deleteIfExists(p);
+        if (m.getTipo() == Midia.Tipo.IMG) Miniaturas.apagar(raiz(campanhaId), p);
         if (m.getTipo() == Midia.Tipo.PDF) {
             Files.deleteIfExists(indice.pastaIndice(campanhaId).resolve(m.getChave() + ".json"));
             indice.invalidar(campanhaId);

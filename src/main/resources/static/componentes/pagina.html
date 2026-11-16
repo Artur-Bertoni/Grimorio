@@ -8,5 +8,5 @@
 
 <!-- itens: [{attrs:{"data-x":valor}, texto, on}] -->
 <template id="t-subnav">
-  <nav class="mesanav"><button v-for="x in itens" v-bind="x.attrs" :aria-pressed="String(x.on)">{{ x.texto }}</button></nav>
+  <nav class="mesanav" :aria-label="rotulo || 'Seções desta página'"><button v-for="x in itens" type="button" v-bind="x.attrs" :aria-pressed="String(x.on)" v-attr:aria-current="x.on ? 'true' : null">{{ x.texto }}</button></nav>
 </template>
