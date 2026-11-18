@@ -43,6 +43,7 @@ function hydrateCampanhas(v){
   if(pac)pac.onclick=function(){ escolherArquivos(false,".zip").then(function(fs){
     PACOTE=fs[0]||null;
     var n=$("#ncPacNome",v); if(n)n.textContent=PACOTE?PACOTE.name:"Nenhum pacote escolhido"; }); };
+  ligarOrigens(v);
 
   /* com campanhas, criar e entrar abrem por botao; a caixa aberta leva o foco ao primeiro campo */
   [["#ncAbreCriar","#cxCriar","#ncNome"],["#ncAbreEntrar","#cxEntrar","#ncChave"]].forEach(function(p){
@@ -64,19 +65,55 @@ function hydrateCampanhas(v){
   if(go)go.onclick=function(){
     var nome=($("#ncNome",v)||{}).value||"", sis=($("#ncSis",v)||{}).value||"";
     if(!nome.trim()){ erroNoCampo($("#ncNome",v),"Dê um nome à campanha."); return; }
+    var origem=ORIGEM;
+    if(origem==="pacote"&&!PACOTE){ toast("Escolha o pacote .zip, ou outra forma de começar.","aviso"); $("#ncPac",v).focus(); return; }
     go.disabled=true; go.setAttribute("aria-busy","true"); go.textContent="Criando…";
     api("/api/campanhas",{method:"POST",body:{nome:nome,sistema:sis}})
       .then(function(r){
-        if(!PACOTE) return r;
+        if(origem.startsWith("m:")){
+          go.textContent="Montando a partir do modelo…";
+          return api("/api/c/"+r.id+"/modelo/"+encodeURIComponent(origem.slice(2)),{method:"POST"})
+            .then(function(imp){ toast(resumoPacote(imp)); return r; })
+            .catch(function(e){ toast("Campanha criada, mas o modelo não entrou: "+mensagemDeErro(e),"erro"); return r; });
+        }
+        if(origem!=="pacote"||!PACOTE) return r;
         go.textContent="Importando pacote…";
         var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
         return upload("/api/c/"+r.id+"/pacote",fd,function(fr){ go.textContent="Enviando o pacote… "+Math.round(fr*100)+"%"; })
           .then(function(imp){ toast(resumoPacote(imp)); return r; })
           .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+mensagemDeErro(e),"erro"); return r; });
       })
-      .then(function(r){ PACOTE=null;
+      .then(function(r){ PACOTE=null; ORIGEM="branco";
         return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
       .catch(function(e){ go.disabled=false; go.removeAttribute("aria-busy"); go.textContent="Criar campanha"; toast(mensagemDeErro(e),"erro"); }); };
+}
+/* Como começar: em branco, de um modelo da instância ou de um pacote. Os modelos chegam depois
+   da tela (vêm do servidor). O modelo é uma estrutura, não uma campanha: o nome continua o que a
+   pessoa digitar (o servidor põe esse nome no guia). Só o sistema, se o modelo tiver um, entra no
+   campo vazio; trocar de modelo troca de novo só o que ninguém digitou por cima. */
+var ORIGEM="branco", MODELOS=[];
+function dadosOrigens(){
+  return {escolhido:ORIGEM,modelos:MODELOS.map(function(m){
+    return {id:m.id,nome:m.nome,sistema:m.sistema,descricao:m.descricao,
+      capa:m.temCapa?"/api/modelos/"+encodeURIComponent(m.id)+"/capa":"",
+      inicial:String(m.nome||"?").trim().charAt(0).toUpperCase()}; })};
+}
+function pintaOrigens(v){
+  var box=$("#ncOrigens",v); if(!box)return;
+  if(ORIGEM.startsWith("m:")&&!MODELOS.some(function(m){ return "m:"+m.id===ORIGEM; }))ORIGEM="branco";
+  box.innerHTML=htmlDe("t-origens",dadosOrigens());
+  var pl=$("#ncPacLinha",v); if(pl)pl.hidden=(ORIGEM!=="pacote");
+  var auto={sistema:""};
+  $$("input[name=ncOrigem]",box).forEach(function(r){ r.onchange=function(){
+    ORIGEM=r.value; if(pl)pl.hidden=(ORIGEM!=="pacote");
+    var m=MODELOS.find(function(x){ return "m:"+x.id===ORIGEM; });
+    var cp=$("#ncSis",v);
+    if(cp&&(!cp.value.trim()||cp.value===auto.sistema)){ auto.sistema=m?String(m.sistema||""):""; cp.value=auto.sistema; } }; });
+}
+function ligarOrigens(v){
+  pintaOrigens(v);
+  api("/api/modelos").then(function(l){ MODELOS=Array.isArray(l)?l:[]; if(MODELOS.length)pintaOrigens(v); })
+    .catch(function(){ MODELOS=[]; });
 }
 /* erro de um campo solto (fora do formulario()): mensagem embaixo dele, aria-invalid e foco */
 function erroNoCampo(campo,msg){ if(!campo)return;
@@ -89,7 +126,8 @@ function erroNoCampo(campo,msg){ if(!campo)return;
 function trocarCampanha(){
   api("/api/sessao").then(function(s2){ EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
     CID=null; GM=false; PRONTO=true; S.view=CAMPANHAS.length?"escolher":"semcampanha";
-    try{ localStorage.removeItem("grim_cid"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+    /* fora da campanha volta o tema da pessoa */
+    TEMA_PREVIA=null; trocarTema(temaAtivo()); pintarMarca();
     render(); }).catch(function(e){ toast("Não consegui listar suas campanhas. "+mensagemDeErro(e),"erro"); });
 }
 /* ---------- navegacao interna de uma pagina ---------- */

@@ -31,7 +31,7 @@ function passosTour(p){
   var fim={t:"Pronto para jogar",x:"Esse foi o Grimório inteiro. Para rever, é só ir em Configurações › Tour guiado. Boa sessão!"};
   if(p==="mestre"){
     L.push({t:"Bem-vindo à sua mesa",x:"Este tour mostra todas as partes do Grimório, uma de cada vez. Use as setas do teclado ou os botões. Dá para pular agora e rever quando quiser em Configurações.",logo:true,e:1});
-    L.push({a:".brand",t:"Suas "+vmin("campanhas"),x:"Clique na logo para voltar à lista de "+vmin("campanhas")+": criar outra, importar um pacote pronto ou entrar numa com convite."});
+    L.push({a:".brand",t:"Suas "+vmin("campanhas"),x:"Clique na logo para voltar à lista de "+vmin("campanhas")+": criar outra (em branco, de um modelo pronto ou de um pacote) ou entrar numa com convite."});
     L.push({a:"#tabs .tab:nth-child(1)",ir:tourIr("home"),t:Vm("campanha"),x:"A página da "+vmin("campanha")+": apresentação, a próxima "+vmin("sessao")+" e as seções que você escreve, como regras da casa, método e perguntas para a mesa."});
     L.push({a:".seccols .sec-wrap",ir:tourIr("home"),t:"Tudo se edita por formulário",x:"Cada bloco tem o lápis para editar e as três barrinhas para arrastar e mudar a ordem (clique nelas para escolher a posição num menu). Remover não pergunta: faz e oferece desfazer por alguns segundos."});
     L.push({e:1,a:"#tabs .tab:nth-child(2)",ir:tourIr("sessoes"),t:Vm("sessoes"),x:"A lista das "+vmin("sessoes")+". Cada uma tem "+vmin("cenas")+" organizadas em "+vmin("territorios")+" e os nomes do elenco que ela usa."});

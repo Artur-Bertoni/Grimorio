@@ -268,7 +268,7 @@ function campoSecreto(inp,salvo){
 function segredoDe(inp){ return inp.value===MASCARA?null:inp.value; }
 function abrirAdmin(back,mk){
   if(!ADMIN){ toast("Só o administrador da instância"); return; }
-  var ov=(mk||overlay)("Administração da instância",htmlDe("t-admin"),{wide:true,back:back});
+  var ov=(mk||overlay)("Administração da instância",htmlDe("t-admin",{minhas:(CAMPANHAS||[]).filter(function(c){ return c.papel==="MESTRE"; })}),{wide:true,back:back});
 
   api("/api/admin/config").then(function(c){
     $("#iaKst",ov).textContent=c.iaConfigurada?"Chave salva.":"Nenhuma chave salva ainda.";
@@ -360,20 +360,110 @@ function abrirAdmin(back,mk){
   api("/api/admin/campanhas").then(function(cs){
     $("#adCa",ov).innerHTML=htmlDe("t-admin-campanhas",{campanhas:cs||[]});
   }).catch(function(){});
+  adminModelos(ov);
 }
 
+/* Modelos de campanha na Administração: a lista, enviar pacote, salvar uma campanha como
+   modelo, editar e apagar. Cada ação termina repintando a lista. */
+function falhouModelo(e){ toast(mensagemDeErro(e),"erro"); }
+function modeloPronto(m){ toast("Modelo “"+m.nome+"” pronto","ok"); }
+function editarModelo(m,depois){
+  formulario("Editar · modelo",[{k:"nome",rot:"Nome",obrig:true},
+      {k:"descricao",rot:"Descrição",tipo:"area",dica:"Aparece no cartão do modelo, ao criar uma "+vmin("campanha")+"."}],
+    {nome:m.nome,descricao:m.descricao},
+    {salvar:function(w){
+      api("/api/admin/modelos/"+encodeURIComponent(m.id),{method:"PUT",body:{nome:w.nome,descricao:w.descricao}})
+        .then(function(){ toast("Modelo salvo","ok"); depois(); }).catch(falhouModelo); }});
+}
+function apagarModelo(m,depois){
+  var apagou=false;
+  confirmar("Quem criar uma "+vmin("campanha")+" não vai mais ver “"+m.nome+"”. As "+vmin("campanhas")+" que já começaram por ele não mudam.",
+      {titulo:"Apagar este modelo?",sim:"Apagar o modelo"})
+    .then(function(sim){ apagou=sim; return sim?api("/api/admin/modelos/"+encodeURIComponent(m.id),{method:"DELETE"}):null; })
+    .then(function(){ if(apagou){ toast("Modelo apagado","ok"); depois(); } })
+    .catch(falhouModelo);
+}
+/* troca a capa do cartao do modelo; so o cartao muda, a campanha criada continua sem imagem */
+function capaModelo(m,depois){
+  escolherArquivos(false,".webp,.png,.jpg,.jpeg,.gif").then(function(fs){
+    if(!fs.length)return null;
+    var fd=new FormData(); fd.append("arquivo",fs[0]);
+    return upload("/api/admin/modelos/"+encodeURIComponent(m.id)+"/capa",fd,null);
+  }).then(function(r){ if(r){ toast("Capa de “"+m.nome+"” trocada","ok"); depois(); } }).catch(falhouModelo);
+}
+function semCapaModelo(m,depois){
+  api("/api/admin/modelos/"+encodeURIComponent(m.id)+"/capa",{method:"DELETE"})
+    .then(function(){ toast("Capa tirada","ok"); depois(); }).catch(falhouModelo);
+}
+/* envia os pacotes um depois do outro: cada um vira um modelo, e um que falha nao para os outros */
+function enviarModelos(fs,botao,depois){
+  var prontos=0, falhas=[];
+  function proximo(i){
+    if(i>=fs.length)return Promise.resolve();
+    var fd=new FormData(); fd.append("arquivo",fs[i]);
+    return upload("/api/admin/modelos",fd,function(fr){ botao.textContent="Enviando "+(i+1)+" de "+fs.length+"… "+Math.round(fr*100)+"%"; })
+      .then(function(){ prontos++; },function(e){ falhas.push(fs[i].name+": "+mensagemDeErro(e)); })
+      .then(function(){ return proximo(i+1); });
+  }
+  return proximo(0).then(function(){
+    if(prontos)toast(prontos===1?"1 modelo pronto":prontos+" modelos prontos","ok");
+    if(falhas.length)toast("Não entraram: "+falhas.join("; "),"erro");
+    depois(); });
+}
+function adminModelos(ov){
+  var lista=[];
+  function doId(id){ return lista.find(function(x){ return x.id===id; }); }
+  function liga(box,attr,fn){ $$("["+attr+"]",box).forEach(function(b){ b.onclick=function(){
+    var m=doId(b.getAttribute(attr)); if(m)fn(m,pinta); }; }); }
+  function pinta(){
+    api("/api/modelos").then(function(l){
+      lista=Array.isArray(l)?l:[];
+      var box=$("#adMod",ov);
+      box.innerHTML=htmlDe("t-admin-modelos",{modelos:lista.map(function(m){
+        return {id:m.id,nome:m.nome,sistema:m.sistema,descricao:m.descricao,tamanho:m.tamanho,
+          capa:m.temCapa?"/api/modelos/"+encodeURIComponent(m.id)+"/capa?v="+Date.now():""}; })});
+      liga(box,"data-moded",editarModelo); liga(box,"data-modrm",apagarModelo);
+      liga(box,"data-modcapa",capaModelo); liga(box,"data-modsemcapa",semCapaModelo);
+    }).catch(function(){ $("#adMod",ov).innerHTML=htmlDe("t-vazio",{texto:"Não consegui listar os modelos."}); });
+  }
+  pinta();
+  var env=$("#adModEnv",ov), sal=$("#adModSal",ov);
+  env.onclick=function(){
+    escolherArquivos(false,".zip").then(function(fs){
+      if(!fs.length)return null;
+      env.disabled=true;
+      return enviarModelos(fs,env,pinta);
+    }).catch(falhouModelo)
+      .then(function(){ env.disabled=false; env.textContent="Enviar pacotes (.zip)"; }); };
+  sal.onclick=function(){
+    sal.disabled=true; sal.textContent="Salvando…";
+    api("/api/admin/modelos/campanha/"+encodeURIComponent($("#adModCa",ov).value),{method:"POST"})
+      .then(function(m){ modeloPronto(m); pinta(); })
+      .catch(falhouModelo)
+      .then(function(){ sal.disabled=false; sal.textContent="Salvar como modelo"; }); };
+}
+
+/* um cartao de tema; as etiquetas dizem de onde cada tema vem: sugerido pelo mestre,
+   escolhido pela pessoa para esta campanha, ou o tema dela fora das campanhas */
 function temaCard(k,at){
   var t=TEMAS[k];
-  return htmlDe("t-tema-card",{k:k,t:t,e:ESTILOS[t.estilo]||ESTILOS.terror,ativo:at===k,sugerido:!!(CID&&k===temaMesa())});
+  return htmlDe("t-tema-card",{k:k,t:t,e:ESTILOS[t.estilo]||ESTILOS.terror,ativo:at===k,
+    sugerido:!!(CID&&k===temaMesa()),escolhido:!!(CID&&k===temaEscolhido()),seu:!CID&&k===temaPessoal()});
 }
 function temaHtml(){
-  var at=temaAtivo(), fx=true;
+  var at=TEMA_PREVIA||temaAtivo(), fx=true;
   try{ fx=localStorage.getItem("grim_fx")!=="0"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   return htmlDe("t-temas",{mestre:GM,fx:fx,som:somLigado(),volume:Math.round(somVol()*100),
+    dentro:!!CID,escolhido:temaEscolhido(),previa:!!TEMA_PREVIA,mesa:!!temaMesa(),segue:segueMesa(),
     estilos:Object.keys(ESTILOS).map(function(e){
       var ks=Object.keys(TEMAS).filter(function(k){ return TEMAS[k].estilo===e; });
       return {nome:ESTILOS[e].nome,cartoes:ks.map(function(k){ return temaCard(k,at); }).join("")}; })
       .filter(function(e){ return e.cartoes; })});
+}
+/* grava ou apaga uma preferencia de tema no navegador */
+function guardaTema(chave,valor){
+  try{ if(valor)localStorage.setItem(chave,valor); else localStorage.removeItem(chave); }
+  catch(error_){ /* sem armazenamento: a escolha vale so ate recarregar */ }
 }
 function temaWire(ov){
   $$("[data-som]",ov).forEach(function(b){ b.onclick=function(){ var lig=b.dataset.som==="1";
@@ -383,22 +473,30 @@ function temaWire(ov){
   var sv=$("#somVol",ov); if(sv){ sv.style.setProperty("--pct",sv.value+"%");
     sv.oninput=function(){ sv.style.setProperty("--pct",sv.value+"%"); try{ localStorage.setItem("grim_somvol",String(sv.value/100)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } };
     sv.onchange=function(){ som("cai"); }; }
-  function marca(){ $$("[data-tema]",ov).forEach(function(x){
-    x.setAttribute("aria-pressed", x.dataset.tema===temaAtivo()); }); }
+  /* redesenha a secao: as etiquetas e os botoes dependem do que acabou de mudar */
+  function repinta(){ var box=$("#temaSec",ov); if(box){ box.outerHTML=temaHtml(); temaWire(ov); } }
+  /* Fora de uma campanha o clique define o tema da pessoa. Dentro, so mostra como fica: quem
+     grava e o botao "Definir como meu tema para esta campanha". */
   $$("[data-tema]",ov).forEach(function(b){ b.onclick=function(){
     var k=b.dataset.tema;
-    try{ localStorage.setItem("grim_tema",k); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
-    trocarTema(k); marca(); }; });
+    if(CID){ TEMA_PREVIA=(k===temaAtivo())?null:k; trocarTema(k); }
+    else{ guardaTema("grim_tema",k); trocarTema(k); }
+    repinta(); }; });
+  var tc=$("#temaCamp",ov); if(tc)tc.onclick=function(){
+    var k=TEMA_PREVIA||temaAtivo(); TEMA_PREVIA=null;
+    guardaTema("grim_tema_c"+CID,k); trocarTema(k); repinta();
+    toast("“"+TEMAS[k].nome+"” é o seu tema nesta "+vmin("campanha"),"ok"); };
+  var tl=$("#temaLimpa",ov); if(tl)tl.onclick=function(){
+    TEMA_PREVIA=null; guardaTema("grim_tema_c"+CID,""); trocarTema(temaAtivo()); repinta();
+    toast(temaMesa()?"Voltou ao tema da mesa":"Voltou ao seu tema","ok"); };
+  $$("[data-segue]",ov).forEach(function(b){ b.onclick=function(){
+    guardaTema("grim_segue",b.dataset.segue==="1"?"":"0");
+    if(!TEMA_PREVIA)trocarTema(temaAtivo()); repinta(); }; });
   $$("[data-mov]",ov).forEach(function(b){ b.onclick=function(){
     var lig=b.dataset.mov==="1";
     try{ if(lig)localStorage.removeItem("grim_fx"); else localStorage.setItem("grim_fx","0"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     aplicarFx();
     $$("[data-mov]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.dataset.mov==="1")===lig); }); }; });
-  var tm=$("#temaMesa",ov); if(tm)tm.onclick=function(){
-    MESA.tema=temaAtivo(); salvarMesa(); toast("Tema aplicado para a mesa inteira"); };
-  var tl=$("#temaLimpa",ov); if(tl)tl.onclick=function(){
-    try{ localStorage.removeItem("grim_tema"); if(CID)localStorage.removeItem("grim_tema_c"+CID); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
-    trocarTema(temaAtivo()); marca(); toast("Voltou ao tema da mesa"); };
 }
 function sair(){
   api("/api/logout",{method:"POST"}).then(function(){ location.href="/paginas/login.html"; })

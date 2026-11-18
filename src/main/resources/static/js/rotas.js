@@ -88,6 +88,9 @@ function voltarSemCampanha(r){
   if(CID)trocarCampanha(); else render();
 }
 window.addEventListener("popstate",function(){
+  /* antes da partida os templates ainda nao chegaram: desenhar agora quebraria a tela, e a
+     partida ja le o endereco atual quando termina */
+  if(!PRONTO)return;
   if(TOUR){ history.replaceState({g:1},"",ROTA_ULT); return; }
   if(CAMADAS.length){ voltarFechaCamada(); return; }
   var r=lerRota(location.hash);

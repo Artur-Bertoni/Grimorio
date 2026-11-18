@@ -329,6 +329,59 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(r.s === 204 || r.s === 200, "apaga a campanha importada", r.s);
 }
 
+console.log("\n=== modelos de campanha ===");
+{
+  let r = await mestre.post(`/api/admin/modelos/campanha/${cid}`, {});
+  ok(r.s === 200 && r.d?.id && r.d?.nome, "admin salva como modelo uma campanha que mestra", r.d);
+  const mid = r.d?.id;
+  r = await jogador.post(`/api/admin/modelos/campanha/${cid}`, {});
+  ok(r.s === 403, "quem nao e admin nao cria modelo", r.s);
+  r = await mestre.req("POST", "/api/admin/modelos", undefined, { form: forma("arquivo", Buffer.from("nao sou zip"), "x.zip", "application/zip") });
+  ok(r.s === 400, "arquivo que nao e pacote e recusado", r.d);
+  r = await jogador.get("/api/modelos");
+  ok(r.s === 200 && r.d.some(m => m.id === mid) && !JSON.stringify(r.d).includes("/data/"), "qualquer conta lista os modelos, sem caminho de disco", r.d);
+  r = await anonimo.get("/api/modelos");
+  ok(r.s === 401 || r.s === 403, "sem conta nao lista modelos", r.s);
+  r = await mestre.put(`/api/admin/modelos/${mid}`, { nome: "Modelo do teste", descricao: "para experimentar" });
+  ok(r.s === 200 && r.d?.nome === "Modelo do teste", "admin renomeia o modelo", r.d);
+  r = await mestre.req("POST", `/api/admin/modelos/${mid}/capa`, undefined, { form: forma("arquivo", PNG, "capa.png", "image/png") });
+  ok(r.s === 200 && r.d?.temCapa === true, "admin poe capa no modelo", r.d);
+  r = await jogador.get(`/api/modelos/${mid}/capa`);
+  ok(r.s === 200 && /image\/png/.test(r.tipo) && r.bruto.equals(PNG), "qualquer conta ve a capa do modelo", { s: r.s, t: r.tipo });
+  r = await jogador.req("POST", `/api/admin/modelos/${mid}/capa`, undefined, { form: forma("arquivo", PNG, "capa.png", "image/png") });
+  ok(r.s === 403, "quem nao e admin nao troca a capa", r.s);
+  r = await mestre.req("POST", `/api/admin/modelos/${mid}/capa`, undefined, { form: forma("arquivo", Buffer.from("x"), "capa.exe", "application/octet-stream") });
+  ok(r.s === 400, "capa que nao e imagem e recusada", r.d);
+  r = await mestre.del(`/api/admin/modelos/${mid}/capa`);
+  ok(r.s === 200 && r.d?.temCapa === false, "admin tira a capa", r.d);
+  r = await mestre.get(`/api/modelos/${mid}/capa`);
+  ok(r.s === 404, "sem capa, a rota responde 404", r.s);
+  r = await mestre.get("/api/modelos/..%2f..%2fx/capa");
+  ok(r.s === 404 || r.s === 400, "id de modelo invalido nao escapa da pasta", r.s);
+
+  r = await mestre.post("/api/campanhas", { nome: "Do modelo", sistema: "" });
+  const nova = r.d.id;
+  r = await jogador.post(`/api/c/${nova}/modelo/${mid}`, {});
+  ok(r.s === 403 || r.s === 404, "nao aplica modelo em campanha que nao mestra", r.s);
+  r = await mestre.post(`/api/c/${nova}/modelo/${mid}`, {});
+  ok(r.s === 200 && r.d?.guia === true && r.d?.pdfs === 1, "aplicar o modelo traz guia e livro", r.d);
+  r = await mestre.get(`/api/c/${nova}/guia`);
+  ok(r.s === 200 && JSON.parse(r.d.json).versao === 3, "a campanha nova abre com o guia do modelo");
+  ok(JSON.parse(r.d.json).campanha?.titulo === "Do modelo", "o guia leva o nome dado a campanha, nao o do modelo", JSON.parse(r.d.json).campanha?.titulo);
+  r = await mestre.get(`/api/c/${nova}/mesa`);
+  ok(JSON.parse(r.d.json).titulo === "Do modelo", "a mesa tambem leva o nome da campanha");
+  r = await mestre.get(`/api/c/${nova}/midia`);
+  ok(r.d?.docs?.[0]?.abrev === "LV" && r.d?.faixas?.length === 1, "a campanha nova tem o livro e a faixa do modelo", r.d);
+  r = await mestre.post(`/api/c/${nova}/modelo/naoexiste12`, {});
+  ok(r.s === 400, "modelo inexistente responde 400", r.s);
+  await mestre.del(`/api/campanhas/${nova}`);
+
+  r = await mestre.del(`/api/admin/modelos/${mid}`);
+  ok(r.s === 204, "admin apaga o modelo", r.s);
+  r = await mestre.get("/api/modelos");
+  ok(r.s === 200 && !r.d.some(m => m.id === mid), "modelo apagado some da lista");
+}
+
 console.log("\n=== administracao e suporte ===");
 {
   let r = await mestre.get("/api/admin/config");

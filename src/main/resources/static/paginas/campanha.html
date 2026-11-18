@@ -33,14 +33,32 @@
       <div class="form">
         <label><span class="frotx">Nome da campanha<span class="obrig" aria-hidden="true">*</span></span><input class="inp" id="ncNome" autocomplete="off" aria-required="true" placeholder="A Maldição de Strahd, Mesa de sexta…"></label>
         <label>Sistema de regras<input class="inp" id="ncSis" autocomplete="off" aria-describedby="ncSisD" placeholder="D&amp;D 5e, Ordem Paranormal, Tormenta…"><span class="dica" id="ncSisD">Opcional. Entra no contexto que a IA recebe.</span></label>
-        <div class="linha"><button type="button" class="btn sec m" id="ncPac">Escolher pacote (.zip)</button><output class="sm muted" id="ncPacNome">Nenhum pacote escolhido</output></div>
-        <p class="sm muted m0">Tem uma campanha pronta num pacote? Escolha o .zip antes de criar e ele entra junto, com guia, índices de busca e imagens.</p>
+        <div id="ncOrigens"></div>
+        <div class="linha" id="ncPacLinha" hidden><button type="button" class="btn sec m" id="ncPac">Escolher pacote (.zip)</button><output class="sm muted" id="ncPacNome">Nenhum pacote escolhido</output></div>
         <div class="linha"><button type="button" class="btn" id="ncGo">Criar campanha</button></div></div></section>
     <section class="caixa" id="cxEntrar" aria-labelledby="cxEntrarT" v-attr:hidden="campanhas ? true : null"><h2 class="flb" id="cxEntrarT">Entrar numa campanha existente</h2>
       <div class="form">
         <label><span class="frotx">Chave ou link do convite<span class="obrig" aria-hidden="true">*</span></span><input class="inp" id="ncChave" autocomplete="off" aria-required="true" aria-describedby="ncChaveD"><span class="dica" id="ncChaveD">Quem mestra gera essa chave em Configurações › Mesa e convites.</span></label>
         <div class="linha"><button type="button" class="btn" id="ncEntrar">Entrar</button></div></div></section>
   </div>
+</template>
+
+<!-- Como começar uma campanha nova. modelos: [{id, nome, sistema, descricao, capa (url ou vazio), inicial}],
+     cadastrados pela administração; escolhido: "branco", "pacote" ou "m:{id}" -->
+<template id="t-origens">
+  <fieldset class="origens"><legend class="frotx">Como começar</legend>
+    <div class="origgrid">
+      <label class="origem"><input type="radio" name="ncOrigem" value="branco" v-attr:checked="escolhido === 'branco' ? true : null">
+        <span class="origimg" aria-hidden="true"><span class="ccini">+</span></span>
+        <span class="origtx"><b>Em branco</b><span class="origds">Você monta a {{ vmin('campanha') }} do zero, com os primeiros passos guiados.</span></span></label>
+      <label v-for="m in modelos" class="origem"><input type="radio" name="ncOrigem" v-attr:value="'m:' + m.id" v-attr:checked="escolhido === 'm:' + m.id ? true : null">
+        <span class="origimg" aria-hidden="true"><img v-if="m.capa" :src="m.capa" alt="" loading="lazy"><span v-else class="ccini">{{ m.inicial }}</span></span>
+        <span class="origtx"><span class="chip">modelo</span><b>{{ m.nome }}</b><span v-if="m.sistema" class="origsis">{{ m.sistema }}</span><span v-if="m.descricao" class="origds">{{ m.descricao }}</span></span></label>
+      <label class="origem"><input type="radio" name="ncOrigem" value="pacote" v-attr:checked="escolhido === 'pacote' ? true : null">
+        <span class="origimg" aria-hidden="true"><span class="ccini">.zip</span></span>
+        <span class="origtx"><b>De um pacote</b><span class="origds">Um .zip exportado de outra {{ vmin('campanha') }}, com guia, livros, trilha e imagens.</span></span></label>
+    </div>
+    <p v-if="modelos.length" class="dica">Um modelo entra inteiro e fica todo seu: edite, apague e acrescente à vontade.</p></fieldset>
 </template>
 
 <!-- passos: so vem quando ainda falta algum; proxima: {id, numero, titulo, resumo, estado} da proxima sessao;

@@ -152,6 +152,11 @@ http.createServer(async (req, res) => {
       if (p === '/api/ping') return envia(res, 200, { ok: true, csrf: 't0', registroAberto: true });
       if (p === '/api/sessao') return envia(res, 200, { ...ST.perfil, campanhas: CAMPS });
       if (p === '/api/campanhas') return envia(res, 200, CAMPS);
+      /* um modelo de campanha cadastrado pela administracao, com capa */
+      if (p === '/api/modelos') return envia(res, 200, [{ id: 'modeloteste1', nome: 'Modelo de teste', sistema: 'd20 genérico',
+        descricao: 'Uma campanha pronta para experimentar.', temCapa: true, tamanho: 4096, criadoEm: Date.now() }]);
+      if (p === '/api/modelos/modeloteste1/capa') return envia(res, 200, IMGS['pc-2.png'], 'image/png');
+      if (p === '/__ultmodelo') return envia(res, 200, ST.ultModelo || {});
       if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens$/))) {
         const desde = Number(new URL(req.url, 'http://x').searchParams.get('desde') || 0);
         return envia(res, 200, (ROLAGENS[m[1]] || []).filter(r => r.id > desde));
@@ -244,6 +249,12 @@ http.createServer(async (req, res) => {
         return envia(res, 200, { id: 999, nome, arquivo: 'img/' + nome });
       }
       if (/^\/api\/c\/\d+\/midia\/\d+\/reindexar$/.test(p)) return envia(res, 200, { paginas: 120, comCapitulo: 80 });
+      /* aceitar convite: a pessoa entra na campanha 2 */
+      if (/^\/api\/convites\/[^/]+$/.test(p)) return envia(res, 200, CAMPS.find(c => c.id === 2));
+      if ((m = p.match(/^\/api\/c\/(\d+)\/modelo\/([a-z0-9]+)$/))) {
+        ST.ultModelo = { cid: Number(m[1]), id: m[2] };
+        return envia(res, 200, { nome: 'Modelo de teste', indices: 0, imagens: 3, pdfs: 1, faixas: 2, guia: true, mesa: true, fichas: 0 });
+      }
       if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens$/))) {
         const c = CAMPS.find(x => x.id === Number(m[1])), mestre = c.papel === 'MESTRE';
         const s = rolaStub(b.formula || ('1d' + b.lados));

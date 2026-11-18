@@ -2,23 +2,32 @@
 "use strict";
 
 /* ---------- TEMA SUGERIDO PELO MESTRE ----------
-   MESA.tema e a sugestao da campanha. A pessoa tem um tema dela (grim_tema, vale em toda
-   campanha) e pode, campanha a campanha, escolher seguir o mestre (grim_tema_c{id}="mesa"). */
-function temaMesa(){ var m=MESA&&MESA.tema; return (m&&TEMAS[m])?m:""; }
-function temaDaCampanha(){ if(!CID)return ""; try{ return localStorage.getItem("grim_tema_c"+CID)||""; }catch(e){ return ""; } }
+   MESA.tema e a sugestao da campanha. Quem segue o tema das mesas (o padrao) entra na campanha
+   ja vestido com ela; quem prefere o proprio tema pode definir um so para aquela campanha. */
+function temaMesa(){ var m=MESA?.tema; return (m&&TEMAS[m])?m:""; }
+/* o tema que a pessoa definiu para a campanha aberta; "mesa" e de uma versao anterior, quando
+   seguir o mestre era escolha campanha a campanha, e hoje e o padrao */
+function temaEscolhido(){ if(!CID)return "";
+  var c="";
+  try{ c=localStorage.getItem("grim_tema_c"+CID)||""; }catch(error_){ /* sem armazenamento: nenhuma escolha por campanha */ }
+  return TEMAS[c]?c:""; }
+function segueMesa(){ var v="";
+  try{ v=localStorage.getItem("grim_segue")||""; }catch(error_){ /* sem armazenamento: vale o padrao, seguir a mesa */ }
+  return v!=="0"; }
 function sugereTema(){
   var m=temaMesa(); if(!CID||!m)return;
   var k="grim_tema_visto_c"+CID, visto="";
   try{ visto=localStorage.getItem(k)||""; localStorage.setItem(k,m); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
-  /* aparece uma vez por sugestao: se o mestre trocar o tema, a pergunta volta */
-  if(visto===m||GM)return;
+  /* Aparece uma vez por sugestao (se o mestre trocar o tema, a pergunta volta), e so para quem
+     escolheu usar sempre o proprio tema: quem segue as mesas ja esta vendo o tema do mestre. */
+  if(visto===m||GM||segueMesa()||temaEscolhido())return;
   $$(".sugtema").forEach(function(x){ x.remove(); });
   var d=el("div",{"class":"sugtema"}), igual=(temaAtivo()===m);
   d.innerHTML=htmlDe("t-sugere-tema",{cartao:temaCard(m,""),nome:TEMAS[m].nome,
     estilo:(ESTILOS[TEMAS[m].estilo]||{}).nome||"",igual:igual});
   var pv=$(".temacard",d); if(pv){ pv.disabled=true; pv.removeAttribute("data-tema"); }
   $$("[data-s]",d).forEach(function(b){ b.onclick=function(){
-    if(b.dataset.s==="usar"){ try{ localStorage.setItem("grim_tema_c"+CID,"mesa"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+    if(b.dataset.s==="usar"){ try{ localStorage.setItem("grim_tema_c"+CID,m); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
       trocarTema(temaAtivo()); toast("Tema do "+V("mestre").toLowerCase()+" aplicado nesta "+V("campanha").toLowerCase()); }
     d.remove(); }; });
   document.body.appendChild(d);

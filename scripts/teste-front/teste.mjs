@@ -107,7 +107,6 @@ const andaTour = async () => {
 const salvar = async () => { await pg.locator('.ov [data-ok]').last().click(); await espera(500); };
 
 await ctx.request.get(B + '/api/zerar');
-await pg.addInitScript(() => { try { if (!localStorage.getItem('grim_cid')) localStorage.setItem('grim_cid', '1'); } catch (e) {} });
 /* com DOM= ligado, o sorteio da pagina vira sempre a mesma sequencia: dois retratos so diferem
    se o HTML mudou, nao porque o d20 caiu em outro numero */
 if (DOM) await pg.addInitScript(() => {
@@ -117,7 +116,7 @@ if (DOM) await pg.addInitScript(() => {
 });
 
 titulo('campanha de teste abre');
-await pg.goto(B + '/', { waitUntil: 'networkidle' });
+await pg.goto(B + '/#/c/1/campanha', { waitUntil: 'networkidle' });
 await espera(1300);
 ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do mestre abre o tour');
 ok(/^1 de \d+$/i.test((await pg.locator('.tourn').innerText()).trim()), 'tour comeca no passo 1');
@@ -619,6 +618,10 @@ if (DOM) await foto('r014-aj-admin');
 const arm = await pg.locator('#adArm').innerText();
 ok(/compartilhados: 4 cópias evitadas, economizando 305\.2 MB/i.test(arm) && /Campanha de teste/.test(arm), 'administracao mostra o armazenamento e o uso por campanha');
 ok(/H2/.test(await pg.locator('#adSis').innerText()) && /1 dia/.test(await pg.locator('#adSis').innerText()), 'administracao mostra banco e tempo no ar');
+ok(/Modelo de teste/.test(await pg.locator('#adMod').innerText()), 'administracao lista os modelos de campanha');
+ok((await pg.locator('#adMod [data-modcapa]').count()) === 1 && (await pg.locator('#adMod .modcapa img').count()) === 1 && (await pg.locator('#adMod [data-modsemcapa]').count()) === 1,
+  'cada modelo mostra a miniatura da capa e os botoes de trocar e tirar a capa');
+ok((await pg.locator('#adModCa option').count()) >= 1, 'administracao oferece salvar como modelo uma campanha que a pessoa mestra');
 await pg.locator('#adJunta').click();
 await espera(500);
 ok(/Nada para juntar/i.test(await pg.locator('.toast').last().innerText()), 'juntar arquivos iguais responde na tela');
@@ -972,6 +975,27 @@ const txt = await pg.locator('#view').innerText();
 ok(/você mestra/i.test(txt) && /você joga/i.test(txt), 'mostra os dois papeis');
 ok(await pg.locator('#btnAjustes').isVisible() && !(await pg.locator('#btnBusca').isVisible()), 'fora da campanha: ajustes sim, busca nao');
 
+titulo('criar campanha: como começar');
+await pg.click('#ncAbreCriar');
+await espera(500);
+ok((await pg.locator('input[name=ncOrigem]').count()) === 3, 'como comecar: em branco, o modelo da instancia e pacote');
+ok(await pg.locator('#ncOrigens input[value=branco]').isChecked(), 'em branco vem marcado');
+await pg.locator('.origem img').waitFor();
+ok(await pg.locator('.origem img').evaluate(i => i.complete && i.naturalWidth > 0), 'o cartao do modelo mostra a capa');
+ok(await pg.locator('#ncPacLinha').isHidden(), 'o botao do pacote fica escondido fora da opcao pacote');
+await pg.locator('.origem:has(input[value="m:modeloteste1"])').click();
+ok((await pg.inputValue('#ncNome')) === '' && (await pg.inputValue('#ncSis')) === 'd20 genérico', 'escolher o modelo preenche so o sistema; o nome e de quem cria');
+await foto('09c-criar-de-modelo');
+await pg.locator('.origem:has(input[value=pacote])').click();
+ok(await pg.locator('#ncPacLinha').isVisible() && (await pg.inputValue('#ncSis')) === '', 'pacote mostra o botao e tira o sistema que o modelo tinha posto');
+await pg.fill('#ncSis', 'Meu sistema');
+await pg.locator('.origem:has(input[value="m:modeloteste1"])').click();
+ok((await pg.inputValue('#ncSis')) === 'Meu sistema', 'sistema digitado nao e trocado pelo do modelo');
+await pg.locator('.origem:has(input[value=branco])').click();
+await pg.fill('#ncSis', '');
+await pg.click('#ncAbreCriar');
+await espera(300);
+
 titulo('campanha em branco');
 await pg.locator('[data-entrar="2"]').click();
 await espera(1200);
@@ -1018,9 +1042,8 @@ ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do jogador abre o tou
 const tj = await andaTour();
 ok(tj.faltas.length === 0 && tj.n >= 7 && tj.n <= 9, 'o primeiro tour do jogador e o curto, com ' + tj.n + ' passos que acham o elemento' + (tj.faltas.length ? ': ' + tj.faltas.join(' | ') : ''));
 await espera(600);
-ok(/Luar/.test(await pg.locator('.sugtema').innerText().catch(() => '')), 'jogador ve o tema sugerido ao entrar pela primeira vez');
-ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'luar', 'e a campanha abre no tema do mestre');
-await pg.locator('.sugtema [data-s]').first().click();
+ok((await pg.locator('.sugtema').count()) === 0, 'quem segue o tema das mesas nao e perguntado sobre o tema sugerido');
+ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'luar', 'e a campanha abre direto no tema do mestre');
 await pg.evaluate(() => { window.__viu = []; new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
   if (n.classList) window.__viu.push(n.className); }))).observe(document.body, { childList: true }); });
 const m3 = await (await ctx.request.get(B + '/api/c/3/mesa')).json();
@@ -1091,6 +1114,13 @@ await pg.locator('#senha').pressSequentially('1!x');
 ok((await okR()) === 'tam,letra,num,esp', 'cumprindo tudo, a lista fica toda verde');
 await pg.locator('#avisoX').click();
 ok(await pg.locator('#aviso').isHidden(), 'o aviso fecha no X');
+await pg.goto(B + '/');
+await espera(1500);
+ok((await pg.locator('[data-entrar]').count()) > 0 && /#\/campanhas$/.test(pg.url()), 'entrar no site sem endereco cai sempre na lista de campanhas, nunca numa mesa aberta: ' + pg.url());
+await pg.goto(B + '/?convite=abc123');
+await espera(1800);
+ok(/#\/c\/2\//.test(pg.url()) && !/convite=/.test(pg.url()), 'link de convite entra direto na campanha que convidou e limpa o endereco: ' + pg.url());
+await pg.keyboard.press('Escape');
 await pg.goto(B + '/');
 await espera(1500);
 
@@ -1201,6 +1231,64 @@ await aba('Biblioteca');
 await pg.reload();
 await espera(1800);
 ok(await pg.locator('#tabs .tab[aria-current="page"]').innerText().then(t => /biblioteca/i.test(t)), 'F5 reabre a mesma tela');
+
+titulo('tema: o seu fora das campanhas, o da mesa dentro');
+{
+  const temaDa = () => pg.evaluate(() => document.documentElement.getAttribute('data-tema'));
+  const guardado = k => pg.evaluate(x => localStorage.getItem(x), k);
+  const aparencia = async () => { await pg.click('#btnAjustes'); await espera(400); await pg.locator('[data-aj="aparencia"]').click(); await espera(400); };
+  const entra = async () => { await pg.click('#brandHome'); await espera(700); await pg.locator('[data-entrar="3"]').click(); await espera(1500); };
+  await pg.evaluate(() => { localStorage.removeItem('grim_tema'); localStorage.removeItem('grim_segue'); localStorage.removeItem('grim_tema_c3'); });
+  await pg.click('#brandHome');
+  await espera(700);
+  await aparencia();
+  ok((await pg.locator('#temaLimpa').count()) === 0 && (await pg.locator('#temaCamp').count()) === 0, 'fora de uma campanha a aparencia nao mostra os botoes do tema da mesa');
+  await pg.locator('[data-tema="pergaminho"]').click();
+  await espera(600);
+  ok(await temaDa() === 'pergaminho' && await guardado('grim_tema') === 'pergaminho', 'fora de uma campanha o clique define o seu tema');
+  ok((await pg.locator('.temacard[data-tema="pergaminho"] .tseu').count()) === 1, 'o seu tema leva a etiqueta na lista');
+  await pg.click('#brandHome');
+  await espera(700);
+  ok(await temaDa() === 'pergaminho', 'a lista de campanhas fica no seu tema');
+  await entra();
+  ok(await temaDa() === 'luar', 'ao abrir a campanha com tema sugerido, a tela muda para o tema dela');
+  await pg.click('#brandHome');
+  await espera(900);
+  ok(await temaDa() === 'pergaminho', 'ao sair da campanha volta o seu tema');
+  await entra();
+  await aparencia();
+  ok(await pg.locator('#temaCamp').isVisible() && (await pg.locator('#temaLimpa').count()) === 0, 'dentro da campanha aparece o botao de definir o tema, e o de voltar ainda nao');
+  ok(/Definir como meu tema para esta campanha/i.test(await pg.locator('#temaCamp').innerText()), 'o botao diz o que faz');
+  await pg.locator('[data-tema="noir"]').click();
+  await espera(500);
+  ok(await temaDa() === 'noir' && await guardado('grim_tema_c3') === null && await pg.locator('#temaLimpa').isVisible(), 'dentro da campanha o clique so mostra a previa, sem gravar');
+  await pg.locator('#temaCamp').click();
+  await espera(500);
+  ok(await guardado('grim_tema_c3') === 'noir' && (await pg.locator('.temacard[data-tema="noir"] .tesc').count()) === 1, 'definir como meu tema grava a escolha e marca o cartao como escolhido');
+  await pg.click('#brandHome');
+  await espera(900);
+  ok(await temaDa() === 'pergaminho', 'fora da campanha continua o seu tema');
+  await entra();
+  ok(await temaDa() === 'noir', 'a escolha vale ao voltar na campanha, na frente da sugestao do mestre');
+  await aparencia();
+  await pg.locator('#temaLimpa').click();
+  await espera(500);
+  ok(await temaDa() === 'luar' && await guardado('grim_tema_c3') === null, 'voltar ao tema da mesa apaga a escolha');
+  await pg.locator('[data-tema="veu"]').click();
+  await espera(400);
+  await pg.click('#brandHome');
+  await espera(900);
+  ok(await temaDa() === 'pergaminho', 'previa nao gravada some ao sair da aparencia');
+  await entra();
+  await aparencia();
+  await pg.locator('[data-segue="0"]').click();
+  await espera(500);
+  ok(await temaDa() === 'pergaminho' && await guardado('grim_segue') === '0', 'usar sempre o meu tema tira o tema da mesa');
+  await pg.locator('[data-segue="1"]').click();
+  await espera(500);
+  ok(await temaDa() === 'luar', 'seguir o tema de cada mesa volta a vestir a campanha');
+  await pg.evaluate(() => localStorage.removeItem('grim_tema'));
+}
 
 titulo('qualidade de cor: contraste dos temas e nenhuma cor solta');
 {
