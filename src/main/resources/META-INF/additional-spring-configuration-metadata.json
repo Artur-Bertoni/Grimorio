@@ -1,0 +1,7 @@
+﻿{
+  "properties": [
+    { "name": "grimorio.midia-dir", "type": "java.lang.String", "description": "Pasta onde PDFs, audios e imagens das campanhas ficam (volume do Railway)." },
+    { "name": "grimorio.suporte-email", "type": "java.lang.String", "description": "Para onde vai o contato do suporte. A Administracao pode trocar pela tela." },
+    { "name": "grimorio.email-api-base", "type": "java.lang.String", "description": "So para teste: base das APIs de e-mail. Vazio usa os enderecos de verdade." }
+  ]
+}

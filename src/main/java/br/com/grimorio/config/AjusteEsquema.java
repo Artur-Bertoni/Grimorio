@@ -1,5 +1,6 @@
 package br.com.grimorio.config;
 
+import br.com.grimorio.model.MapaElemento;
 import br.com.grimorio.model.Midia;
 import br.com.grimorio.model.Papel;
 import org.slf4j.Logger;
@@ -22,7 +23,8 @@ import java.util.stream.Collectors;
  * do Java e morre no banco com 23514. Isso roda no boot, antes de qualquer
  * requisicao, e e idempotente: dropa e recria com a lista atual.
  *
- * Se a coluna ou a tabela nao existir, o aviso fica no log e a vida segue.
+ * Se a coluna ou a tabela nao existir, o aviso fica no log e a vida segue. Coluna enum nova
+ * entra na lista abaixo.
  */
 @Configuration
 public class AjusteEsquema {
@@ -39,6 +41,7 @@ public class AjusteEsquema {
             realinhar(jdbc, "membro", COLUNA_PAPEL, Papel.values());
             realinhar(jdbc, "convite", COLUNA_PAPEL, Papel.values());
             realinhar(jdbc, "usuario", COLUNA_PAPEL, Papel.values());
+            realinhar(jdbc, "mapa_elemento", "tipo", MapaElemento.Tipo.values());
         };
     }
 

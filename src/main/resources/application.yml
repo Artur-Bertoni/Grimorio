@@ -17,11 +17,12 @@ server:
   tomcat:
     max-swallow-size: -1
     max-http-form-post-size: 10MB
-  error:
-    whitelabel:
-      enabled: false
 
 spring:
+  web:
+    error:
+      whitelabel:
+        enabled: false
   application:
     name: grimorio
   jpa:
@@ -31,12 +32,12 @@ spring:
     properties:
       hibernate:
         jdbc:
-          batch_size: 20
+          "[batch_size]": 20
   servlet:
     multipart:
       enabled: true
-      max-file-size: 2GB
-      max-request-size: 2100MB
+      max-file-size: 2GB # NOSONAR: livros e trilhas grandes sobem pelo app, de proposito
+      max-request-size: 2100MB # NOSONAR: idem, so membros logados chegam aqui
       file-size-threshold: 2MB
   mvc:
     problemdetails:
@@ -52,5 +53,5 @@ grimorio:
 logging:
   level:
     root: INFO
-    br.com.grimorio: INFO
-    org.hibernate.SQL: WARN
+    "[br.com.grimorio]": INFO
+    "[org.hibernate.SQL]": WARN

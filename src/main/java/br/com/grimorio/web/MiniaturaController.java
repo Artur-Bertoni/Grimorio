@@ -24,7 +24,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Imagens da campanha: {@code /midia/c{id}/img/arquivo} serve o original e, com {@code ?mini=1},
- * a miniatura (ate 512px) para lista e cartao. PDF e audio continuam com o ResourceHandler de
+ * a miniatura (ate 512px) para lista e cartao; com {@code ?mapa=1}, a versao de ate 4096px que o
+ * tabletop desenha no canvas. PDF e audio continuam com o ResourceHandler de
  * WebConfig, que responde a Range. A autorizacao e a mesma de qualquer midia
  * (MidiaAutorizacao: imagem e para qualquer membro), porque o filtro roda antes.
  */
@@ -47,7 +48,9 @@ public class MiniaturaController {
         if (!original.startsWith(raizCampanha.resolve("img")) || !Files.isRegularFile(original)) {
             return ResponseEntity.notFound().build();
         }
-        Path servir = req.getParameter("mini") == null ? original : Miniaturas.obter(raizCampanha, original).orElse(original);
+        Path servir = original;
+        if (req.getParameter("mini") != null) servir = Miniaturas.obter(raizCampanha, original).orElse(original);
+        else if (req.getParameter("mapa") != null) servir = Miniaturas.obterMapa(raizCampanha, original).orElse(original);
         String nome = servir.getFileName().toString().toLowerCase();
         MediaType tipo = nome.endsWith(".webp") ? MediaType.parseMediaType("image/webp")
                 : MediaTypeFactory.getMediaType(nome).orElse(MediaType.APPLICATION_OCTET_STREAM);

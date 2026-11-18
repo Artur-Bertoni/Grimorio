@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="css/janelas.css">
 <link rel="stylesheet" href="css/paginas.css">
 <link rel="stylesheet" href="css/quadro.css">
+<link rel="stylesheet" href="css/mapa.css">
 <link rel="stylesheet" href="css/controles.css">
 <link rel="stylesheet" href="css/pele.css">
 <link rel="stylesheet" href="css/estilos.css">
@@ -72,7 +73,7 @@ import * as pdfjs from "./vendor/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.mjs";
 window.pdfjsLib = pdfjs;
 </script>
-<!-- a ordem importa: cada arquivo usa o que os anteriores declararam -->
+<!-- a ordem importa: cada arquivo usa o que os anteriores declararam (o mapa vem antes de rotas.js, que le MP) -->
 <script src="vendor/petite-vue.js"></script>
 <script src="js/nucleo.js"></script>
 <script src="js/componentes.js"></script>
@@ -104,6 +105,9 @@ window.pdfjsLib = pdfjs;
 <script src="js/envio.js"></script>
 <script src="js/pagina-mesa.js"></script>
 <script src="js/sessoes.js"></script>
+<script src="js/mapa-dados.js"></script>
+<script src="js/mapa-motor.js"></script>
+<script src="js/pagina-mapa.js"></script>
 <script src="js/rotas.js"></script>
 <script src="js/render.js"></script>
 <script src="js/inicio.js"></script>
