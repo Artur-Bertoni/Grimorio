@@ -372,6 +372,141 @@ console.log("\n=== mapa (tabletop) ===");
   ok(r.s === 204 || r.s === 200, "a imagem do mapa sai da biblioteca (as contagens adiante nao a esperam)", r.s);
 }
 
+console.log("\n=== mapa: movimento (deslocamento, desfazer, historico) ===");
+{
+  const M = `/api/c/${cid}/mapas`;
+  let r = await mestre.post(M, { nome: "Campo" });
+  const mid = r.d.id;
+  ok(r.d.regras.limite === "aviso" && r.d.grid.diagonal === "121" && r.d.grid.escala === 1.5, "mapa novo: diagonal 1-2-1, 1,5 por casa e limite so avisa", r.d);
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: true });
+  const eu = (await jogador.get("/api/sessao")).d;
+  r = await mestre.post(`${M}/${mid}/elementos`, { dono: eu.id, dados: { nome: "Corredora", x: 35, y: 35, desl: 6 } });
+  const t = r.d.id;
+  ok(r.d.dados.desl === 6 && !("usado" in r.d.dados), "token nasce com deslocamento por turno, sem nada gasto", r.d.dados);
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Guarda", x: 700, y: 700, desl: 9 } });
+  const tG = r.d.id;
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Sentinela", x: 770, y: 700, desl: -5 } });
+  ok(r.d.dados.desl === 0, "deslocamento negativo vira zero", r.d.dados);
+  r = await jogador.get(`${M}/${mid}`);
+  const vistos = Object.fromEntries(r.d.elementos.map(e => [e.id, e.dados]));
+  ok(vistos[t].desl === 6 && !("desl" in vistos[tG]), "o jogador ve o deslocamento do proprio token, e nao o dos outros", vistos);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { desl: 999, usado: -50 } });
+  ok(r.s === 200 && r.d.dados.desl === 6 && !r.d.dados.usado, "o jogador nao muda o proprio deslocamento nem o gasto", r.d?.dados);
+
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 245, y: 245 } });
+  ok(r.s === 200 && r.d.dados.usado === 6 && !r.d.passou, "3 casas em diagonal custam 4 (1-2-1): 6 m, o limite exato", r.d?.dados);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 315, y: 245 } });
+  ok(r.s === 200 && r.d.passou === true && r.d.dados.usado === 7.5, "no modo aviso passar do limite move e diz que passou", r.d);
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "bloqueio" } });
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 385, y: 245 } });
+  ok(r.s === 409 && r.d?.codigo === "limite-de-movimento" && /custa 1,5/.test(r.d.erro), "no modo bloqueio o servidor recusa e diz o custo", r.d);
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === t).dados.x === 315, "e o token fica onde estava");
+  r = await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 35 } });
+  ok(r.s === 200 && r.d.dados.usado === 7.5, "o mestre move sem ser barrado e sem gastar nem devolver deslocamento", r.d?.dados);
+
+  r = await jogador.post(`${M}/turno`, {});
+  ok(r.s === 403, "jogador nao muda o turno do mapa", r.s);
+  r = await mestre.post(`${M}/turno`, {});
+  ok(r.s === 200 && r.d.zerados === 1, "novo turno zera o gasto de quem gastou", r.d);
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === t).dados.usado === 0, "e o jogador ve o gasto zerado");
+
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
+  ok(r.d.dados.usado === 1.5, "uma casa custa 1,5 m", r.d?.dados);
+  r = await jogador.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 200 && r.d.el.dados.x === 35 && r.d.el.dados.usado === 0, "o jogador desfaz o proprio movimento e o deslocamento volta", r.d);
+  r = await jogador.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 409, "os movimentos antigos ja nao se aplicam (o token foi movido depois): nada a desfazer", r);
+  r = await jogador.get(`${M}/${mid}/historico`);
+  ok(r.s === 200 && r.d.length >= 3 && r.d.every(l => l.meu === true) && r.d.some(l => l.casas === 4) && r.d.some(l => l.desfeito),
+    "o historico do jogador e so o dele, com as casas andadas e o que foi desfeito", r.d);
+  r = await mestre.get(`${M}/${mid}/historico`);
+  ok(r.s === 200 && r.d.some(l => l.meu === false) && r.d.some(l => l.operacao === "turno") && r.d.some(l => l.operacao === "criar") && r.d.every(l => l.quem),
+    "o historico do mestre tem tudo, de todos", r.d.map(l => l.operacao));
+  const seqMestre = r.d.find(l => l.meu === true).seq;
+  r = await jogador.post(`${M}/${mid}/desfazer`, { seq: seqMestre });
+  ok(r.s === 404, "ninguem desfaz a acao de outra pessoa", r.s);
+
+  r = await mestre.del(`${M}/${mid}/elementos/${tG}`);
+  ok(r.s === 200 && r.d.seq > 0, "remover devolve o seq da operacao", r.d);
+  r = await mestre.post(`${M}/${mid}/desfazer`, { seq: r.d.seq });
+  const novo = r.d?.el;
+  ok(r.s === 200 && novo && novo.id !== tG && novo.dados.nome === "Guarda" && novo.dados.desl === 9, "desfazer a remocao recria o token com outro id", r.d);
+  r = await mestre.get(`${M}/${mid}/historico`);
+  ok(r.d.some(l => l.elemento === novo.id && l.operacao === "criar") && !r.d.some(l => l.elemento === tG), "o historico passa a apontar para o token recriado", r.d.map(l => l.elemento));
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Engano" } });
+  const tE = r.d.id;
+  r = await mestre.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 200 && r.d.el === null && r.d.id === tE, "desfazer a criacao tira o token", r.d);
+  r = await mestre.get(`${M}/${mid}`);
+  ok(!r.d.elementos.some(e => e.id === tE), "e ele nao esta mais no mapa");
+
+  /* grade hexagonal: conta passos de hexagono, nao distancia em linha reta */
+  await mestre.put(`${M}/${mid}`, { grid: { tipo: "hex", tam: 70, escala: 1, unidade: "m" }, regras: { quem: "dono", limite: "bloqueio" } });
+  await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 40.4, desl: 2 } });
+  await mestre.post(`${M}/turno`, {});
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 161.7 } });
+  ok(r.s === 200 && r.d.dados.usado === 2, "no hexagono, duas linhas abaixo custam 2 passos", r.d?.dados);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 161.7 } });
+  ok(r.s === 409, "e mais um passo passa do limite de 2", r.s);
+  /* euclidiana */
+  await mestre.put(`${M}/${mid}`, { grid: { tipo: "quadrado", tam: 70, escala: 1, unidade: "m", diagonal: "eu" } });
+  await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 35, desl: 10 } });
+  await mestre.post(`${M}/turno`, {});
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 245, y: 315 } });
+  ok(r.s === 200 && r.d.dados.usado === 5, "euclidiana: 3 por 4 casas valem 5", r.d?.dados);
+  r = await mestre.get(`${M}/${mid}/historico?limite=3`);
+  ok(r.d.length === 3, "o historico respeita o limite pedido", r.d.length);
+
+  /* iniciativa: o turno zera o deslocamento e a vez libera o token de cada um */
+  await mestre.put(`${M}/${mid}`, { grid: { tipo: "quadrado", tam: 70, escala: 1, unidade: "m", diagonal: "1" }, regras: { quem: "dono", limite: "aviso" } });
+  await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 35, desl: 10 } });
+  await mestre.post(`${M}/turno`, {});
+  await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { elencoId: "p-corredora" } });
+  await mestre.put(`${M}/${mid}/elementos/${(await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.dados.nome === "Guarda").id}`, { dados: { elencoId: "n-guarda" } });
+  const ordem = (rodada, vez) => ({ ativo: true, rodada, vez: vez === "Guarda" ? "n-guarda" : "p-corredora", ids: ["p-corredora", "n-guarda"], ini: { rodada, vez: vez === "Guarda" ? 0 : 1, lista: [{ nome: "Guarda", v: 15 }, { nome: "Corredora", v: 10 }] } });
+  r = await jogador.put(`${M}/turno`, ordem(1, "Guarda"));
+  ok(r.s === 403, "jogador nao informa a iniciativa", r.s);
+  r = await mestre.put(`${M}/turno`, ordem(1, "Guarda"));
+  ok(r.s === 200 && r.d.novo === true && r.d.rodada === 1, "a iniciativa que comeca e um turno novo", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
+  ok(r.s === 403 && /vez de Corredora/.test(r.d?.erro), "na vez de outro, o jogador nao move o proprio token e a tela diz de quem e a vez", r.d);
+  r = await jogador.get(`${M}/${mid}`);
+  const porNome = Object.fromEntries(r.d.elementos.map(e => [e.dados.nome, e]));
+  ok(porNome.Corredora.esperaVez === true && porNome.Corredora.podeMover === false && porNome.Guarda.daVez === true, "o estado marca quem espera e de quem e a vez", { c: porNome.Corredora, g: porNome.Guarda?.daVez });
+  r = await mestre.post(`${M}/${mid}/elementos`, { dono: eu.id, dados: { nome: "Estranho", x: 35, y: 105 } });
+  const tEst = r.d.id;
+  r = await jogador.put(`${M}/${mid}/elementos/${tEst}`, { dados: { x: 105, y: 105 } });
+  ok(r.s === 200, "token sem vinculo com o elenco continua livre, tenha o nome que tiver", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 35 } });
+  ok(r.s === 200, "o mestre move qualquer um fora da vez");
+  r = await mestre.put(`${M}/turno`, ordem(1, "Corredora"));
+  ok(r.d.novo === false, "so passar a vez nao e turno novo", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
+  ok(r.s === 200 && r.d.dados.usado === 1, "na vez dele o jogador move e gasta", r.d);
+  r = await jogador.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 200 && r.d.el.dados.x === 35, "e desfaz na propria vez", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
+  r = await mestre.put(`${M}/turno`, ordem(2, "Guarda"));
+  ok(r.d.novo === true && r.d.rodada === 2, "a ordem que da a volta e um turno novo", r.d);
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === t).dados.usado === 0 && r.d.elementos.find(e => e.id === t).esperaVez === true, "o turno novo zera o gasto, mas libera so quem tem a vez");
+  r = await mestre.get(`${M}/${mid}/historico?limite=5`);
+  ok(r.d.some(l => l.operacao === "turno"), "o turno novo entra no historico");
+  r = await mestre.put(`${M}/turno`, { ativo: false, ini: null });
+  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 175, y: 35 } });
+  ok(r.s === 200, "sem iniciativa em andamento o jogador volta a mover quando quiser", r.s);
+
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
+  r = await jogador.get(`${M}/${mid}/historico`);
+  ok(r.s === 404, "historico de mapa desligado responde 404 ao jogador", r.s);
+  r = await jogador.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 404, "e o desfazer tambem", r.s);
+  r = await mestre.del(`${M}/${mid}`);
+  ok(r.s === 204, "apagar o mapa leva o historico junto", r.s);
+}
+
 console.log("\n=== notas e mural ===");
 {
   let r = await jogador.get(`/api/c/${cid}/notas`);

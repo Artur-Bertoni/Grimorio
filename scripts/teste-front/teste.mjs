@@ -54,8 +54,9 @@ const pg = await ctx.newPage();
 pg.on('pageerror', e => erros.push('pageerror: ' + e.message));
 pg.on('console', m => {
   // o 403 do teste de senha errada e o 507 do armazenamento cheio sao esperados
+  // o 409 do bloqueio de movimento do mapa tambem e esperado
   // o 404 do SSE do mapa e esperado quando o teste desliga o tempo real (/__sse/0)
-  if (m.type() === 'error' && !/403|507/.test(m.text()) && !/mapas\/eventos/.test(m.location()?.url || '') && !/EventSource/.test(m.text())) erros.push('console: ' + m.text());
+  if (m.type() === 'error' && !/403|507|409/.test(m.text()) && !/mapas\/eventos/.test(m.location()?.url || '') && !/EventSource/.test(m.text())) erros.push('console: ' + m.text());
 });
 pg.on('dialog', d => d.accept());
 const espera = ms => pg.waitForTimeout(ms);
@@ -211,6 +212,58 @@ ok((await pg.locator('[data-mp-sel]').count()) === 0, 'remover tira o token sem 
 await pg.locator('.toast.act [data-acao]').click(); await espera(900);
 ok((await pg.locator('[data-mp-sel]').count()) === 1, 'e o desfazer devolve o token');
 await foto('13-mapa-mestre');
+
+titulo('mapa: regua, deslocamento, desfazer e historico (mestre)');
+await pg.locator('#mpEd').click(); await espera(350);
+ok((await pg.locator('.ov [data-f="diagonal"]').count()) === 1 && (await pg.locator('.ov [data-f="limite"]').count()) === 1, 'o formulario do mapa tem a diagonal e o que fazer ao passar do deslocamento');
+await pg.locator('.ov [data-f="tipo"]').selectOption('quadrado');
+await pg.locator('.ov [data-f="tam"]').fill('70');
+await pg.locator('.ov [data-f="diagonal"]').selectOption('121');
+await pg.locator('.ov [data-f="limite"]').selectOption('bloqueio');
+await salvar(); await espera(700);
+em = await estadoMapa(1, mid);
+ok(em.mapa.grid.tipo === 'quadrado' && em.mapa.grid.diagonal === '121' && em.mapa.regras.limite === 'bloqueio', 'diagonal e limite do mapa gravados');
+const dist = (c, d) => pg.evaluate(([c, d]) => { MP.mapa.grid.diagonal = d; const r = mpDistCasas(0, 0, c[0] * 70, c[1] * 70); return r; }, [c, d]);
+ok(await dist([3, 3], '121') === 4 && await dist([3, 3], '1') === 3 && Math.abs(await dist([3, 4], 'eu') - 5) < 1e-9, 'a conta de diagonal: 1-2-1 vale 4, uma por casa vale 3, euclidiana vale 5 para 3x4');
+await pg.evaluate(() => { MP.mapa.grid.diagonal = '121'; });
+ok(await pg.evaluate(() => mpDistTexto(4)) === '6 m · 4 casas', 'o rotulo mostra a unidade do mapa e as casas');
+const t2 = await pg.evaluate(() => MP.els[0].id);
+await pg.locator('[data-mp-ed="' + t2 + '"]').click(); await espera(500);
+await pg.locator('.ov [data-f="desl"]').fill('6');
+await salvar(); await espera(600);
+em = await estadoMapa(1, mid);
+ok(em.elementos.find(e => e.id === t2).dados.desl === 6 && (await pg.locator('.mpitem .chip', { hasText: /6\/6 m/ }).count()) === 1, 'o deslocamento por turno do token e gravado e aparece na lista (6/6 m)');
+await pg.keyboard.press('r'); await espera(150);
+ok(await pg.locator('#mpRegua').getAttribute('aria-pressed') === 'true' && await pg.evaluate(() => MP.ferramenta) === 'regua', 'a tecla R liga a regua');
+const pr = await posToken(t2);
+await pg.mouse.move(pr.x, pr.y); await pg.mouse.down();
+await pg.mouse.move(pr.x + 3 * pr.T * pr.z, pr.y + 3 * pr.T * pr.z, { steps: 8 }); await pg.mouse.up(); await espera(200);
+const reg = await pg.evaluate(() => MP.regua && { n: mpDistCasas(MP.regua.a.x, MP.regua.a.y, MP.regua.b.x, MP.regua.b.y), tok: MP.els.find(e => e.id === MP.sel) });
+ok(!!reg && reg.n === 4, 'a regua mede do token ate a casa: 3 na diagonal e 3 em linha dao 4 casas');
+em = await estadoMapa(1, mid);
+ok(em.elementos.find(e => e.id === t2).dados.x === pr.dx, 'com a regua ligada, arrastar nao move o token');
+await foto('15-mapa-regua');
+await pg.keyboard.press('Escape'); await espera(150);
+ok(await pg.evaluate(() => MP.regua) === null, 'Esc apaga a medida');
+await pg.keyboard.press('v'); await espera(100);
+ok(await pg.locator('#mpRegua').getAttribute('aria-pressed') === 'false', 'V volta para mover');
+await arrastaToken(t2, 5);
+em = await estadoMapa(1, mid);
+ok(em.elementos.find(e => e.id === t2).dados.x === pr.dx + 350 && em.elementos.find(e => e.id === t2).dados.usado === undefined, 'o mestre anda alem do deslocamento sem ser barrado nem gastar');
+await pg.keyboard.press('Control+z'); await espera(700);
+em = await estadoMapa(1, mid);
+ok(em.elementos.find(e => e.id === t2).dados.x === pr.dx, 'Ctrl+Z desfaz a ultima acao da pessoa no servidor');
+await pg.locator('[data-mp-sel="' + t2 + '"]').click(); await espera(300);
+await pg.keyboard.press('ArrowRight'); await espera(700);
+em = await estadoMapa(1, mid);
+ok(em.elementos.find(e => e.id === t2).dados.x === pr.dx + 70, 'seta do teclado move o token selecionado uma casa');
+await pg.locator('[data-mp-hist]').click(); await espera(700);
+const hist = await pg.locator('.ov .mphist').innerText();
+ok(/moveu/.test(hist) && /1 casa/.test(hist) && /Desfeito/i.test(hist) && /desfez/.test(hist), 'o historico lista o que foi feito, o que foi desfeito e a distancia: ' + hist.replace(/\s+/g, ' ').slice(0, 120));
+await pg.keyboard.press('Escape'); await espera(300);
+await pg.locator('[data-mp-turno]').click(); await espera(500);
+ok(/novo turno começou/i.test(await pg.locator('.toast').last().innerText()), 'o botao Novo turno avisa na tela que um turno novo comecou');
+
 await pg.reload(); await espera(1800);
 ok(new RegExp('#/c/1/mapa/' + mid + '$').test(pg.url()) && await pg.evaluate(() => String(MP.id)) === String(mid), 'F5 reabre o mesmo mapa');
 await ctx.request.post(B + '/__sse/0');
@@ -953,6 +1006,19 @@ ok(!!mIni && mIni.lista.length === nIni && mIni.vez === 1, 'a ordem vai para a m
 ok(mIni.lista.some(x => x.nome === '???') || nIni === 3, 'NPC entra na ordem com o nome escondido dos jogadores');
 await foto('13-iniciativa');
 
+titulo('iniciativa na tela do mapa');
+await pg.locator('#tabs .tab[data-aba="mapa"]').click(); await espera(1500);
+ok(await pg.locator('#iniBtn').getAttribute('aria-pressed') === 'true' && (await pg.locator('.inibar .inichip').count()) === nIni, 'a barra de iniciativa aparece sobre o mapa, com a mesma ordem');
+const vezMapa = await pg.locator('.inibar .inichip.vez span').first().innerText();
+await pg.locator('#iniProx').click(); await espera(1200);
+ok(await pg.locator('#mpCanvas').isVisible() && (await pg.locator('.inibar .inichip.vez span').first().innerText()) !== vezMapa, 'passar a vez pelo mapa funciona e o mapa continua na tela');
+await foto('16-mapa-iniciativa');
+ok(/turno 1/i.test(await pg.locator('.inibar .inirod').innerText()), 'a iniciativa fala em turno, como o mapa');
+await pg.evaluate(() => { MP.avisouEm = 0; });
+for (let i = 0; i <= nIni && !/turno 2/i.test(await pg.locator('.inibar .inirod').innerText()); i++) { await pg.locator('#iniProx').click(); await espera(500); }
+await espera(300);
+ok(/turno 2/i.test(await pg.locator('.inibar .inirod').innerText()) && (await pg.locator('.toast', { hasText: /Turno 2 começou/ }).count()) >= 1, 'a ordem dar a volta comeca o turno 2 e avisa na tela');
+
 titulo('fichas');
 await aba('Mesa');
 if (DOM) await foto('r029-aba-Mesa');
@@ -1109,6 +1175,7 @@ titulo('mapa do jogador');
 await pg.locator('#tabs .tab[data-aba="mapa"]').click();
 await espera(1500);
 ok(/Pensao por dentro/.test(await pg.locator('h1').first().innerText()) && (await pg.locator('#mpEd, #mpToken, #mpAtiva').count()) === 0, 'jogador ve o mapa ativo, sem os controles do mestre');
+ok((await pg.locator('#mIni').count()) === 1 && (await pg.locator('#iniBtn').count()) === 0, 'o jogador tem o espaco da ordem de iniciativa no mapa, sem os controles do mestre');
 ok((await pg.locator('[data-mp-sel]').count()) === 2 && !/Emboscada/.test(await pg.locator('#mpPainel').innerText()), 'token escondido nao chega ao jogador');
 ok((await pg.locator('.mpitem .chip', { hasText: /seu/i }).count()) === 1, 'o token do jogador vem marcado como seu');
 await arrastaToken(301, 1);
@@ -1121,6 +1188,29 @@ const xOutro = (await (await ctx.request.post(B + '/__mapa-move-outro/3')).json(
 await espera(800);
 ok(await pg.evaluate(() => MP.els.find(e => e.id === 302).dados.x) === xOutro, 'o que outra pessoa move chega pelo SSE sem recarregar');
 await foto('14-mapa-jogador');
+titulo('mapa: deslocamento do turno e desfazer (jogador)');
+await ctx.request.post(B + '/__mapa-desl/3/aviso');
+await pg.reload(); await espera(1800);
+ok(await pg.locator('#mpDesfaz').isVisible() && await pg.locator('#mpRegua').isVisible() && (await pg.locator('[data-mp-turno]').count()) === 0, 'jogador tem regua e desfazer, mas nao o Novo turno');
+ok((await pg.locator('.mpitem .chip', { hasText: /3\/3 m/ }).count()) === 1, 'o jogador ve o deslocamento do proprio token (3/3 m)');
+const x301 = (await estadoMapa(3, 31)).elementos.find(e => e.id === 301).dados.x;
+await arrastaToken(301, 1);
+ok((await pg.locator('.mpitem .chip', { hasText: /1,5\/3 m/ }).count()) === 1, 'andar uma casa gasta 1,5 m e a lista mostra o que resta');
+await pg.keyboard.press('Control+z'); await espera(700);
+ej = await estadoMapa(3, 31);
+ok(ej.elementos.find(e => e.id === 301).dados.x === x301 && (await pg.locator('.mpitem .chip', { hasText: /3\/3 m/ }).count()) === 1, 'o jogador desfaz o proprio movimento e o deslocamento volta');
+await arrastaToken(301, 3);
+ok(/passou do deslocamento/i.test(await pg.locator('.toast').last().innerText()), 'no modo aviso, passar do deslocamento move e avisa');
+ej = await estadoMapa(3, 31);
+ok(ej.elementos.find(e => e.id === 301).dados.x === x301 + 210, 'e o token fica onde foi solto');
+await pg.locator('[data-mp-hist]').click(); await espera(700);
+ok(/Você moveu/.test(await pg.locator('.ov .mphist').innerText()), 'o historico do jogador mostra o que ele fez');
+await pg.keyboard.press('Escape'); await espera(300);
+await ctx.request.post(B + '/__mapa-desl/3/bloqueio');
+await pg.reload(); await espera(1800);
+await arrastaToken(301, 3);
+ej = await estadoMapa(3, 31);
+ok(ej.elementos.find(e => e.id === 301).dados.x === x301 + 210 && /custa/i.test(await pg.locator('.toast').last().innerText()), 'no modo bloqueio, o movimento que passa e recusado, o token volta e a tela diz quanto custa e quanto resta');
 await pg.locator('[data-msec="resumos"]').click(); await espera(500);
 ok((await pg.locator('.sugtema').count()) === 0, 'quem segue o tema das mesas nao e perguntado sobre o tema sugerido');
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'luar', 'e a campanha abre direto no tema do mestre');

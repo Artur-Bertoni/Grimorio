@@ -13,10 +13,12 @@ Enquanto o tabletop não estiver **inteiro pronto** (todas as fases abaixo), a a
 grande aviso "WIP" no lugar do mapa para **todo mundo, menos quem é administrador da instância**
 (o admin usa a aba livremente, para testar). O dono commita o trabalho parcial com isso ligado.
 
-- O interruptor é uma linha: `var MAPA_WIP=true;` em `static/js/mapa-dados.js` (`mapaBloqueado()`
-  devolve `MAPA_WIP && !ADMIN`). O aviso é o template `t-mapa-wip` em `static/paginas/mapa.html`
+- O interruptor agora é uma opção da administração (Administração › Mapa (tabletop) › "Liberar a aba
+  Mapa para todos"), gravada em `mapa.liberado` na tabela `config` (padrão: fechado) e entregue a todos
+  em `/api/sessao` como `mapaLiberado`. No front, `MAPA_LIBERADO` em `static/js/mapa-dados.js`
+  (`mapaBloqueado()` devolve `!MAPA_LIBERADO && !ADMIN`). O aviso é o template `t-mapa-wip` em `static/paginas/mapa.html`
   e o estilo `.mpwip` em `css/mapa.css`.
-- **Nenhuma sessão de fase muda `MAPA_WIP` para `false`, nem remove o aviso.** Isso só acontece
+- **Nenhuma sessão de fase liga o interruptor por conta própria, nem remove o aviso.** Isso só acontece
   quando o dono disser que o tabletop está pronto (depois da Fase 5).
 - O bloqueio é só de tela: a API `/api/c/{cid}/mapas` continua respondendo a qualquer membro,
   porque o corte mestre/jogador já é do servidor. Não é segurança; é para ninguém ver obra pela metade.
@@ -242,7 +244,37 @@ Para a 4b, "a parte do servidor da Fase 4: tiles só nas partes reveladas e vis�
   - CLAUDE.md (mapa do codigo, modelo de dados) e `docs/decisoes.md` ficam para a fase 5, como o
     plano manda. `nucleo.js` continua com os ~57 avisos antigos do Sonar (pendencia N-19 da
     auditoria; so a linha mexida foi corrigida); os arquivos novos e os demais tocados estao em zero.
-- Fase 2: pendente
+- **Fase 2: pronta (18/11/2026).** Teste de API 219/0 e teste de tela verde (passos novos nas seções "mapa: movimento…" de cada um). `MAPA_WIP` continua `true`.
+
+  *Pronto.*
+  - **Distância** (`MapaMedida.java` no servidor, `mpDistCasas` em `mapa-motor.js`: a mesma conta nos dois, a do servidor é a que vale): quadrada 1 por casa (`1`), alternada 1-2-1 (`121`, padrão) ou euclidiana (`eu`); hexagonal conta passos de hexágono (`eu` em hex é linha reta). A diagonal agora tem campo no formulário do mapa. Escala e unidade (já gravadas na fase 1) passam a valer: 1 casa = `escala` `unidade`.
+  - **Régua**: botão no canto do mapa (aria-pressed, fundo `--bg4`), tecla R, V volta para mover, Esc apaga. Mede de ponto a ponto ou de token a token (a ponta vai para o centro do token; fora dele, para o centro da casa se "Encaixar" está ligado, Alt inverte). Só existe na tela de quem mede: nada vai ao servidor. Clique sem arrastar apaga; botão do meio ainda arrasta o fundo.
+  - **Medidor do trajeto**: ao arrastar um token aparece a linha do ponto de partida ao ponto onde ele vai cair (já com o encaixe), com "6 m · 4 casas" e, para o jogador, "restam X" ou "passa X" (vermelho + texto).
+  - **Deslocamento por turno**: `dados.desl` (na unidade do mapa, 0 = sem limite; campo no formulário do token) e `dados.usado` (só o servidor escreve). O servidor desconta em `MapaService.gastaDeslocamento` a cada movimento de jogador; **o mestre nunca é barrado e não gasta**. `regras.limite`: `aviso` (padrão: move e a resposta traz `passou: true`, a tela avisa) ou `bloqueio` (409, `codigo: limite-de-movimento`, token volta). O jogador só recebe `desl`/`usado` dos tokens que pode mover (`DADOS_DE_QUEM_MOVE`). A lista do painel mostra "resta/total" como chip.
+  - **Iniciativa**: `POST /mapas/turno` (só mestre, age no mapa ativo) zera o `usado` de todos. O front chama `mpNovoTurno()` no "Próximo" e no "Rolar iniciativa" (`momentos.js`); também há "Novo turno" no painel do mapa (para quando não há iniciativa rodando).
+  - **Desfazer por pessoa**: `POST /mapas/{id}/desfazer {seq?}`. Sem `seq`, desfaz a última ação própria ainda não desfeita (fila de 20: criar, mudar, remover); com `seq`, aquela. Nova coluna `mapa_historico.desfeito` (boolean com default). Criar desfaz removendo; remover desfaz recriando (**id novo**, e as linhas antigas do histórico passam a apontar para ele, `trocaElemento`); mudar do mestre devolve o estado de antes (mantendo o `usado` de agora); mudar do jogador devolve só x/y e **reembolsa o custo daquele movimento**. O desfazer grava uma linha `desfazer` no histórico (que não entra na fila). O toast "Desfazer" da remoção agora usa o seq da remoção (`DELETE` devolve `{seq}` em vez de 204). Ctrl+Z na tela do mapa e botões (cantinho do mapa e painel).
+  - **Histórico**: `GET /mapas/{id}/historico?limite=60` (máx. 200): o mestre vê tudo e o jogador só o que ele fez; cada linha traz quem, operação, token, `casas` andadas e se foi desfeita. Janela "Histórico" no painel, com "Desfazer" nas linhas próprias que ainda valem.
+  - **Atalhos** (`atalho()`, só com a tela do mapa à vista): R régua, V mover, Esc apaga a medida, 0 enquadra, +/- zoom, setas movem o token selecionado uma casa (no hex, ↑/↓ vão para a vizinha da direita, Shift para a da esquerda), Ctrl+Z desfaz.
+
+  - *Depois da fase (pedido do dono).* A **iniciativa aparece na tela do mapa**: o mestre ganha o botão "Iniciativa" e a barra completa (a mesma da sessão, `iniHtml`/`iniLigar`, sobre a sessão aberta ou, sem ela, a mais recente); o jogador ve o espelho da mesa em `#mIni`, que `refreshMesa()` atualiza também nessa tela. Passar a vez por ali ja zera o deslocamento.
+
+  - *Iniciativa ↔ turno (pedido do dono, depois da fase).* **Turno = a rodada da iniciativa** (o texto "Rodada" virou "Turno", pelo vocabulário `turno`/`turnos`; **vez** continua sendo a de cada um). `MapaTurnos` guarda por campanha (tabela `config`, chave `mapa.turno.c{id}`, mais cache) se há iniciativa, o turno, de quem é a vez e os nomes na ordem; o navegador do mestre manda isso em `PUT /mapas/turno` a cada mudança da ordem (`iniMudou` → `mpSincronizaTurno`). Regras: (1) iniciativa que começa ou **volta ao topo (rodada nova)** zera o gasto de todos e é turno novo; só passar a vez não zera; (2) com iniciativa em andamento o jogador só move o token **na vez dele** (403 "Ainda não é a vez de X."); token cujo nome não está na ordem fica livre; o elo é o **nome** do token = nome na ordem (sem maiúscula nem acento); (3) o mestre nunca é barrado; (4) o servidor publica o evento SSE `turno` (`novo`, `rodada`, e o espelho público da ordem em `ini`): a tela mostra o aviso "Turno N começou" (toast + som, deduplicado por 4 s entre evento, resposta do mestre e sondagem da mesa), troca a ordem do jogador na hora e pede o estado do mapa de novo (podeMover/daVez/esperaVez). O elemento ganhou `daVez` (contorno tracejado e chip "Na vez") e `esperaVez` (aviso ao tentar arrastar). `POST /mapas/turno` continua sendo o "Novo turno" a mão (agora também avisa todo mundo). O reset deixou de acontecer a cada passada de vez: é por turno.
+  - *A tela do jogador não atualizava a iniciativa sem F5:* a sondagem da mesa (6 s) já atualizava `#mIni`, mas não consegui reproduzir a falha sem navegador real; agora a ordem chega pelo SSE do mapa na hora (evento `turno` com `ini`), e a sondagem fica de reserva (e avisa o turno novo a quem está em outra aba).
+
+  *Desvios e decisões.*
+  - O trajeto cobrado é a **linha reta** do ponto de partida ao de chegada (o servidor só vê origem e destino). Dá para ficar sem custo extra contornando em vários arrastos? Não: o gasto acumula no turno. Rota com paredes é da fase 4.
+  - Quem dispara o novo turno é o **navegador do mestre** (o servidor não lê a iniciativa, que mora no guia/mesa). Se o mestre avança a iniciativa com o navegador fechado ou sem rede, o gasto não zera: o botão "Novo turno" cobre.
+  - O zero vale para **todos** os tokens a cada virada de vez, não só o de quem começa o turno (a ficha da iniciativa não aponta para token).
+  - Desfazer de jogador é **descartado** se o token foi movido por outra pessoa depois (senão puxaria o token de volta por cima do que o outro fez); a ação descartada sai da fila e o desfazer vai para a anterior. Reenviar a mesma posição não grava histórico.
+  - Operações "mapa" (editar o mapa) e "ativar" não são desfazíveis.
+
+  *Avisos para a próxima fase.*
+  - Desenho, camadas, seleção múltipla: ao criar `MapaService.tipo()` ainda só aceita TOKEN. Elemento novo que o jogador pode mover precisa passar pelo mesmo `gastaDeslocamento`/histórico; `desfazUma` só conhece criar/mudar/remover de token (um `desfazRemover` recria sempre como TOKEN).
+  - Mover vários tokens de uma vez (seleção múltipla) gera uma linha de histórico por token: o Ctrl+Z desfaria um por vez; se quiser em grupo, precisa de um id de lote no histórico.
+  - A régua e o medidor desenham em `mpPintaMedidas()` (depois dos tokens); as medidas de área (cone, círculo) da fase 3 podem entrar ali e reaproveitar `mpPintaTraco`/`mpDistTexto`.
+  - `MP.ferramenta` ("mover"|"regua") e `mpFerramenta(f)` são o ponto de entrada para as ferramentas de desenho; `mpComecaArraste` já ramifica por ferramenta (`arr.m`: `t` token, `p` fundo, `r` régua).
+  - Passo de tour (régua, deslocamento, histórico) ainda não existe (fase 5). Não testado: Postgres (coluna `mapa_historico.desfeito` tem default, mas só rodou em H2), leitor de tela, aparelho real.
+  - Sonar: `getDiagnostics` do VS Code está limpo nos arquivos tocados; avisos de regra do Sonar só aparecem em arquivo aberto, então não pude varrer o `MapaService` (cresceu ~200 linhas; se o Sonar reclamar de tamanho, o desfazer/histórico pode ir para um `MapaDesfazer`).
 - Fase 3: pendente
 - Fase 4a (cliente): pendente
 - Fase 4b (servidor): pendente

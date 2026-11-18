@@ -123,23 +123,61 @@ function espelhaIni(s){
     lista:o.map(function(x){ return {nome:x.oc?"???":x.nome,v:x.oc?"":x.v}; })}:null;
   salvarMesa();
 }
-function iniMudou(s){ save(); espelhaIni(s); render(); }
+/* o mapa fica sabendo de toda mudanca da ordem: e dai que sai o turno novo e de quem e a vez de mover */
+function iniMudou(s){ save(); espelhaIni(s); mpSincronizaTurno(s); render(); }
 function iniHtml(s){
   var ini=iniDe(s); if(!S.ini&&!ini.lista.length)return "";
   var o=iniOrdem(ini);
-  return htmlDe("t-ini",{rodada:ini.rodada,vez:ini.vez,lista:o});
+  return htmlDe("t-ini",{rodada:ini.rodada,vez:ini.vez,lista:o,mapa:true});
 }
 function iniPubHtml(){
   var p=MESA.ini; if(!p||!p.lista||!p.lista.length)return "";
   return htmlDe("t-ini-pub",{rodada:p.rodada||1,vez:p.vez,lista:p.lista});
 }
+/* personagens e NPCs do elenco para escolher na ordem; o NPC entra, como no "Puxar elenco", sem esconder nada por conta propria */
+function iniOpcoesElenco(){
+  var el=D.elenco||{};
+  return [["","Ninguém (digitar o nome)"]].concat((el.personagens||[]).map(function(p){ return [String(p.id),p.nome||V("personagem")]; }),
+    (el.npcs||[]).map(function(n){ return [String(n.id),(n.nome||V("npc"))+" ("+V("npc")+")"]; }));
+}
+function iniNomeDoElenco(id){
+  var el=D.elenco||{}, q=(el.personagens||[]).concat(el.npcs||[]).find(function(p){ return String(p.id)===String(id); });
+  return q?(q.nome||""):"";
+}
+/* Quem tem token ligado ao elenco no mapa ativo entra na ordem (token escondido entra escondido). */
+function iniPuxaDoMapa(s){
+  var ini=iniDe(s), el=D.elenco||{}, todos=(el.personagens||[]).concat(el.npcs||[]);
+  api(cAPI("/mapas")).then(function(l){
+    var m=(l||[]).find(function(x){ return x.ativo; });
+    return m?api(cAPI("/mapas/"+m.id)):null;
+  }).then(function(r){
+    if(!r){ toast("Nenhum "+vmin("mapa")+" está sendo mostrado aos "+vmin("jogadores")+"."); return; }
+    var ja={}; ini.lista.forEach(function(x){ if(x.elencoId)ja[x.elencoId]=1; });
+    var n=0, com=0;
+    (r.elementos||[]).forEach(function(e){
+      var id=e.dados?.elencoId; if(!id)return;
+      com++;
+      var q=todos.find(function(p){ return String(p.id)===String(id); });
+      if(!q||ja[id])return;
+      ja[id]=1; n++;
+      ini.lista.push({id:uid("i"),nome:q.nome||"",elencoId:String(id),v:"",oc:e.visivel===false}); });
+    if(!com){ toast("Nenhum token do "+vmin("mapa")+" está ligado ao elenco."); return; }
+    if(!ini.vez&&ini.lista.length)ini.vez=iniOrdem(ini)[0].id;
+    toast(n?n+" entraram na ordem. Token escondido entra oculto.":"Todo mundo do mapa já estava na ordem"); iniMudou(s);
+  }).catch(function(e){ toast(e?.message||"não consegui ler o mapa","erro"); });
+}
 function iniEditar(s,x){
   var ini=iniDe(s), novo=!x;
   formulario(novo?"Entrar na iniciativa":"Editar · iniciativa",[
-    {k:"nome",rot:"Quem",obrig:true},{k:"v",rot:"Iniciativa",tipo:"num"},
+    {k:"elencoId",rot:"Alguém do elenco (opcional)",tipo:"sel",ops:iniOpcoesElenco(),
+      dica:"Ligar ao elenco preenche o nome e deixa o token do mapa ligado a essa pessoa se mover só na vez dela."},
+    {k:"nome",rot:"Quem",dica:"Vazio, usa o nome de quem do elenco foi escolhido.",
+      valida:function(v,w){ return String(v||"").trim()||w.elencoId?"":"Informe um nome ou escolha alguém do elenco."; }},
+    {k:"v",rot:"Iniciativa",tipo:"num"},
     {k:"oc",rot:"Esconder nome e valor dos "+V("jogadores").toLowerCase(),tipo:"check"}
-  ],x||{nome:"",v:"",oc:false},{
-    salvar:function(w){ var alvo=x||{id:uid("i")}; alvo.nome=String(w.nome).trim(); alvo.v=w.v; alvo.oc=!!w.oc;
+  ],x||{nome:"",v:"",oc:false,elencoId:""},{
+    salvar:function(w){ var alvo=x||{id:uid("i")}; alvo.elencoId=w.elencoId||"";
+      alvo.nome=String(w.nome).trim()||iniNomeDoElenco(w.elencoId); alvo.v=w.v; alvo.oc=!!w.oc;
       if(novo)ini.lista.push(alvo); if(!ini.vez)ini.vez=iniOrdem(ini)[0].id; iniMudou(s); },
     remover:novo?null:function(){ comDesfazer("Saiu da iniciativa",function(){
       ini.lista=ini.lista.filter(function(y){ return y!==x; }); if(ini.vez===x.id)ini.vez=(iniOrdem(ini)[0]||{}).id||""; iniMudou(s); }); }
@@ -156,12 +194,14 @@ function iniLigar(v,s){
     if(i>=o.length){ i=0; ini.rodada++; }
     ini.vez=o[i].id; som("vez"); iniMudou(s); };
   var px=$("#iniPux",v); if(px)px.onclick=function(){
-    var tem={}; ini.lista.forEach(function(x){ tem[norm(x.nome)]=1; });
-    var n=0, poe=function(nome,oc){ if(!nome||tem[norm(nome)])return; tem[norm(nome)]=1; ini.lista.push({id:uid("i"),nome:nome,v:"",oc:oc}); n++; };
-    ((D.elenco&&D.elenco.personagens)||[]).forEach(function(q){ poe(q.nome,false); });
-    (s.npcIds||[]).forEach(function(id){ var q=elDe("npcs",id); if(q)poe(q.nome,true); });
+    var tem={}; ini.lista.forEach(function(x){ tem[x.elencoId?"e"+x.elencoId:norm(x.nome)]=1; });
+    var n=0, poe=function(q,oc){ var ch=q.id?"e"+q.id:norm(q.nome); if(!q.nome||tem[ch]||tem[norm(q.nome)])return; tem[ch]=1;
+      ini.lista.push({id:uid("i"),nome:q.nome,elencoId:q.id?String(q.id):"",v:"",oc:oc}); n++; };
+    ((D.elenco&&D.elenco.personagens)||[]).forEach(function(q){ poe(q,false); });
+    (s.npcIds||[]).forEach(function(id){ var q=elDe("npcs",id); if(q)poe(q,true); });
     if(!ini.vez&&ini.lista.length)ini.vez=iniOrdem(ini)[0].id;
     toast(n?n+" entraram na ordem. NPC entra oculto.":"Todo mundo já estava na ordem"); iniMudou(s); };
+  var pm=$("#iniMapa",v); if(pm)pm.onclick=function(){ iniPuxaDoMapa(s); };
   var rl=$("#iniRol",v); if(rl)rl.onclick=function(){
     var ult="1d20"; try{ ult=localStorage.getItem("grim_inif")||"1d20"; }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
     formulario("Rolar iniciativa de quem está sem valor",[{k:"f",rot:"Rolagem",obrig:true,dica:"Um dado com soma opcional: 1d20, 1d10+2, 2d6."}],{f:ult},{

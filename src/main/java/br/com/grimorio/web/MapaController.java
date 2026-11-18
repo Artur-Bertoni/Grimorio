@@ -3,6 +3,7 @@ package br.com.grimorio.web;
 import br.com.grimorio.service.MapaService;
 import br.com.grimorio.service.MapaService.CorpoElemento;
 import br.com.grimorio.service.MapaService.CorpoMapa;
+import br.com.grimorio.service.MapaService.CorpoTurno;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,9 @@ public class MapaController {
     }
 
     public static class CorpoAtivo { public boolean ativo = true; }
+
+    /** seq: a operacao a desfazer; sem ele, a ultima da pessoa */
+    public static class CorpoDesfazer { public Long seq; }
 
     @GetMapping
     public List<Map<String, Object>> listar(@PathVariable long cid) {
@@ -78,6 +82,29 @@ public class MapaController {
         return ResponseEntity.noContent().build();
     }
 
+    /** A iniciativa passou de turno: zera o deslocamento gasto no mapa ativo (so o mestre). */
+    @PostMapping("/turno")
+    public Map<String, Object> novoTurno(@PathVariable long cid) {
+        return mapas.novoTurno(cid, atual.id());
+    }
+
+    /** O navegador do mestre informa a iniciativa (turno, vez e quem esta nela); o resto do mapa segue dai. */
+    @PutMapping("/turno")
+    public Map<String, Object> sincronizaTurno(@PathVariable long cid, @RequestBody CorpoTurno c) {
+        return mapas.sincronizaTurno(cid, atual.id(), c);
+    }
+
+    @PostMapping("/{mid}/desfazer")
+    public Map<String, Object> desfazer(@PathVariable long cid, @PathVariable long mid, @RequestBody(required = false) CorpoDesfazer c) {
+        return mapas.desfazer(cid, atual.id(), mid, c == null ? null : c.seq);
+    }
+
+    /** O mestre le tudo; o jogador, so o que ele mesmo fez. */
+    @GetMapping("/{mid}/historico")
+    public List<Map<String, Object>> historico(@PathVariable long cid, @PathVariable long mid, @RequestParam(defaultValue = "60") int limite) {
+        return mapas.historico(cid, atual.id(), mid, limite);
+    }
+
     @PostMapping("/{mid}/elementos")
     public Map<String, Object> criarElemento(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoElemento c) {
         return mapas.criarElemento(cid, atual.id(), mid, c);
@@ -90,8 +117,7 @@ public class MapaController {
     }
 
     @DeleteMapping("/{mid}/elementos/{eid}")
-    public ResponseEntity<Void> removerElemento(@PathVariable long cid, @PathVariable long mid, @PathVariable long eid) {
-        mapas.removerElemento(cid, atual.id(), mid, eid);
-        return ResponseEntity.noContent().build();
+    public Map<String, Long> removerElemento(@PathVariable long cid, @PathVariable long mid, @PathVariable long eid) {
+        return Map.of("seq", mapas.removerElemento(cid, atual.id(), mid, eid));
     }
 }

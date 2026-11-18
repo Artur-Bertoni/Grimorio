@@ -159,6 +159,7 @@ public class AdminController {
         m.put("iaConfigurada", ia.configurada());
         m.put("iaModelo", config.get(ConfigService.IA_MODELO, IaService.MODELO_PADRAO));
         m.put("registroAberto", config.registroAberto());
+        m.put("mapaLiberado", config.mapaLiberado());
         return m;
     }
 
@@ -192,6 +193,10 @@ public class AdminController {
             config.set(ConfigService.REGISTRO_ABERTO,
                     "true".equalsIgnoreCase(body.get("registroAberto"))
                             || "1".equals(body.get("registroAberto")) ? "1" : "0");
+        }
+        if (body.containsKey("mapaLiberado")) {
+            config.set(ConfigService.MAPA_LIBERADO,
+                    "true".equalsIgnoreCase(body.get("mapaLiberado")) || "1".equals(body.get("mapaLiberado")) ? "1" : "0");
         }
         return Map.of("ok", true);
     }

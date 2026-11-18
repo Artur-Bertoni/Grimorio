@@ -47,6 +47,12 @@ public class TratadorDeErros {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", msg(e), "codigo", "proibido"));
     }
 
+    /* bloqueio de movimento do mapa: a tela mostra a frase e devolve o token ao lugar */
+    @ExceptionHandler(br.com.grimorio.service.MapaService.LimiteDeMovimento.class)
+    public ResponseEntity<Object> limiteDeMovimento(br.com.grimorio.service.MapaService.LimiteDeMovimento e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", msg(e), "codigo", "limite-de-movimento"));
+    }
+
     /* o cliente fechou a aba no meio de um fluxo (SSE do mapa): nao ha a quem responder, e tentar
        escrever JSON num text/event-stream so enchia o log de erro */
     @ExceptionHandler({org.springframework.web.context.request.async.AsyncRequestNotUsableException.class,

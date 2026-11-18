@@ -136,6 +136,8 @@
 .form label>input,.form label>textarea,.form label>select{margin-top:2px}
 .frot,.form legend{font-family:var(--ui);font-size:var(--fs-2);font-weight:600;letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
 .form fieldset{border:0;margin:0;padding:0;min-width:0}
+/* campos curtos lado a lado (formulario(): "linha" igual em campos seguidos) */
+.form .fgrade{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:var(--s-4)}
 .form .dica,.dica{font-family:var(--body);font-size:var(--fs-3);font-weight:400;letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
 .dica.erro{color:var(--blood2);font-weight:600}
 .dica.erro::before{content:"! ";font-weight:800}
