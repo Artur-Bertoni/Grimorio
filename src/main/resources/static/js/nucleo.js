@@ -8,6 +8,8 @@ var VAZIO={versao:FORMATO_GUIA,campanha:null,elenco:{personagens:[],npcs:[],loca
 var D=JSON.parse(JSON.stringify(VAZIO));
 var S={view:"mesa",sessao:0,vmode:"canvas",rail:true,msec:"resumos",el:"personagens",bib:"livros",aj:""};
 var saveT=null,USER=null,MYID=null,GM=false,PRONTO=false;
+/* campanha em que um link de convite acabou de pôr a pessoa: ela entra direto nela */
+var CONVIDOU=null;
 var VGUIA=-1,VMESA=-1,IACFG=false,sondaT=null;
 var CID=null,CAMPANHAS=[],MIDIABASE="",ADMIN=false,PAPEL="JOGADOR",EU=null;
 
@@ -177,7 +179,7 @@ function sondaMesa(){ clearInterval(sondaT);
       return api(cAPI("/mesa")).then(function(m){ VMESA=m.versao;
         var antes=idsMesa(), vz=MESA.ini?MESA.ini.vez+"/"+MESA.ini.rodada:"";
         aplicaMesa(m);
-        aplicarTema(temaAtivo()); pintarMarca(); refreshMesa(); revelaNovos(antes); sugereTema();
+        reaplicaTema(); pintarMarca(); refreshMesa(); revelaNovos(antes); sugereTema();
         if(!GM&&MESA.ini&&(MESA.ini.vez+"/"+MESA.ini.rodada)!==vz)som("vez"); });
     }).catch(function(){});
     puxaRolagens(true); },6000); }
@@ -206,8 +208,7 @@ function boot(){
     var cv=parametro("convite");
     if(!cv)return null;
     return api("/api/convites/"+encodeURIComponent(cv),{method:"POST"})
-      .then(function(c){ limparUrl(); toast("Você entrou em "+c.nome);
-        try{ localStorage.setItem("grim_cid",String(c.id)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+      .then(function(c){ limparUrl(); toast("Você entrou em "+c.nome); CONVIDOU=c.id;
         return api("/api/sessao").then(function(s2){ EU=s2; CAMPANHAS=s2.campanhas||[]; }); })
       .catch(function(e){ limparUrl(); toast((e&&e.message)||"convite inválido"); });
   }).then(function(){ escolherCampanha(); })
@@ -218,14 +219,13 @@ function boot(){
 function escolherCampanha(){
   if(!CAMPANHAS.length){ PRONTO=true; S.view="semcampanha"; render(); return; }
   var alvo=null;
-  /* o endereco manda: F5 ou link reabre a tela em que a pessoa estava */
+  /* O endereco manda: F5 ou link reabre a tela em que a pessoa estava. Sem endereco (quem
+     acabou de entrar no site) a partida e sempre a lista de campanhas, nunca uma mesa aberta. */
   var r=lerRota(location.hash);
-  if(r&&r.cid){ alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(r.cid);})[0]||null; if(alvo)ROTA_PENDENTE=r; }
-  else if(r&&r.view==="escolher"){ PRONTO=true; S.view="escolher"; render(); return; }
-  else if(r&&r.view==="ajustes"){ PRONTO=true; S.view="ajustes"; S.aj=r.sub||""; render(); return; }
-  if(!alvo){ try{ var g=localStorage.getItem("grim_cid");
-    if(g)alvo=CAMPANHAS.filter(function(c){return String(c.id)===String(g);})[0]||null; }catch(e){ alvo=null; /* sem armazenamento: escolhe na lista */ } }
-  if(!alvo&&CAMPANHAS.length===1)alvo=CAMPANHAS[0];
+  if(r?.cid){ alvo=CAMPANHAS.find(function(c){return String(c.id)===String(r.cid);})||null; if(alvo)ROTA_PENDENTE=r; }
+  else if(r?.view==="ajustes"){ PRONTO=true; S.view="ajustes"; S.aj=r.sub||""; render(); return; }
+  if(!alvo&&CONVIDOU)alvo=CAMPANHAS.find(function(c){return String(c.id)===String(CONVIDOU);})||null;
+  CONVIDOU=null;
   if(!alvo){ PRONTO=true; S.view="escolher"; render(); return; }
   entrarNaCampanha(alvo.id);
 }
@@ -234,7 +234,7 @@ function entrarNaCampanha(cid){
   var c=CAMPANHAS.filter(function(x){return String(x.id)===String(cid);})[0];
   if(!c){ toast("Campanha não encontrada"); return; }
   CID=c.id; PAPEL=c.papel; GM=(c.papel==="MESTRE"); MIDIABASE="/midia/c"+CID+"/";
-  try{ localStorage.setItem("grim_cid",String(CID)); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
+  TEMA_PREVIA=null;
   PRONTO=false; BOOTERR=""; VGUIA=-1; VMESA=-1;
   D=JSON.parse(JSON.stringify(VAZIO));
   MESA={resumos:[],ev:[],npcs:[],locais:[],at:0};

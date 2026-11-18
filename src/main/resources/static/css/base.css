@@ -177,6 +177,42 @@ h2.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(
 .ccard .ccft .go{margin-left:auto;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.01em;text-transform:none;color:var(--fg3)}
 .ccard:hover .ccft .go{color:var(--gold)}
 .ccard.arq{opacity:.6}
+/* Como começar uma campanha: cartões de escolha única. Marcado ganha fundo --bg4 e borda mais
+   forte, com o próprio rádio visível como segundo sinal (dourado é do primário). */
+.origens{border:0;padding:0;margin:0;min-width:0}
+#ncPacLinha[hidden]{display:none}
+/* Administração › Modelos: a miniatura da capa ao lado de cada modelo */
+.modrow{gap:var(--s-3);align-items:center}
+.modcapa{flex:0 0 auto;width:6rem;aspect-ratio:16/9;border-radius:var(--r-xs);overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(circle at 30% 25%,var(--blood-dim),var(--bg3) 72%)}
+.modcapa img{width:100%;height:100%;object-fit:cover;display:block}
+.modrow .cresce{flex:1;min-width:0}
+.origens legend{padding:0;margin-bottom:var(--s-2)}
+.origgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,10rem),1fr));gap:var(--s-3)}
+/* o cartão é um label dentro de .form, que pinta rótulo de campo em caixa alta: aqui é texto corrido */
+.form label.origem{gap:0;font-family:var(--body);font-size:var(--fs-4);font-weight:400;letter-spacing:0;text-transform:none;color:var(--fg2)}
+.form label.origem>input{margin-top:0}
+.origem{position:relative;display:flex;flex-direction:column;background:var(--bg3);border:1px solid var(--line);
+  border-radius:var(--r);overflow:hidden;cursor:pointer;transition:border-color var(--dur-1) var(--ease),background-color var(--dur-1) var(--ease)}
+.origem:hover{border-color:var(--borda-bloco)}
+.origem:has(input:checked){background:var(--bg4);border-color:var(--fg2)}
+.origem:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:2px}
+.origem input{position:absolute;top:var(--s-2);left:var(--s-2);margin:0;z-index:1;accent-color:var(--gold)}
+.origimg{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid var(--line);
+  background:radial-gradient(circle at 30% 25%,var(--blood-dim),var(--bg3) 72%)}
+.origimg img{width:100%;height:100%;object-fit:cover}
+.origimg .ccini{font-size:var(--fs-7)}
+.origtx{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-1);padding:var(--s-2) var(--s-3) var(--s-3)}
+.origtx b{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:.04em;color:var(--fg);line-height:1.2}
+.origsis{font-size:var(--fs-2);color:var(--fg2)}
+.origds{font-size:var(--fs-2);color:var(--fg3);line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* no celular o cartão deita: a imagem vira miniatura ao lado e a lista não fica comprida */
+@media (max-width:600px){
+  .origgrid{grid-template-columns:1fr}
+  .form label.origem{flex-direction:row}
+  .origimg{flex:0 0 5.5rem;aspect-ratio:auto;min-height:5.5rem;border-bottom:0;border-right:1px solid var(--line)}
+  .origimg .ccini{font-size:var(--fs-5)}
+}
 .campforms{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,34rem),1fr));gap:var(--s-5);margin-top:var(--s-7);align-items:start}
 .caixa{background:var(--bg2);border:1px solid var(--line);border-top:3px solid var(--blood);border-radius:var(--r);
   padding:var(--s-4) var(--s-5) var(--s-5);display:flex;flex-direction:column;gap:var(--s-3)}

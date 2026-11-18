@@ -10,6 +10,12 @@ quebrou em produção. `docs/decisoes.md` guarda o histórico: de onde o projeto
 o que foi decidido e por quê, e o que já foi tentado e descartado. Leia quando
 precisar entender uma escolha, não a cada tarefa.
 
+**Vai mexer em HTML, CSS ou JS da interface? Leia antes `docs/auditoria.md`.** Ele guarda o
+contexto das três rodadas de auditoria de product design (o que foi achado e corrigido, as
+decisões do dono que não se refazem, o checklist de "pronto", os erros que já aconteceram e o
+que ainda está pendente). As regras que saíram dela estão na seção "Escalas, controles e
+camadas" abaixo; o porquê está lá.
+
 ## Rodar
 
 ```bash
@@ -34,7 +40,7 @@ src/main/java/br/com/grimorio/
               MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado
   repo/       um repositório Spring Data por entidade
   service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
-              PacoteService, UsuarioService, ConfigService, IaService,
+              PacoteService, ModeloService, UsuarioService, ConfigService, IaService,
               RolagemService, SuporteService
   web/        um controller por área, todos sob /api
 src/main/resources/
@@ -132,7 +138,9 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
   navegação dentro de janela confere `teclaDaCamada(e, ov)`.
 - **Cada tela tem endereço** (`js/rotas.js`, hash: `#/c/{id}/elenco/npcs`). `render()` grava o
   endereço, o Voltar do navegador fecha a janela de cima ou volta uma tela, e o F5 reabre onde a
-  pessoa estava. Tela nova entra em `NOME_TELA`, `TELA_DO_NOME`, `SUB_DA_TELA`/`APLICA_SUB` e
+  pessoa estava. Sem endereço (quem acaba de entrar no site) a partida é sempre a lista de campanhas
+  (`#/campanhas`), nunca a última mesa aberta; a exceção é o link de convite, que entra direto na
+  campanha que convidou. Tela nova entra em `NOME_TELA`, `TELA_DO_NOME`, `SUB_DA_TELA`/`APLICA_SUB` e
   `TITULO_DA_TELA`. `render()` também devolve o foco ao mesmo controle no redesenho
   (`seletorEstavel`: id ou `data-*`) e leva o foco ao `h1` na troca de tela.
 - **No celular, a sessão tem barra de jogo** (`.sessbarra`: Painel, Iniciativa, Liberar e ⋯) acima
@@ -310,6 +318,14 @@ dependência, é egress, não o `pom.xml`.
   (`PacoteService`), um zip com `campanha.json` (guia, mesa, fichas e o catálogo de mídia),
   `indice/*.json`, `img/*`, `pdf/*` e `audio/**`. Ele leva tudo, para a campanha reabrir igual em
   outra conta sem enviar arquivo de novo.
+- **Modelos de campanha são pacotes guardados no servidor** (`ModeloService`, em
+  `{volume}/modelos`, fora de `/midia`: o zip nunca é servido, só a lista e a capa). Quem cadastra é
+  a administração (Administração › Modelos de campanha: enviar pacotes, vários de uma vez, ou salvar
+  uma campanha que ela mestra; pôr ou tirar a capa do cartão); qualquer conta escolhe um em "Como
+  começar" ao criar campanha. A capa é só do cartão (`{id}.capa`): não entra no pacote, então a
+  campanha criada não ganha imagem. Aplicar é a importação
+  com "substituir", e depois o título do guia e da mesa vira o nome que a pessoa deu: o modelo é
+  estrutura, não campanha. Pelo mesmo motivo nenhum modelo vem no repositório.
 - **Cores só por token CSS** (`var(--bg)`, `var(--gold)`, …). Hex fixo quebra os temas
   claros. Já aconteceu no gradiente do header. Precisa de transparência ou de um tom
   intermediário? `color-mix(in srgb, var(--blood) 20%, transparent)`, nunca `rgba()` com
@@ -365,8 +381,14 @@ momento (cartão de capítulo, carta de revelação, crítico na tela toda, pedi
 um elemento solto no `<body>` que se remove sozinho e, quando cobre a tela, tem
 `pointer-events:none` ou fecha no clique: nunca pode travar a mesa.
 
-O tema ativo se resolve em `temaAtivo()`: "nesta campanha sigo o mestre"
-(`grim_tema_c{id}`), depois o tema pessoal (`grim_tema`), depois `MESA.tema`.
+O tema ativo se resolve em `temaAtivo()`. Fora de uma campanha é sempre o tema da pessoa
+(`grim_tema`). Dentro: o tema que ela definiu para aquela campanha (`grim_tema_c{id}`, botão
+"Definir como meu tema para esta campanha", etiqueta "escolhido"); senão o sugerido pelo mestre
+(`MESA.tema`), se ela segue o tema das mesas (`grim_segue`, ligado de saída); senão o dela. Entrar
+numa campanha veste o tema dela e sair volta o da pessoa (`trocarCampanha`). Na Aparência, dentro
+de uma campanha, clicar num tema é só prévia (`TEMA_PREVIA`), que some ao sair dos ajustes; fora,
+o clique define o tema da pessoa. A sugestão do mestre só pergunta (`sugereTema`) a quem escolheu
+usar sempre o próprio tema.
 
 **Tour guiado** (`iniciarTour(p)`, `passosTour(p)`): um roteiro para mestre e outro para
 jogador, disparado na primeira entrada com aquele papel (`grim_tour_{papel}_{id}`) e revisto em
@@ -380,7 +402,8 @@ A marca estática do HTML e o favicon padrão foram gerados por essa função: m
 desenho, gere de novo.
 
 A tela de login não conhece os temas: ela lê `grim_pele` do `localStorage`, que o app
-grava a cada `aplicarTema()`, e veste o último tema usado naquele aparelho.
+grava em `aplicarTema()` só fora de uma campanha, então o login veste o tema da pessoa, nunca o
+clima da última mesa aberta.
 
 ## Como o front edita
 

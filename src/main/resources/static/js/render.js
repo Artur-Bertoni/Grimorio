@@ -164,6 +164,8 @@ function devolveFoco(v,mesma,focoSel){
   h.setAttribute("tabindex","-1"); h.focus({preventScroll:true});
 }
 function render(){
+  /* a previa de tema da Aparencia so vale enquanto a pessoa esta la */
+  if(TEMA_PREVIA&&S.view!=="ajustes"){ TEMA_PREVIA=null; aplicarTema(temaAtivo()); }
   if(CID&&!GM&&S.view!=="ajustes")S.view="mesa";
   if(S.view==="sessao"&&!curSess())S.view="sessoes";
   /* no celular o quadro nao cabe: a sessao abre no roteiro, a nao ser que a pessoa escolha */

@@ -55,7 +55,7 @@
   <article :class="'card' + (c.feito ? ' done' : '')" :data-scn="c.id" tabindex="0" role="button" :aria-label="(c.feito ? 'Feita: ' : '') + vmin('cena') + ' ' + c.n + ', ' + c.titulo">
     <div class="chd"><span class="alca enfeite" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></span><span data-solta v-html="ck"></span><span class="cn">{{ c.n }}</span><span v-if="c.forcado" class="mini f">forçado</span></div>
     <div class="ct">{{ c.titulo }}</div>
-    <div class="cfoot"><span v-if="faixa" class="mini" :style="'border-color:' + catColor(faixa.cat) + ';--cor:' + catColor(faixa.cat)">{{ faixa.faixa }}</span><span v-if="testes" class="mini">{{ testes }} testes</span></div>
+    <div class="cfoot"><span v-if="faixa" class="mini" :style="'border-color:' + catColor(faixa.cat) + ';--cor:' + catColor(faixa.cat)">{{ faixa.faixa }}</span><span v-if="testes" class="mini">{{ testes }} {{ testes === 1 ? 'teste' : 'testes' }}</span></div>
     <div v-if="imagens.length" class="thumbs"><img v-for="i in imagens" :src="IMG(i, 'mini')" alt="" loading="lazy"></div>
   </article>
 </template>

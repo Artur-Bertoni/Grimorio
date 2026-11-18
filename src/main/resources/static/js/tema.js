@@ -70,12 +70,24 @@ var TEMAS={
   "blood2":"#a82f23","blood-dim":"#e0bdb0","gold":"#2f4a6b","gold2":"#1f3550","sobre-gold":"#f3ecd9",
   "ok":"#3b6537","warn":"#7f5311","sobre-blood":"#ffffff","campo-borda":"#837659"}}
 };
-function temaPessoal(){ try{ return localStorage.getItem("grim_tema")||""; }catch(e){ return ""; } }
-function temaAtivo(){ var m=temaMesa();
-  /* quem disse "nesta campanha sigo o mestre" segue, mesmo tendo um tema pessoal */
-  if(m&&temaDaCampanha()==="mesa")return m;
-  var p=temaPessoal(); if(p&&TEMAS[p])return p;
-  return m||"sangue"; }
+/* O tema que veste a tela:
+   - fora de uma campanha, o da pessoa (grim_tema);
+   - dentro, o que ela definiu para aquela campanha (grim_tema_c{id}); senao o que o mestre
+     sugeriu, se ela segue o tema das mesas (grim_segue, ligado de saida); senao o dela.
+   A previa da tela de Aparencia (TEMA_PREVIA) so pinta: nao grava nada e some ao sair de la. */
+var TEMA_PREVIA=null;
+function temaPessoal(){ var p="";
+  try{ p=localStorage.getItem("grim_tema")||""; }catch(error_){ /* sem armazenamento no navegador: fica sem tema pessoal */ }
+  return TEMAS[p]?p:""; }
+function temaAtivo(){
+  var p=temaPessoal();
+  if(!CID)return p||"sangue";
+  var c=temaEscolhido(); if(c)return c;
+  var m=temaMesa();
+  if(m&&segueMesa())return m;
+  return p||m||"sangue"; }
+/* repinta com o tema em vigor, a nao ser que a pessoa esteja experimentando um na Aparencia */
+function reaplicaTema(){ if(!TEMA_PREVIA)aplicarTema(temaAtivo()); }
 /* tema com segue:true ilumina o bloco onde o mouse esta: o CSS le --mx e --my */
 var SEGUE=false, SEGRAF=0, FX_ON=true;
 document.addEventListener("pointermove",function(e){
@@ -110,7 +122,9 @@ function aplicarTema(id){
   SEGUE=!!t.segue;
   var mt=document.querySelector('meta[name="color-scheme"]'); if(mt)mt.setAttribute("content",t.esquema);
   var tc=document.querySelector('meta[name="theme-color"]'); if(tc)tc.setAttribute("content",pele.bg2);
-  /* a tela de login nao conhece os temas: ela veste o ultimo que este aparelho usou */
+  /* A tela de login nao conhece os temas: ela veste a pele guardada aqui. So o que vale fora de
+     uma campanha entra (o tema da pessoa), para o login nao abrir no clima da ultima mesa. */
+  if(CID)return;
   try{ localStorage.setItem("grim_pele",JSON.stringify({v:pele,estilo:t.estilo,esquema:t.esquema})); }
   catch(error_){ console.warn(error_); /* login sem a pele: abre no tema padrao */ }
 }

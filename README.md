@@ -70,6 +70,13 @@ caminho de volta, em qualquer instância ou conta, sem enviar arquivo de novo.
 É assim que uma campanha pronta muda de servidor, e é por isso que o repositório
 não precisa carregar conteúdo.
 
+### Modelos de campanha
+
+Em **Administração → Modelos de campanha** quem administra a instância cadastra estruturas
+prontas: envia um pacote `.zip` ou salva como modelo uma campanha que mestra. Quem criar uma
+campanha depois vê esses modelos em **Como começar** e recebe uma cópia inteira, com o nome
+que escolheu. Os modelos ficam no volume, em `/data/modelos`.
+
 ### Arquivos grandes
 
 O proxy do Railway corta requisições cujo corpo leve mais de 5 minutos subindo.
@@ -132,7 +139,8 @@ qualquer membro, áudio só para o mestre, PDF conforme a marca de público.
 | `POST /api/convites/{token}` | autenticado |
 | `GET/PUT /api/c/{id}/guia` | mestre |
 | `/api/c/{id}/mesa` · `/indice` · `/mural` · `/notas` · `/ia` | membro (escrita da mesa: mestre) |
-| `/api/c/{id}/midia/**` · `/pacote` | mestre |
+| `/api/c/{id}/midia/**` · `/pacote` · `/modelo/{modelo}` | mestre |
+| `/api/modelos` · `/api/modelos/{id}/capa` | qualquer conta (só a lista e a capa; o pacote não sai) |
 | `/api/admin/**` | administrador da instância |
 | `/midia/c{id}/**` | conforme `MidiaAutorizacao` |
 
