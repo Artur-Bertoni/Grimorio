@@ -276,6 +276,7 @@ function abrirAdmin(back,mk){
     campoSecreto($("#smS",ov),!!c.smtpSenhaSalva); campoSecreto($("#smK",ov),!!c.emailChaveSalva);
     $("#iaM",ov).value=c.iaModelo||"";
     $("#adReg",ov).checked=!!c.registroAberto;
+    $("#adMapa",ov).checked=!!c.mapaLiberado;
     $("#smD",ov).value=c.suporteEmail||""; $("#smH",ov).value=c.smtpHost||""; $("#smP",ov).value=c.smtpPorta||"";
     $("#smU",ov).value=c.smtpUsuario||""; $("#smR",ov).value=c.smtpRemetente||"";
     $("#smV",ov).value=c.emailProvedor||"smtp"; mostraProv();
@@ -326,6 +327,11 @@ function abrirAdmin(back,mk){
   $("#adReg",ov).onchange=function(){
     api("/api/admin/config",{method:"PUT",body:{registroAberto:$("#adReg",ov).checked?"true":"false"}})
       .then(function(){ toast("Salvo"); }).catch(function(e){toast(mensagemDeErro(e),"erro");}); };
+
+  $("#adMapa",ov).onchange=function(){
+    var liga=$("#adMapa",ov).checked;
+    api("/api/admin/config",{method:"PUT",body:{mapaLiberado:liga?"true":"false"}})
+      .then(function(){ MAPA_LIBERADO=liga; toast("Salvo"); }).catch(function(e){toast(mensagemDeErro(e),"erro");}); };
 
   function usuarios(){
     api("/api/admin/usuarios").then(function(us){

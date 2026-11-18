@@ -17,6 +17,7 @@ final class MapaRegras {
     static final Set<String> TIPOS_GRID = Set.of("quadrado", "hex", "nenhum");
     static final Set<String> DIAGONAIS = Set.of("1", "121", "eu");
     static final Set<String> QUEM_MOVE = Set.of("dono", "todos");
+    static final Set<String> LIMITES = Set.of("aviso", "bloqueio");
     private static final String K_TIPO = "tipo";
     private static final String K_UNIDADE = "unidade";
     private static final String K_DIAGONAL = "diagonal";
@@ -49,6 +50,7 @@ final class MapaRegras {
     static Map<String, Object> regras(Map<String, Object> in) {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("quem", escolha(in, "quem", QUEM_MOVE, "dono"));
+        r.put("limite", escolha(in, "limite", LIMITES, "aviso"));
         return r;
     }
 
@@ -63,6 +65,13 @@ final class MapaRegras {
         if (novo && !d.has("x")) { d.put("x", m.getLargura() / 2.0); d.put("y", m.getAltura() / 2.0); }
         aparencia(d, x, novo);
         if (x.containsKey(K_LIVRE)) d.put(K_LIVRE, bool(x, K_LIVRE));
+        /* a quem do elenco o token pertence: e por ai que a iniciativa libera o movimento na vez dele */
+        if (x.containsKey("elencoId")) {
+            String e = corta(texto(x, "elencoId", "").trim(), 80);
+            if (e.isEmpty()) d.remove("elencoId"); else d.put("elencoId", e);
+        }
+        /* deslocamento por turno, na unidade do mapa; 0 e sem limite. O gasto (usado) so o servidor escreve. */
+        if (x.containsKey("desl")) d.put("desl", Math.round(num(x, "desl", 0, 0, 100000) * 100) / 100.0);
         vinculo(d, x, novo);
         return d;
     }

@@ -51,12 +51,25 @@ function formulario(titulo,campos,valor,o){
     }
     return htmlDe("t-campo",{c:c,p:p,v:v,linhas:linhas,fid:fid});
   }
+  /* Campos seguidos com o mesmo "linha" ficam lado a lado, numa grade que quebra sozinha: campo curto
+     (numero, escolha) nao precisa ocupar a largura inteira. Sem "linha", o campo segue em coluna. */
+  function camposEmLinhas(){
+    var out=[], i=0;
+    while(i<campos.length){
+      var c=campos[i];
+      if(!c.linha){ out.push(campoHtml(c,"")); i++; continue; }
+      var grupo=[];
+      while(i<campos.length&&campos[i].linha===c.linha){ grupo.push(campoHtml(campos[i],"")); i++; }
+      out.push('<div class="fgrade">'+grupo.join("")+"</div>");
+    }
+    return out.join("");
+  }
   function corpo(){
     GR={};
     return htmlDe("t-formulario-corpo",{intro:o.intro||"",rotSalvar:o.rotSalvar||"Salvar",
       temObrig:campos.some(function(c){ return c.obrig; }),
       rotRemover:o.remover?(o.rotRemover||"Remover"):"",
-      campos:campos.map(function(c){ return campoHtml(c,""); }).join(""),
+      campos:camposEmLinhas(),
       faixas:Object.keys(LIB.faixas||{}).map(function(k){ return LIB.faixas[k].nome; })});
   }
   function colher(){

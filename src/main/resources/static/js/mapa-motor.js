@@ -37,7 +37,7 @@ function mpCores(){
   var s=getComputedStyle(document.documentElement);
   function c(n){ return s.getPropertyValue(n).trim(); }
   return {fundo:c("--bg"),area:c("--bg2"),ficha:c("--bg3"),grade:c("--fg"),linha:c("--line2"),
-    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif"};
+    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),perigo:c("--blood"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif"};
 }
 
 /* ---------- desenho ---------- */
@@ -62,6 +62,7 @@ function mpPinta(){
   mpPintaGrid(ctx,tela,v.z,cor,W,H);
   ctx.strokeStyle=cor.linha; ctx.lineWidth=1/v.z; ctx.strokeRect(0,0,W,H);
   MP.els.forEach(function(el){ mpPintaToken(ctx,el,v.z,cor,tela); });
+  mpPintaMedidas(ctx,v.z,cor);
 }
 function mpPintaGrid(ctx,tela,z,cor,W,H){
   var g=mpGrid(), T=mpLado();
@@ -123,6 +124,8 @@ function mpPintaToken(ctx,el,z,cor,tela){
   /* so a selecao desenha algo em volta, e e o contorno da area do token */
   if(sel){ ctx.lineWidth=2/z; ctx.strokeStyle=cor.ouro; ctx.strokeRect(-R,-R,2*R,2*R); }
   ctx.restore();
+  /* a vez da iniciativa: contorno tracejado em volta do token (o da selecao e inteiro) */
+  if(el.daVez){ ctx.lineWidth=2/z; ctx.strokeStyle=cor.ouro; ctx.setLineDash([6/z,4/z]); ctx.strokeRect(-R-3/z,-R-3/z,2*R+6/z,2*R+6/z); ctx.setLineDash([]); }
   if(!im){ mpPintaIniciais(ctx,d,R,cor); }
   if(R*z>=12||sel){ mpPintaRotulo(ctx,d.nome,R,z,cor); }
   ctx.restore();
@@ -155,6 +158,47 @@ function mpPintaRotulo(ctx,nome,R,z,cor){
   ctx.fillText(t,0,R+pad*2);
 }
 
+/* ---------- medidas: regua e trajeto do token ---------- */
+/* Duas coisas se medem: a regua (dois pontos ou tokens, so na tela de quem mede) e o trajeto do
+   token que a pessoa segura. As duas usam a mesma conta e a regra de diagonal do mapa. */
+function mpUnidade(){ return String(mpGrid().unidade||""); }
+function mpEscalaCasa(){ var e=Number(mpGrid().escala); return Number.isFinite(e)&&e>0?e:1; }
+function mpFmt(n){ return String(Math.round(n*100)/100).replace(".",","); }
+function mpDistTexto(casas){
+  var t=mpFmt(casas*mpEscalaCasa())+" "+mpUnidade(), c=mpFmt(casas);
+  return t.trim()+" · "+c+(c==="1"?" casa":" casas");
+}
+function mpPintaMedidas(ctx,z,cor){
+  var a=MP.medida;
+  if(a){ mpPintaTraco(ctx,z,cor,a); }
+  var r=MP.regua;
+  if(r&&(r.a.x!==r.b.x||r.a.y!==r.b.y)){ mpPintaTraco(ctx,z,cor,{x0:r.a.x,y0:r.a.y,x1:r.b.x,y1:r.b.y,fantasma:0}); }
+}
+/* a linha, as pontas e o rotulo com 12px na tela; passando do deslocamento, a linha vira vermelha
+   e o rotulo diz quanto passou (a cor sozinha nao conta) */
+function mpPintaTraco(ctx,z,cor,a){
+  var casas=mpDistCasas(a.x0,a.y0,a.x1,a.y1), texto=mpDistTexto(casas), passa=false;
+  if(a.el&&!GM&&mpNum(a.el.dados?.desl,0)>0){
+    var resta=a.el.dados.desl-mpNum(a.el.dados.usado,0), custo=casas*mpEscalaCasa();
+    passa=custo>resta+0.000001;
+    texto+=passa?" · passa "+mpFmt(custo-resta)+" "+mpUnidade():" · restam "+mpFmt(resta-custo)+" "+mpUnidade();
+  }
+  ctx.save();
+  ctx.strokeStyle=passa?cor.perigo:cor.ouro; ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=2/z;
+  ctx.setLineDash([8/z,5/z]);
+  ctx.beginPath(); ctx.moveTo(a.x0,a.y0); ctx.lineTo(a.x1,a.y1); ctx.stroke();
+  ctx.setLineDash([]);
+  [[a.x0,a.y0],[a.x1,a.y1]].forEach(function(p){ ctx.beginPath(); ctx.arc(p[0],p[1],4/z,0,Math.PI*2); ctx.fill(); });
+  if(a.destino){ ctx.strokeRect(a.destino.x-a.destino.R,a.destino.y-a.destino.R,2*a.destino.R,2*a.destino.R); }
+  var fs=12/z, pad=4/z, mx=(a.x0+a.x1)/2, my=(a.y0+a.y1)/2;
+  ctx.font="600 "+fs+"px "+cor.fonte;
+  var w=ctx.measureText(texto).width;
+  ctx.globalAlpha=0.92; ctx.fillStyle=cor.rotulo; ctx.fillRect(mx-w/2-pad,my-fs/2-pad,w+pad*2,fs+pad*2);
+  ctx.globalAlpha=1; ctx.fillStyle=cor.texto; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(texto,mx,my);
+  ctx.restore();
+}
+
 /* ---------- geometria ---------- */
 function mpMundo(e){
   var r=MPC.cv.getBoundingClientRect(), v=mpVista();
@@ -177,17 +221,35 @@ function mpEncaixa(x,y,tam){
   var meia=Math.max(1,Math.round(tam))*T/2, ox=mpNum(g.ox,0), oy=mpNum(g.oy,0);
   return {x:ox+Math.round((x-ox-meia)/T)*T+meia, y:oy+Math.round((y-oy-meia)/T)*T+meia};
 }
-function mpHexPerto(x,y,g,T){
+/* o hexagono mais perto do ponto, como coluna e linha (i, j) da grade deslocada */
+function mpHexIJ(x,y,g,T){
   var r=T/Math.sqrt(3), j0=Math.round((y-mpNum(g.oy,0)-r)/(1.5*r)), melhor=null, dist=Infinity;
   for(var j=j0-1;j<=j0+1;j++){
     var desl=((j%2+2)%2)*T/2, i=Math.round((x-mpNum(g.ox,0)-T/2-desl)/T);
     for(var di=-1;di<=1;di++){
       var c=mpCentroHex(i+di,j,g,T), dd=Math.hypot(x-c.x,y-c.y);
-      if(dd<dist){ dist=dd; melhor=c; }
+      if(dd<dist){ dist=dd; melhor={i:i+di,j:j}; }
     }
   }
   return melhor;
 }
+function mpHexPerto(x,y,g,T){ var h=mpHexIJ(x,y,g,T); return mpCentroHex(h.i,h.j,g,T); }
+/* Distancia em casas entre dois pontos pela regra de diagonal do mapa: 1 por casa, 1-2-1 (cada
+   segunda diagonal custa dois) ou euclidiana. Na grade hexagonal conta passos. E a mesma conta do
+   servidor (MapaMedida.java), que e a que vale para o deslocamento do turno. */
+function mpDistCasas(x0,y0,x1,y1){
+  var g=mpGrid(), T=mpLado(), diag=g.diagonal||"121";
+  if(g.tipo==="hex"){
+    if(diag==="eu"){ return Math.hypot(x1-x0,y1-y0)/T; }
+    var a=mpAxial(mpHexIJ(x0,y0,g,T)), b=mpAxial(mpHexIJ(x1,y1,g,T)), dq=a.q-b.q, dr=a.r-b.r;
+    return (Math.abs(dq)+Math.abs(dr)+Math.abs(dq+dr))/2;
+  }
+  var dx=Math.abs(x1-x0)/T, dy=Math.abs(y1-y0)/T;
+  if(g.tipo==="nenhum"||diag==="eu"){ return Math.hypot(dx,dy); }
+  var p=Math.round(dx), q=Math.round(dy), maior=Math.max(p,q), menor=Math.min(p,q);
+  return diag==="1"?maior:maior+Math.floor(menor/2);
+}
+function mpAxial(h){ return {q:h.i-(h.j-((h.j%2+2)%2))/2,r:h.j}; }
 
 /* ---------- vista ---------- */
 function mpEnquadra(semDesenhar){
@@ -229,6 +291,7 @@ function mpMotor(wrap){
   var cv=$("#mpCanvas",wrap);
   if(!cv){ return; }
   MPC={wrap:wrap,cv:cv,ctx:cv.getContext("2d"),w:0,h:0,dpr:1,pedido:0};
+  cv.classList.toggle("regua",MP.ferramenta==="regua");
   mpMede();
   if(window.ResizeObserver){ new ResizeObserver(mpMede).observe(wrap); }
   var toques={}, pinca=null, arr=null;
@@ -242,7 +305,7 @@ function mpMotor(wrap){
     try{ cv.setPointerCapture(e.pointerId); }catch(error_){ /* sem captura o arraste so para na borda */ }
     toques[e.pointerId]={x:e.clientX,y:e.clientY};
     var par=dois();
-    if(par){ soltaToken(true); arr=null; pinca=mpComecaPinca(par,cv); return; }
+    if(par){ soltaToken(true); MP.medida=null; arr=null; pinca=mpComecaPinca(par,cv); return; }
     arr=mpComecaArraste(e);
     mpPintaPainel(); mpDesenha();
   });
@@ -256,6 +319,9 @@ function mpMotor(wrap){
     if(!dois()){ pinca=null; }
     if(arr?.m==="t"&&arr.moveu&&!cancelou){ mpSoltaToken(arr,MP.encaixa?e.altKey:!e.altKey); }
     else { soltaToken(cancelou); }
+    /* um clique solto com a regua apaga a medida; arrastar deixa ela na tela ate o proximo clique ou Esc */
+    if(arr?.m==="r"&&(!arr.moveu||cancelou)){ MP.regua=null; }
+    MP.medida=null; mpDesenha();
     arr=null;
   }
   cv.addEventListener("pointerup",function(e){ fim(e,false); });
@@ -270,9 +336,23 @@ function mpMotor(wrap){
     mpZoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);
   },{passive:false});
 }
+/* ponta da regua: o centro do token que esta embaixo, ou o ponto (no centro da casa, se encaixa) */
+function mpPontoDaRegua(e,p){
+  var el=mpTokenEm(p.x,p.y);
+  if(el){ return {x:mpNum(el.dados.x,0),y:mpNum(el.dados.y,0)}; }
+  return (MP.encaixa?e.altKey:!e.altKey)?{x:p.x,y:p.y}:mpEncaixa(p.x,p.y,1);
+}
 function mpComecaArraste(e){
-  var p=mpMundo(e), v=mpVista(), el=e.button===1?null:mpTokenEm(p.x,p.y);
+  var p=mpMundo(e), v=mpVista();
+  if(MP.ferramenta==="regua"&&e.button!==1){
+    var a=mpPontoDaRegua(e,p);
+    MP.regua={a:a,b:a};
+    return {m:"r",sx:e.clientX,sy:e.clientY,moveu:false};
+  }
+  var el=e.button===1?null:mpTokenEm(p.x,p.y);
   MP.sel=el?el.id:null;
+  /* o servidor so libera o token na vez dele: sem este aviso o arraste viraria um empurrao no fundo, sem explicacao */
+  if(el?.esperaVez&&Date.now()-(MP.avisouVezEm||0)>1500){ MP.avisouVezEm=Date.now(); toast("Ainda não é a vez de "+(el.dados.nome||Vm("token"))+".","aviso"); }
   if(el?.podeMover){
     return {m:"t",el:el,dx:p.x-mpNum(el.dados.x,0),dy:p.y-mpNum(el.dados.y,0),sx:e.clientX,sy:e.clientY,
       ox:el.dados.x,oy:el.dados.y,moveu:false};
@@ -283,14 +363,29 @@ function mpSegueArraste(arr,e){
   var dx=e.clientX-arr.sx, dy=e.clientY-arr.sy;
   if(!arr.moveu&&Math.abs(dx)<4&&Math.abs(dy)<4){ return; }
   arr.moveu=true;
-  if(arr.m==="t"){
+  if(arr.m==="r"){
+    MP.regua.b=mpPontoDaRegua(e,mpMundo(e));
+  } else if(arr.m==="t"){
     MP.arrastando=arr.el.id;
-    var p=mpMundo(e);
-    arr.el.dados.x=p.x-arr.dx; arr.el.dados.y=p.y-arr.dy;
+    var p=mpMundo(e), d=arr.el.dados;
+    d.x=p.x-arr.dx; d.y=p.y-arr.dy;
+    /* o trajeto mostra onde o token vai cair, ja com o encaixe, e quanto custa chegar la */
+    var s=(MP.encaixa?e.altKey:!e.altKey)?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
+    MP.medida={x0:arr.ox,y0:arr.oy,x1:s.x,y1:s.y,el:arr.el,destino:{x:s.x,y:s.y,R:mpRaio(arr.el)}};
   } else {
     var v=mpVista(); v.x=arr.ox+dx; v.y=arr.oy+dy;
   }
   mpDesenha();
+}
+/* Um passo de teclado: uma casa para o lado escolhido. Na grade hexagonal as setas para os lados andam
+   uma casa e as de cima e de baixo vao para a vizinha da direita (com Shift, da esquerda). */
+function mpAnda(dx,dy,esquerda){
+  var el=mpEl(MP.sel);
+  if(!el?.podeMover){ return; }
+  var d=el.dados, g=mpGrid(), T=mpLado(), x=mpNum(d.x,0), y=mpNum(d.y,0), nx=x+dx*T, ny=y+dy*T;
+  if(g.tipo==="hex"&&dy!==0){ ny=y+dy*1.5*T/Math.sqrt(3); nx=x+(esquerda?-1:1)*T/2; }
+  var s=MP.encaixa?mpEncaixa(nx,ny,mpNum(d.tam,1)):{x:nx,y:ny};
+  mpMover(el,Math.round(s.x*10)/10,Math.round(s.y*10)/10);
 }
 function mpSoltaToken(arr,livre){
   var el=arr.el, d=el.dados, s=livre?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));

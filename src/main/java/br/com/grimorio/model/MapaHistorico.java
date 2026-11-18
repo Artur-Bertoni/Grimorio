@@ -31,7 +31,7 @@ public class MapaHistorico {
     @Column(nullable = false)
     private Instant em = Instant.now();
 
-    /** criar, mudar, remover, mapa, ativar */
+    /** criar, mudar, remover, mapa, desfazer, turno */
     @Column(nullable = false, length = 30, columnDefinition = "varchar(30) not null default ''")
     private String operacao = "";
 
@@ -45,6 +45,10 @@ public class MapaHistorico {
     /** o estado antes: aplicar isto desfaz a operacao (vazio na criacao) */
     @Column(nullable = false, length = 8000, columnDefinition = "varchar(8000) not null default ''")
     private String antes = "";
+
+    /** true quando a operacao ja foi desfeita (ou e um desfazer): ela sai da fila do desfazer da pessoa */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean desfeito = false;
 
     public Long getId() { return id; }
     public Long getMapaId() { return mapaId; }
@@ -62,6 +66,8 @@ public class MapaHistorico {
     public void setElementoId(long elementoId) { this.elementoId = elementoId; }
     public String getDepois() { return depois; }
     public void setDepois(String depois) { this.depois = depois; }
+    public boolean isDesfeito() { return desfeito; }
+    public void setDesfeito(boolean desfeito) { this.desfeito = desfeito; }
     public String getAntes() { return antes; }
     public void setAntes(String antes) { this.antes = antes; }
 }

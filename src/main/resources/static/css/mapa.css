@@ -4,10 +4,15 @@
 main.board .mpwrap{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;height:auto}
 .mpcv{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .mpcv:active{cursor:grabbing}
+.mpcv.regua,.mpcv.regua:active{cursor:crosshair}
 
 /* zoom a esquerda, porque a direita mora o painel */
 fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 .mpwrap .cvtools{top:var(--s-3);left:var(--s-3);right:auto}
+/* ferramenta ligada: fundo --bg4 e aria-pressed (nunca dourado, que e do primario) */
+.cvtools button.on{background:var(--bg4);border-color:var(--fg3);color:var(--fg)}
+.cvtools button svg{width:1rem;height:1rem;display:block;margin:0 auto}
+.cvsep{display:block;height:1px;margin:var(--s-1) 0;background:var(--line2)}
 .mphint{left:var(--s-3);right:auto;bottom:var(--s-3);text-align:left;max-width:calc(100% - 20rem)}
 
 .mppainel{position:absolute;top:var(--s-3);right:var(--s-3);bottom:var(--s-3);width:17.5rem;z-index:var(--z-elevado);
@@ -29,6 +34,9 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 .mpava{width:1.75rem;height:1.75rem;flex:0 0 auto;border-radius:var(--r-pill);object-fit:cover;background:var(--bg3);border:1px solid var(--line2)}
 .mpescolha{max-height:min(60vh,30rem);overflow:auto}
 .mpaviso{display:block}
+.mpacoes{display:flex;flex-wrap:wrap;gap:var(--s-2)}
+.mphlin{padding:var(--s-1) var(--s-2);gap:var(--s-3)}
+.mphlin.desfeito .cresce{color:var(--fg3)}
 
 .mpvazio{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-6);text-align:center}
 

@@ -34,7 +34,7 @@ var VOCAB_PADRAO={campanha:"Campanha",campanhas:"Campanhas",sessao:"Sessão",ses
  npc:"NPC",npcs:"NPCs",local:"Local",locais:"Locais",mestre:"Mestre",jogador:"Jogador",
  jogadores:"Jogadores",trilha:"Trilha",mesa:"Mesa",quadro:"Quadro",roteiro:"Roteiro",
  metodo:"Método",referencia:"Consulta rápida",ficha:"Ficha",fichas:"Fichas",
-  personagem:"Personagem",personagens:"Personagens",mapa:"Mapa",mapas:"Mapas",token:"Token",tokens:"Tokens"};
+  personagem:"Personagem",personagens:"Personagens",mapa:"Mapa",mapas:"Mapas",token:"Token",tokens:"Tokens",turno:"Turno",turnos:"Turnos"};
 function V(k){ var v=PUBD().vocab||{}; return v[k]||VOCAB_PADRAO[k]||k; }
 function Vm(k){ var t=V(k); return t?t.charAt(0).toUpperCase()+t.slice(1):t; }
 var MESA={resumos:[],ev:[],npcs:[],locais:[],at:0},mesaT=null;
@@ -166,7 +166,10 @@ function iaNome(){ return String(MESA.iaNome||"").trim()||"Claude"; }
 function iaArt(){ var a=String(MESA.iaArt||"ao").trim(); return (a==="à"||a==="a")?a:"ao"; }
 function iaPergunta(){ return "Perguntar "+iaArt()+" "+iaNome(); }
 var mesaRT=null;
-function refreshMesa(){ if(!PRONTO||S.view!=="mesa")return;
+function refreshMesa(){ if(!PRONTO)return;
+  /* na tela do mapa so a ordem de iniciativa vem da mesa */
+  if(S.view==="mapa"){ var mp=$("#mIni"); if(mp)mp.innerHTML=iniPubHtml(); return; }
+  if(S.view!=="mesa")return;
   clearTimeout(mesaRT);
   mesaRT=setTimeout(function(){ if(S.view!=="mesa")return;
     var mi=$("#mIni"); if(mi)mi.innerHTML=iniPubHtml();
@@ -179,10 +182,12 @@ function sondaMesa(){ clearInterval(sondaT);
     api(cAPI("/mesa/versao")).then(function(r){
       if(!r||r.versao===VMESA)return;
       return api(cAPI("/mesa")).then(function(m){ VMESA=m.versao;
-        var antes=idsMesa(), vz=MESA.ini?MESA.ini.vez+"/"+MESA.ini.rodada:"";
+        var antes=idsMesa(), vz=MESA.ini?MESA.ini.vez+"/"+MESA.ini.rodada:"", ra=MESA.ini?MESA.ini.rodada:0;
         aplicaMesa(m);
         reaplicaTema(); pintarMarca(); refreshMesa(); revelaNovos(antes); sugereTema();
-        if(!GM&&MESA.ini&&(MESA.ini.vez+"/"+MESA.ini.rodada)!==vz)som("vez"); });
+        if(!GM&&MESA.ini&&(MESA.ini.vez+"/"+MESA.ini.rodada)!==vz)som("vez");
+        /* quem nao esta na tela do mapa (que recebe o aviso na hora) fica sabendo do turno novo por aqui */
+        if(!GM&&MESA.ini&&MESA.ini.rodada!==ra)mpAvisaTurno(MESA.ini.rodada); });
     }).catch(function(){});
     puxaRolagens(true); },6000); }
 
@@ -205,7 +210,7 @@ function boot(){
   try{ aplicarFx(); aplicarTema(temaAtivo()); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   try{ $("#view").innerHTML=htmlDe("t-carregando"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
   api("/api/sessao").then(function(s){
-    EU=s; ADMIN=!!s.admin; IACFG=!!s.iaConfigurada; MYID=String(s.id||"");
+    EU=s; ADMIN=!!s.admin; IACFG=!!s.iaConfigurada; MYID=String(s.id||""); MAPA_LIBERADO=!!s.mapaLiberado;
     CAMPANHAS=s.campanhas||[];
     var cv=parametro("convite");
     if(!cv)return null;
