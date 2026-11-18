@@ -48,6 +48,11 @@ public class TratadorDeErros {
     }
 
     /* bloqueio de movimento do mapa: a tela mostra a frase e devolve o token ao lugar */
+    @ExceptionHandler(br.com.grimorio.service.MapaService.ParedeNoCaminho.class)
+    public ResponseEntity<Object> paredeNoCaminho(br.com.grimorio.service.MapaService.ParedeNoCaminho e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", msg(e), "codigo", "parede"));
+    }
+
     @ExceptionHandler(br.com.grimorio.service.MapaService.LimiteDeMovimento.class)
     public ResponseEntity<Object> limiteDeMovimento(br.com.grimorio.service.MapaService.LimiteDeMovimento e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", msg(e), "codigo", "limite-de-movimento"));

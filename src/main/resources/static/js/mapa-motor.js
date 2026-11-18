@@ -64,8 +64,12 @@ function mpPinta(){
   ctx.strokeStyle=cor.linha; ctx.lineWidth=1/v.z; ctx.strokeRect(0,0,W,H);
   /* camada por camada, de baixo para cima; dentro de cada uma, na ordem da lista */
   mpOrdenados().forEach(function(el){
-    if(el.tipo==="DESENHO"){ mpPintaDesenho(ctx,el,v.z,cor); } else { mpPintaToken(ctx,el,v.z,cor,tela); }
+    if(el.tipo==="DESENHO"){ mpPintaDesenho(ctx,el,v.z,cor); }
+    else if(el.tipo==="PAREDE"){ mpPintaParede(ctx,el,v.z,cor); }
+    else if(el.tipo==="FOG"){ mpPintaFogForma(ctx,el,v.z,cor); }
+    else if(!mpOculto(el)){ mpPintaToken(ctx,el,v.z,cor,tela); }
   });
+  mpPintaFog(ctx,v.z,cor);
   mpPintaFerramentas(ctx,v.z,cor);
   mpPintaMedidas(ctx,v.z,cor);
 }
@@ -246,7 +250,7 @@ function mpPintaMedidas(ctx,z,cor){
     if(t.length>1){ mpPintaTraco(ctx,z,cor,{x0:t[0][0],y0:t[0][1],x1:t[t.length-1][0],y1:t[t.length-1][1],trilha:t,fantasma:0}); }
     return;
   }
-  if(r&&(r.a.x!==r.b.x||r.a.y!==r.b.y)){ mpPintaTraco(ctx,z,cor,{x0:r.a.x,y0:r.a.y,x1:r.b.x,y1:r.b.y,fantasma:0}); }
+  if(r&&(r.a.x!==r.b.x||r.a.y!==r.b.y)){ mpPintaTraco(ctx,z,cor,{x0:r.a.x,y0:r.a.y,x1:r.b.x,y1:r.b.y,fantasma:0,visao:true}); }
 }
 /* a linha, as pontas e o rotulo com 12px na tela; passando do deslocamento, a linha vira vermelha
    e o rotulo diz quanto passou (a cor sozinha nao conta) */
@@ -264,6 +268,13 @@ function mpPintaTraco(ctx,z,cor,a){
     passa=custo>resta+0.000001;
     texto+=passa?" · passa "+mpFmt(custo-resta)+" "+mpUnidade():" · restam "+mpFmt(resta-custo)+" "+mpUnidade();
   }
+  /* so o mestre, e so com parede de visao no mapa: a regua diz se um ponto enxerga o outro */
+  if(a.visao&&GM&&mpTemParedeDeVisao()){
+    var ve=mpLivreTrecho(mpTrechos(true),a.x0,a.y0,a.x1,a.y1,true,true);
+    texto+=ve?" · visão livre":" · visão bloqueada"; passa=!ve;
+  }
+  /* o jogador que arrasta o token para um lugar sem caminho: a cor sozinha nao diz, entao o rotulo diz */
+  if(a.semCaminho){ texto="sem caminho: há parede"; passa=true; }
   ctx.save();
   ctx.strokeStyle=passa?cor.perigo:cor.ouro; ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=2/z;
   ctx.setLineDash([8/z,5/z]);
@@ -292,7 +303,7 @@ function mpTokenEm(wx,wy){
   var l=mpOrdenados();
   for(var i=l.length-1;i>=0;i--){
     var el=l[i];
-    if(el.tipo!=="DESENHO"&&mpAcertaToken(el,wx,wy)){ return el; }
+    if(el.tipo==="TOKEN"&&!mpOculto(el)&&mpAcertaToken(el,wx,wy)){ return el; }
   }
   return null;
 }
@@ -305,7 +316,9 @@ function mpElementoEm(wx,wy){
   var l=mpOrdenados(), z=mpVista().z;
   for(var i=l.length-1;i>=0;i--){
     var el=l[i];
-    if(el.tipo==="DESENHO"?mpAcertaDesenho(el,wx,wy,z):mpAcertaToken(el,wx,wy)){ return el; }
+    if((el.tipo==="FOG"&&mpFogModo()==="nenhum")||mpPincelada(el)){ continue; }
+    var acerta=el.tipo==="TOKEN"?mpAcertaToken(el,wx,wy):(el.tipo==="PAREDE"?mpAcertaParede(el,wx,wy,z):mpAcertaDesenho(el,wx,wy,z));
+    if(acerta){ return el; }
   }
   return null;
 }
@@ -412,10 +425,11 @@ function mpMotor(wrap){
   });
   cv.addEventListener("pointermove",function(e){
     if(toques[e.pointerId]){ toques[e.pointerId]={x:e.clientX,y:e.clientY}; }
+    if(MP.ferramenta==="pincel"&&!arr){ MP.pincelCur=mpMundo(e); mpDesenha(); }
     if(pinca){ var par=dois(); if(par){ mpSeguePinca(pinca,par); } return; }
     if(arr){ mpSegueArraste(arr,e); return; }
     /* o poligono e o trajeto da regua mostram o proximo lado seguindo o cursor, mesmo sem botao apertado */
-    if(MP.rascunho?.forma==="poligono"){ var q=mpPontoDesenho(e,mpMundo(e)); MP.rascunho.cursor=q; mpDesenha(); }
+    if(mpEhPoli(MP.rascunho)){ var q=mpPontoDesenho(e,mpMundo(e)); MP.rascunho.cursor=q; mpDesenha(); }
     else if(MP.regua?.pts&&!MP.regua.fim){ MP.regua.cursor=mpPontoDaRegua(e,mpMundo(e)); mpDesenha(); }
   });
   function fim(e,cancelou){
@@ -425,10 +439,11 @@ function mpMotor(wrap){
     if(a){ mpTerminaArraste(a,e,cancelou); } else { MP.arrastando=null; }
     MP.medida=null; mpDesenha();
   }
+  cv.addEventListener("pointerleave",function(){ if(MP.pincelCur){ MP.pincelCur=null; mpDesenha(); } });
   cv.addEventListener("pointerup",function(e){ fim(e,false); });
   cv.addEventListener("pointercancel",function(e){ fim(e,true); });
   cv.addEventListener("dblclick",function(e){
-    if(MP.rascunho?.forma==="poligono"){ mpFechaPoligono(true); return; }
+    if(mpEhPoli(MP.rascunho)){ mpFechaPoligono(true); return; }
     if(MP.regua?.pts&&!MP.regua.fim){ mpTerminaTrajeto(true); return; }
     if(!GM){
       /* o jogador abre so o proprio token: nele ele muda a vida e as marcas */
@@ -438,7 +453,7 @@ function mpMotor(wrap){
     }
     var p=mpMundo(e), el=mpElementoEm(p.x,p.y);
     if(!el){ return; }
-    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else { mpEditaToken(el); }
+    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else if(el.tipo==="PAREDE"){ mpEditaParede(el); } else if(el.tipo==="FOG"){ mpEditaFog(el); } else { mpEditaToken(el); }
   });
   cv.addEventListener("wheel",function(e){
     e.preventDefault();
@@ -457,6 +472,7 @@ function mpTerminaArraste(a,e,cancelou){
   if(a.m==="r"&&(!a.moveu||cancelou)){ MP.regua=null; }
   if(a.m==="a"){ if(!a.moveu||cancelou){ MP.area=null; } mpPintaPainel(); }
   if(a.m==="d"||a.m==="dp"||a.m==="dm"){ mpTerminaDesenho(a,cancelou); }
+  if(a.m==="pn"){ mpTerminaPincel(a,cancelou); }
   if(a.m==="s"){ mpTerminaCaixa(a,cancelou); }
 }
 /* ponta da regua: o centro do token que esta embaixo, ou o ponto (no centro da casa, se encaixa) */
@@ -488,6 +504,9 @@ function mpComecaArraste(e){
     return {m:"a",sx:e.clientX,sy:e.clientY,moveu:false};
   }
   if(GM&&MP_FORMAS.includes(f)){ return mpComecaDesenho(e,p,f); }
+  if(GM&&f==="parede"){ return mpComecaDesenho(e,p,"parede"); }
+  if(GM&&f==="fog"){ return mpComecaDesenho(e,p,MP.fogForma); }
+  if(GM&&f==="pincel"){ return mpComecaPincel(e,p); }
   return GM?mpComecaSelecao(e,p,v):mpComecaJogador(e,p,v);
 }
 /* o jogador so mexe nos tokens: tocar em desenho ou fundo arrasta o fundo */
@@ -524,12 +543,12 @@ function mpComecaSelecao(e,p,v){
 /* ---------- arraste em grupo (mestre) ---------- */
 function mpAncora(el){
   var d=el.dados||{};
-  return el.tipo==="DESENHO"?{x:d.pts[0][0],y:d.pts[0][1]}:{x:mpNum(d.x,0),y:mpNum(d.y,0)};
+  return el.tipo!=="TOKEN"?{x:d.pts[0][0],y:d.pts[0][1]}:{x:mpNum(d.x,0),y:mpNum(d.y,0)};
 }
 /* o estado de antes de cada item: e dele que se parte a cada quadro, e para ele que se volta se der errado */
 function mpSnap(el){
   var d=el.dados, s={el:el};
-  if(el.tipo==="DESENHO"){ s.pts=d.pts.map(function(q){ return [q[0],q[1]]; }); } else { s.x=mpNum(d.x,0); s.y=mpNum(d.y,0); }
+  if(el.tipo!=="TOKEN"){ s.pts=d.pts.map(function(q){ return [q[0],q[1]]; }); } else { s.x=mpNum(d.x,0); s.y=mpNum(d.y,0); }
   return s;
 }
 function mpAplicaSnap(s,dx,dy){
@@ -544,7 +563,7 @@ function mpComecaGrupo(e,p,el){
 function mpDeltaFinal(arr,livre){
   if(livre){ return {dx:arr.delta.x,dy:arr.delta.y}; }
   var tx=arr.an.x+arr.delta.x, ty=arr.an.y+arr.delta.y;
-  var s=arr.el.tipo==="DESENHO"?mpEncaixaPonto(tx,ty):mpEncaixa(tx,ty,mpNum(arr.el.dados.tam,1));
+  var s=arr.el.tipo!=="TOKEN"?mpEncaixaPonto(tx,ty):mpEncaixa(tx,ty,mpNum(arr.el.dados.tam,1));
   return {dx:s.x-arr.an.x,dy:s.y-arr.an.y};
 }
 function mpRestauraGrupo(arr){
@@ -575,7 +594,7 @@ function mpSoltaGrupo(arr,livre){
 function mpComecaDesenho(e,p,f){
   var a=mpPontoDesenho(e,p), base={sx:e.clientX,sy:e.clientY,moveu:false,forma:f,p:a};
   if(f==="marca"){ base.m="dm"; return base; }
-  if(f==="poligono"){ base.m="dp"; return base; }
+  if(f==="poligono"||f==="parede"){ base.m="dp"; return base; }
   MP.rascunho={forma:f,pts:[[a.x,a.y],[a.x,a.y]]};
   base.m="d";
   return base;
@@ -583,17 +602,19 @@ function mpComecaDesenho(e,p,f){
 function mpTerminaDesenho(a,cancelou){
   if(a.m==="d"){
     var r=MP.rascunho; MP.rascunho=null;
-    if(!cancelou&&a.moveu&&r&&Math.hypot(r.pts[1][0]-r.pts[0][0],r.pts[1][1]-r.pts[0][1])>=2){ mpCriaDesenho(r.forma,r.pts); }
+    if(!cancelou&&a.moveu&&r&&Math.hypot(r.pts[1][0]-r.pts[0][0],r.pts[1][1]-r.pts[0][1])>=2){ mpCriaForma(r.forma,r.pts); }
   } else if(!cancelou&&!a.moveu){
-    if(a.m==="dm"){ mpNovaMarca(a.p); } else { mpPontoPoligono(a.p); }
+    if(a.m==="dm"){ mpNovaMarca(a.p); } else { mpPontoPoligono(a.p,a.forma); }
   }
 }
 /* cada clique e um vertice; clicar perto do primeiro, dar dois cliques ou apertar Enter fecha */
-function mpPontoPoligono(p){
+function mpEhPoli(r){ return !!r&&(r.forma==="poligono"||r.forma==="parede"); }
+function mpPontoPoligono(p,forma){
   var r=MP.rascunho;
-  if(!r){ MP.rascunho={forma:"poligono",pts:[[p.x,p.y]],cursor:p}; return; }
+  if(!r){ MP.rascunho={forma:forma||"poligono",pts:[[p.x,p.y]],cursor:p}; return; }
   var pr=r.pts[0];
-  if(r.pts.length>=3&&Math.hypot(p.x-pr[0],p.y-pr[1])<=10/mpVista().z){ mpFechaPoligono(false); return; }
+  /* a parede e uma linha aberta: so Enter ou duplo clique terminam */
+  if(r.forma==="poligono"&&r.pts.length>=3&&Math.hypot(p.x-pr[0],p.y-pr[1])<=10/mpVista().z){ mpFechaPoligono(false); return; }
   r.pts.push([p.x,p.y]);
 }
 function mpFechaPoligono(doisCliques){
@@ -606,7 +627,7 @@ function mpFechaPoligono(doisCliques){
     if(Math.hypot(u[0]-a[0],u[1]-a[1])<2){ pts.pop(); }
   }
   MP.rascunho=null;
-  if(pts.length>=3){ mpCriaDesenho("poligono",pts); } else { mpDesenha(); }
+  if(pts.length>=(r.forma==="parede"?2:3)){ mpCriaForma(r.forma,pts); } else { mpDesenha(); }
 }
 /* ---------- caixa de selecao ---------- */
 function mpTerminaCaixa(a,cancelou){
@@ -614,7 +635,7 @@ function mpTerminaCaixa(a,cancelou){
   if(cancelou){ return; }
   if(!a.moveu){ if(!a.add){ mpSelecionaIds([]); } return; }
   var r={x0:Math.min(a.a.x,a.b.x),y0:Math.min(a.a.y,a.b.y),x1:Math.max(a.a.x,a.b.x),y1:Math.max(a.a.y,a.b.y)};
-  var ids=mpOrdenados().filter(function(el){ var b=mpBBox(el); return b.x1>=r.x0&&b.x0<=r.x1&&b.y1>=r.y0&&b.y0<=r.y1; })
+  var ids=mpOrdenados().filter(function(el){ if(mpPincelada(el)){ return false; } var b=mpBBox(el); return b.x1>=r.x0&&b.x0<=r.x1&&b.y1>=r.y0&&b.y0<=r.y1; })
     .map(function(el){ return String(el.id); });
   mpSelecionaIds(a.base.concat(ids.filter(function(i){ return !a.base.includes(i); })));
 }
@@ -623,7 +644,9 @@ function mpSegueArraste(arr,e){
   if(!arr.moveu&&Math.abs(dx)<4&&Math.abs(dy)<4){ return; }
   arr.moveu=true;
   var m=arr.m;
-  if(m==="r"){
+  if(m==="pn"){
+    mpSeguePincel(e);
+  } else if(m==="r"){
     MP.regua.b=mpPontoDaRegua(e,mpMundo(e));
   } else if(m==="a"){
     MP.area.b=mpPontoDaArea(e,mpMundo(e));
@@ -639,8 +662,10 @@ function mpSegueArraste(arr,e){
     /* o trajeto mostra onde o token vai cair, ja com o encaixe, e quanto custa chegar la */
     var s=mpLivre(e)?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
     mpAnotaTrilha(arr,d);
+    var trilha=arr.trilha.concat([[s.x,s.y]]), rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,trilha);
     MP.medida={x0:arr.ox,y0:arr.oy,x1:s.x,y1:s.y,el:arr.el,destino:{x:s.x,y:s.y,R:mpRaio(arr.el)},
-      trilha:arr.trilha.concat([[s.x,s.y]])};
+      trilha:rota||trilha,semCaminho:rota===false};
+    if(rota===false){ MP.medida.trilha=trilha; }
   } else if(m==="g"){
     mpSegueGrupo(arr,e);
   } else if(m==="p"){
@@ -653,7 +678,7 @@ function mpSegueGrupo(arr,e){
   var p=mpMundo(e);
   arr.delta={x:p.x-arr.dx-arr.an.x,y:p.y-arr.dy-arr.an.y};
   arr.snaps.forEach(function(s){ mpAplicaSnap(s,arr.delta.x,arr.delta.y); });
-  if(arr.el.tipo==="DESENHO"){ return; }
+  if(arr.el.tipo!=="TOKEN"){ return; }
   var f=mpDeltaFinal(arr,mpLivre(e));
   MP.medida={x0:arr.an.x,y0:arr.an.y,x1:arr.an.x+f.dx,y1:arr.an.y+f.dy,el:arr.el,destino:{x:arr.an.x+f.dx,y:arr.an.y+f.dy,R:mpRaio(arr.el)}};
 }
@@ -688,7 +713,10 @@ function mpSoltaToken(arr,livre){
   /* volta ao ponto de partida antes de gravar: se o servidor recusar, mpMover desfaz para la */
   d.x=arr.ox; d.y=arr.oy;
   MP.arrastando=null;
-  mpMover(el,mpArred(s.x),mpArred(s.y),arr.trilha.slice(1));
+  /* parede no meio: vale a rota que a contorna (o servidor refaz a conta e e quem decide); sem rota, nem tenta */
+  var rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,arr.trilha.concat([[s.x,s.y]]));
+  if(rota===false){ mpDesenha(); toast("Não há por onde passar: tem parede no caminho.","aviso"); return; }
+  mpMover(el,mpArred(s.x),mpArred(s.y),rota?rota.slice(1,-1):arr.trilha.slice(1));
 }
 function mpComecaPinca(par,cv){
   var r=cv.getBoundingClientRect(), v=mpVista();

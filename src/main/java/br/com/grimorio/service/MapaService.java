@@ -49,6 +49,11 @@ public class MapaService {
         public LimiteDeMovimento(String msg) { super(msg); }
     }
 
+    /** O jogador nao tem por onde ir: ha parede (ou porta fechada) fechando todos os caminhos ate o ponto escolhido. */
+    public static class ParedeNoCaminho extends RuntimeException {
+        public ParedeNoCaminho(String msg) { super(msg); }
+    }
+
     /** O que a tela manda para criar ou mudar um mapa. Campo nulo nao muda. */
     public static class CorpoMapa {
         public String nome;
@@ -118,6 +123,7 @@ public class MapaService {
     private static final String K_DADOS = "dados";
     private static final String K_LIVRE = "livre";
     private static final String K_FICHA = "fichaId";
+    private static final String K_VISAO = "visao";
     private static final String K_USADO = "usado";
     private static final String K_ID = "id";
     private static final String K_SEQ = "seq";
@@ -129,7 +135,7 @@ public class MapaService {
     /** o que o jogador recebe de um token: o vinculo com ficha e com o elenco fica com o mestre */
     private static final Set<String> DADOS_DO_JOGADOR = Set.of("x", "y", "tam", "rot", "nome", "img", "marcas");
     /** de quem pode mover o token vai tambem o deslocamento do turno: o jogador precisa ver quanto resta */
-    private static final Set<String> DADOS_DE_QUEM_MOVE = Set.of("x", "y", "tam", "rot", "nome", "img", "marcas", "desl", K_USADO);
+    private static final Set<String> DADOS_DE_QUEM_MOVE = Set.of("x", "y", "tam", "rot", "nome", "img", "marcas", "desl", K_VISAO, MapaRegras.K_VISAO_FICHA, K_USADO);
     /** a barra de vida: o dono do token sempre ve; os outros so quando o mestre torna publica */
     private static final Set<String> DADOS_DA_VIDA = Set.of("vida", "vidaMax");
 
@@ -290,13 +296,11 @@ public class MapaService {
             x.setCampanhaId(cid);
             MapaElemento.Tipo t = tipo(c.tipo);
             x.setTipo(t);
-            boolean desenho = t == MapaElemento.Tipo.DESENHO;
-            ObjectNode d = desenho ? MapaRegras.dadosDesenho(om.createObjectNode(), c.dados, m)
-                    : MapaRegras.dadosToken(om.createObjectNode(), c.dados, m);
-            x.setCamada(MapaRegras.camada(c.camada, camadaPadrao(desenho, d)));
-            x.setDono(desenho ? 0 : donoInicial(cid, c, d));
+            ObjectNode d = dadosDoTipo(t, om.createObjectNode(), c.dados, m);
+            x.setCamada(MapaRegras.camada(c.camada, camadaPadrao(t, d)));
+            x.setDono(t == MapaElemento.Tipo.TOKEN ? donoInicial(cid, c, d) : 0);
             if (c.bloqueado != null) x.setBloqueado(c.bloqueado);
-            if (c.visivel != null) x.setVisivel(c.visivel);
+            if (c.visivel != null && !sempreVisivel(t)) x.setVisivel(c.visivel);
             x.setOrdem((int) elementos.countByMapaId(mid));
             x.setDados(om.writeValueAsString(d));
             elementos.save(x);
@@ -709,19 +713,22 @@ public class MapaService {
     // ---------- regras internas ----------
 
     /**
-     * Desconta do token o que o movimento custou (casas andadas x o valor de cada casa). Sem limite
-     * no token, nada se conta. Passando do que resta: no modo "bloqueio" recusa, no "aviso" deixa e
-     * diz que passou. O custo e em linha reta do ponto de partida ao de chegada: o caminho que o
-     * jogador desenhou com o mouse nao e conhecido aqui (paredes e rotas sao da fase da visao).
+     * Paredes primeiro, depois o deslocamento. Parede barra o jogador sempre, com ou sem limite no token: se o caminho
+     * em linha reta (ou o que ele desenhou) cruza uma, vale a rota mais curta que a contorna, e sem rota o movimento e
+     * recusado. O mestre nunca e barrado. Depois, o que o movimento custou e descontado do token: sem limite nada se
+     * conta; passando do que resta, no modo "bloqueio" recusa e no "aviso" deixa e diz que passou.
      */
     private boolean gastaDeslocamento(MapaElemento x, Mapa m, double x0, double y0, CorpoElemento c) {
         ObjectNode d = ler(x.getDados());
-        double desl = d.path("desl").asDouble(0);
         double x1 = d.path("x").asDouble(0);
         double y1 = d.path("y").asDouble(0);
-        if (desl <= 0 || (x0 == x1 && y0 == y1)) return false;
+        if (x0 == x1 && y0 == y1) return false;
+        double[] o = {x0, y0, x1, y1};
+        List<double[]> rota = rotaPelasParedes(m, o, c);
+        double desl = d.path("desl").asDouble(0);
+        if (desl <= 0) return false;
         JsonNode g = ler(m.getGrid());
-        double custo = custoDoMovimento(m, g, new double[]{x0, y0, x1, y1}, c);
+        double custo = custoDoMovimento(m, g, o, c, rota);
         double usado = d.path(K_USADO).asDouble(0);
         boolean passa = custo > desl - usado + 1e-6;
         if (passa && "bloqueio".equals(ler(m.getRegras()).path("limite").asString("aviso"))) {
@@ -734,15 +741,45 @@ public class MapaService {
         return passa;
     }
 
+    /** Os trechos de parede que barram quem anda: parede, janela e porta fechada. */
+    private List<double[]> paredesQueBarram(long mid) {
+        List<double[]> out = new ArrayList<>();
+        for (MapaElemento e : elementos.findByMapaIdAndTipo(mid, MapaElemento.Tipo.PAREDE)) {
+            ObjectNode d = ler(e.getDados());
+            if ("porta".equals(d.path("kind").asString("")) && d.path("aberta").asBoolean(false)) continue;
+            JsonNode pts = d.path("pts");
+            for (int i = 1; i < pts.size(); i++) {
+                out.add(new double[]{pts.get(i - 1).get(0).asDouble(), pts.get(i - 1).get(1).asDouble(), pts.get(i).get(0).asDouble(), pts.get(i).get(1).asDouble()});
+            }
+        }
+        return out;
+    }
+
     /**
-     * Pelo caminho que o jogador informou ao arrastar; sem ele, em linha reta da origem ao destino. O
-     * caminho nunca sai mais barato que a reta: quem nao o manda paga a reta. Ate haver paredes (o
-     * servidor nao conhece o terreno) o trajeto e o que o navegador conta.
+     * Null quando nenhuma parede esta no meio (vale o caminho de sempre); senao, os pontos da rota que a contorna.
+     * Sem rota, o movimento e recusado.
      */
-    private double custoDoMovimento(Mapa m, JsonNode g, double[] o, CorpoElemento c) {
+    private List<double[]> rotaPelasParedes(Mapa m, double[] o, CorpoElemento c) {
+        List<double[]> paredes = paredesQueBarram(m.getId());
+        if (paredes.isEmpty()) return null;
+        List<double[]> pts = new ArrayList<>();
+        pts.add(new double[]{o[0], o[1]});
+        pts.addAll(MapaRegras.trajeto(c.trajeto, m));
+        pts.add(new double[]{o[2], o[3]});
+        if (MapaParedes.livre(paredes, pts)) return null;
+        List<double[]> rota = MapaParedes.rota(paredes, new double[]{o[0], o[1]}, new double[]{o[2], o[3]});
+        if (rota == null) throw new ParedeNoCaminho("Há uma parede no caminho: não há por onde passar até lá.");
+        return rota;
+    }
+
+    /**
+     * Pela rota que contorna as paredes, se houver; senao pelo caminho que o jogador informou ao arrastar; sem ele,
+     * em linha reta da origem ao destino. O caminho nunca sai mais barato que a reta: quem nao o manda paga a reta.
+     */
+    private double custoDoMovimento(Mapa m, JsonNode g, double[] o, CorpoElemento c, List<double[]> rota) {
         double escala = g.path("escala").asDouble(1.5);
         double reta = MapaMedida.casas(g, o[0], o[1], o[2], o[3]) * escala;
-        List<double[]> t = MapaRegras.trajeto(c.trajeto, m);
+        List<double[]> t = rota != null ? rota.subList(1, rota.size() - 1) : MapaRegras.trajeto(c.trajeto, m);
         if (t.isEmpty()) return reta;
         double casas = 0;
         double px = o[0];
@@ -767,10 +804,9 @@ public class MapaService {
             MapaRegras.posicao(d, c.dados, m);
             if (x.getDono() == uid && x.getTipo() == MapaElemento.Tipo.TOKEN) MapaRegras.vidaEMarcas(d, c.dados);
         } else {
-            if (x.getTipo() == MapaElemento.Tipo.DESENHO) MapaRegras.dadosDesenho(d, c.dados, m);
-            else MapaRegras.dadosToken(d, c.dados, m);
+            dadosDoTipo(x.getTipo(), d, c.dados, m);
             if (c.dono != null && x.getTipo() == MapaElemento.Tipo.TOKEN) x.setDono(Math.max(0, c.dono));
-            if (c.visivel != null) x.setVisivel(c.visivel);
+            if (c.visivel != null && !sempreVisivel(x.getTipo())) x.setVisivel(c.visivel);
             if (c.camada != null) x.setCamada(MapaRegras.camada(c.camada, x.getCamada()));
             if (c.bloqueado != null) x.setBloqueado(c.bloqueado);
             if (c instanceof ItemLote it && it.ordem != null) x.setOrdem(novaOrdem(m, it.ordem, x.getOrdem()));
@@ -860,6 +896,46 @@ public class MapaService {
         if (f != null) publicaElemento(cid, f);
     }
 
+    /**
+     * O alcance da visao da ficha mudou: os tokens vinculados a ela guardam a copia (visaoFicha), que vale quando o
+     * token nao tem alcance proprio. Vazio na ficha tira a copia. Chamado pelo controller depois de gravar a ficha.
+     */
+    public void visaoDaFicha(long cid, long fichaId, String conteudo) {
+        JsonNode v = ler(conteudo).path(K_VISAO);
+        Double novo = null;
+        if (v.isNumber() || (v.isString() && !v.asString("").isBlank())) {
+            double casas = v.isNumber() ? v.asDouble() : numeroDaFicha(v.asString(""));
+            novo = Math.round(Math.clamp(casas, 0, 100) * 10) / 10.0;
+        }
+        final Double alvo = novo;
+        for (MapaElemento e : elementos.findByCampanhaIdAndTipo(cid, MapaElemento.Tipo.TOKEN)) {
+            ObjectNode d = ler(e.getDados());
+            if (!d.path("vinculo").asBoolean(false) || d.path(K_FICHA).asLong(-1) != fichaId) continue;
+            Double atual = d.has(MapaRegras.K_VISAO_FICHA) ? d.get(MapaRegras.K_VISAO_FICHA).asDouble() : null;
+            if (Objects.equals(atual, alvo)) continue;
+            sincronizaDados(cid, e.getId(), e.getMapaId(), x -> {
+                if (alvo == null) x.remove(MapaRegras.K_VISAO_FICHA); else x.put(MapaRegras.K_VISAO_FICHA, alvo.doubleValue());
+            });
+        }
+    }
+
+    /** Muda os dados de um token por dentro da trava do mapa e avisa quem esta olhando (sem historico: nao e acao de ninguem). */
+    private void sincronizaDados(long cid, long eid, long mid, java.util.function.Consumer<ObjectNode> muda) {
+        Feito f = travado(mid, () -> tx.execute(s -> {
+            MapaElemento x = elementos.findById(eid).orElse(null);
+            Mapa m = mapas.findById(mid).orElse(null);
+            if (x == null || m == null) return null;
+            ObjectNode d = ler(x.getDados());
+            muda.accept(d);
+            x.setDados(om.writeValueAsString(d));
+            elementos.save(x);
+            m.setSeq(m.getSeq() + 1);
+            mapas.save(m);
+            return new Feito(x, m, x.isVisivel());
+        }));
+        if (f != null) publicaElemento(cid, f);
+    }
+
     /** Aponta um ponto do mapa: todos que veem o mapa recebem na hora, e nada fica gravado. */
     public void ping(long cid, long uid, long mid, double x, double y) {
         boolean mestre = camp.exigeMembro(cid, uid) == Papel.MESTRE;
@@ -940,9 +1016,30 @@ public class MapaService {
         return false;
     }
 
-    private static String camadaPadrao(boolean desenho, ObjectNode d) {
-        if (desenho) return "decoracao";
-        return d.hasNonNull("npcId") ? "npcs" : "personagens";
+    private static String camadaPadrao(MapaElemento.Tipo t, ObjectNode d) {
+        return switch (t) {
+            case DESENHO -> "decoracao";
+            case PAREDE, FOG -> "cenario";
+            case TOKEN -> d.hasNonNull("npcId") ? "npcs" : "personagens";
+        };
+    }
+
+    /** Cada tipo de elemento tem as suas regras de dados; o que nao e conhecido cai. */
+    private static ObjectNode dadosDoTipo(MapaElemento.Tipo t, ObjectNode d, Map<String, Object> in, Mapa m) {
+        return switch (t) {
+            case DESENHO -> MapaRegras.dadosDesenho(d, in, m);
+            case PAREDE -> MapaRegras.dadosParede(d, in, m);
+            case FOG -> MapaRegras.dadosFog(d, in, m);
+            case TOKEN -> MapaRegras.dadosToken(d, in, m);
+        };
+    }
+
+    /**
+     * Parede e nevoa sempre chegam ao jogador: ate o servidor cortar a nevoa em tiles (fase 4b) e a tela
+     * dele calcular a visao com as paredes, esconder uma delas so deixaria a visao furada. Nada disso e segredo de verdade ainda.
+     */
+    private static boolean sempreVisivel(MapaElemento.Tipo t) {
+        return t == MapaElemento.Tipo.PAREDE || t == MapaElemento.Tipo.FOG;
     }
 
     private static MapaElemento.Tipo tipoSalvo(String t) {
@@ -972,10 +1069,7 @@ public class MapaService {
 
     private static MapaElemento.Tipo tipo(String t) {
         if (t == null || t.isBlank()) return MapaElemento.Tipo.TOKEN;
-        MapaElemento.Tipo x = MapaElemento.Tipo.valueOf(t.trim().toUpperCase(Locale.ROOT));
-        /* parede e fog chegam na fase da visao, com as regras deles */
-        if (x != MapaElemento.Tipo.TOKEN && x != MapaElemento.Tipo.DESENHO) throw new IllegalArgumentException("tipo de elemento ainda não suportado");
-        return x;
+        return MapaElemento.Tipo.valueOf(t.trim().toUpperCase(Locale.ROOT));
     }
 
     /** Token que nasce de ficha e de quem e dono da ficha; a ficha precisa ser desta campanha. */
@@ -1010,6 +1104,11 @@ public class MapaService {
             Map<String, Object> in = new LinkedHashMap<>(c.regras);
             /* quem edita so o "quem move" e o limite nao destranca as camadas sem querer */
             if (!in.containsKey("encaixe")) in.put("encaixe", ler(m.getRegras()).path("encaixe").asBoolean(true));
+            JsonNode antes = ler(m.getRegras());
+            if (!in.containsKey("fog")) in.put("fog", antes.path("fog").asString("nenhum"));
+            for (String k : List.of(MapaRegras.K_FOG_MEMORIA, MapaRegras.K_FOG_VER, MapaRegras.K_VISAO_PADRAO)) {
+                if (!in.containsKey(k) && antes.has(k)) in.put(k, antes.get(k).isBoolean() ? antes.get(k).asBoolean() : antes.get(k).asDouble());
+            }
             if (!in.containsKey("trancadas")) {
                 List<String> t = new ArrayList<>();
                 for (JsonNode n : ler(m.getRegras()).path("trancadas")) t.add(n.asString(""));

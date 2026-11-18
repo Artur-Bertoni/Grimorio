@@ -169,7 +169,7 @@ const elJson = (m, e, mestre) => {
   const r = { ...e, dados: { ...e.dados }, meu: e.dono === ST.perfil.id, podeMover: podeMover(m, e, mestre) };
   if (!mestre) {
     if (e.tipo === 'TOKEN') {
-      const fica = ['x', 'y', 'tam', 'rot', 'nome', 'img', 'marcas', ...(r.meu || r.podeMover ? ['desl', 'usado'] : []), ...(r.meu || e.dados.vidaPublica ? ['vida', 'vidaMax'] : [])];
+      const fica = ['x', 'y', 'tam', 'rot', 'nome', 'img', 'marcas', ...(r.meu || r.podeMover ? ['desl', 'usado', 'visao', 'visaoFicha'] : []), ...(r.meu || e.dados.vidaPublica ? ['vida', 'vidaMax'] : [])];
       for (const k of Object.keys(r.dados)) if (!fica.includes(k)) delete r.dados[k];
     }
     delete r.bloqueado;
@@ -226,7 +226,7 @@ function rotaMapa(M, p, b, req, res) {
       envia(res, 200, { seq: mp.seq, mapa: mapaJson(mp, mestre), elementos: mp.els.filter(e => mestre || e.visivel).map(e => elJson(mp, e, mestre)) }); return true;
     }
     if (!mestre) { envia(res, 403, { erro: 'so o mestre', codigo: 'proibido' }); return true; }
-    if (M === 'PUT') { for (const k of ['nome', 'imagem', 'grid', 'regras', 'cenaId']) if (b[k] != null) mp[k] = k === 'regras' ? { ...b[k], trancadas: b[k].trancadas || mp.regras.trancadas || [] } : b[k]; mp.seq++; envia(res, 200, mapaJson(mp, true)); return true; }
+    if (M === 'PUT') { for (const k of ['nome', 'imagem', 'grid', 'regras', 'cenaId']) if (b[k] != null) mp[k] = k === 'regras' ? { ...mp.regras, ...b[k], trancadas: b[k].trancadas || mp.regras.trancadas || [], fog: b[k].fog || mp.regras.fog || 'nenhum' } : b[k]; mp.seq++; envia(res, 200, mapaJson(mp, true)); return true; }
     if (M === 'DELETE') { MAPAS[cid] = lista.filter(x => x !== mp); return sem(); }
   }
   if (m[3] === 'ping' && M === 'POST') { sseEnvia(cid, { tipo: 'ping', mapa: mp.id, x: b.x, y: b.y, quem: ST.perfil.nome || 'Alguem', meu: false }); return sem(); }
@@ -285,6 +285,13 @@ function rotaMapa(M, p, b, req, res) {
           dados: { forma: d.forma, pts: d.pts, cor: d.cor || 'ouro', esp: d.esp || 3, preench: d.preench || 0, rotulo: d.rotulo || '' } };
         mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
       }
+      if (b.tipo === 'PAREDE' || b.tipo === 'FOG') {
+        const ok = Array.isArray(d.pts) && d.pts.length >= (d.forma === 'traco' ? 1 : 2) && (b.tipo === 'PAREDE' || ['retangulo', 'circulo', 'poligono', 'traco'].includes(d.forma));
+        if (!ok) { envia(res, 400, { erro: 'forma inválida' }); return true; }
+        const e = { id: ++MAPA_SEQ, tipo: b.tipo, camada: 'cenario', dono: 0, visivel: true, bloqueado: !!b.bloqueado, ordem: mp.els.length,
+          dados: b.tipo === 'PAREDE' ? { kind: d.kind || 'parede', aberta: !!d.aberta && d.kind === 'porta', pts: d.pts } : { forma: d.forma, pts: d.pts, revela: d.revela !== false, ...(d.forma === 'traco' ? { larg: d.larg || 70, ponta: d.ponta || 'redondo', suave: d.suave !== false } : {}) } };
+        mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
+      }
       const e = { id: ++MAPA_SEQ, tipo: 'TOKEN', camada: b.camada || (d.npcId ? 'npcs' : 'personagens'), dono: b.dono ?? 0, visivel: b.visivel !== false, bloqueado: false, ordem: mp.els.length,
         dados: { x: d.x ?? mp.largura / 2, y: d.y ?? mp.altura / 2, tam: d.tam || 1, rot: d.rot || 0, nome: d.nome || 'Token', img: d.img || '', ...(d.fichaId != null ? { fichaId: d.fichaId, vinculo: d.vinculo !== false } : {}), ...(d.npcId ? { npcId: d.npcId } : {}), ...(d.vidaMax ? { vidaMax: d.vidaMax, vida: d.vida ?? d.vidaMax, ...(d.vidaCampo ? { vidaCampo: d.vidaCampo } : {}) } : {}) } };
       mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
@@ -302,12 +309,18 @@ function rotaMapa(M, p, b, req, res) {
       if (mestre) {
         if (trancado(mp, e) && !(b.bloqueado === false && e.bloqueado && !camadaTrancada(mp, e))) { envia(res, 409, { erro: 'Está trancado: destranque para mexer.' }); return true; }
         Object.assign(e.dados, d);
+        for (const k of ['visao', 'visaoFicha']) if (e.dados[k] === null || e.dados[k] === '') delete e.dados[k];
+        if (e.tipo === 'PAREDE' && e.dados.kind !== 'porta') e.dados.aberta = false;
         if (b.dono != null) e.dono = b.dono; if (b.visivel != null) e.visivel = b.visivel; if (b.camada) e.camada = b.camada; if (b.bloqueado != null) e.bloqueado = b.bloqueado;
         if (e.dados.vidaMax === 0) { delete e.dados.vidaMax; delete e.dados.vida; }
         if (Array.isArray(e.dados.marcas) && !e.dados.marcas.length) delete e.dados.marcas;
       }
       else {
         const x0 = e.dados.x, y0 = e.dados.y, x1 = d.x ?? x0, y1 = d.y ?? y0, desl = e.dados.desl || 0;
+        /* parede no meio e sem trajeto que a contorne: o servidor de verdade calcula a rota, aqui basta recusar o que cruza */
+        const barra = mp.els.filter(w => w.tipo === 'PAREDE' && !(w.dados.kind === 'porta' && w.dados.aberta));
+        const cruzaReta = barra.some(w => w.dados.pts.some((q, i) => i && segCruza(w.dados.pts[i - 1], q, [x0, y0], [x1, y1])));
+        if (cruzaReta && !(b.trajeto || []).length) { envia(res, 409, { erro: 'Há uma parede no caminho: não há por onde passar até lá.', codigo: 'parede' }); return true; }
         if (desl > 0 && (x0 !== x1 || y0 !== y1)) {
           const custo = casasEntre(mp, { x: x0, y: y0 }, { x: x1, y: y1 }) * mp.grid.escala, usado = e.dados.usado || 0;
           passou = custo > desl - usado + 1e-6;
@@ -324,6 +337,7 @@ function rotaMapa(M, p, b, req, res) {
   }
   envia(res, 403, { erro: 'sem permissão', codigo: 'proibido' }); return true;
 }
+const segCruza = (a, b, c, d) => { const o = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
 /* so no teste: o "outro jogador" mexe no token do guarda, como faria pelo servidor de verdade */
 function moveDeOutro(cid) {
   const mp = (MAPAS[cid] || []).find(x => x.ativo); if (!mp) return null;
@@ -397,6 +411,14 @@ http.createServer(async (req, res) => {
     }
     if (rotaMapa(M, p, b, req, res)) return;
     if ((m = p.match(/^\/__mapa-move-outro\/(\d+)$/))) return envia(res, 200, { x: moveDeOutro(m[1]) });
+    /* so no teste: uma parede entre a heroina e o guarda, nevoa pela visao e deslocamento sem limite */
+    if ((m = p.match(/^\/__mapa-paredes\/(\d+)$/))) {
+      const mp = (MAPAS[m[1]] || []).find(x => x.ativo), t = mp.els.find(x => x.id === 301), g = mp.els.find(x => x.id === 302);
+      t.dados.desl = 0; mp.regras.limite = 'aviso'; g.dados.x = t.dados.x + 210; g.dados.y = t.dados.y;
+      mp.els.push({ id: ++MAPA_SEQ, tipo: 'PAREDE', camada: 'cenario', dono: 0, visivel: true, bloqueado: false, ordem: mp.els.length,
+        dados: { kind: 'parede', aberta: false, pts: [[t.dados.x + 105, t.dados.y - 210], [t.dados.x + 105, t.dados.y + 210]] } });
+      mp.regras.fog = 'visao'; mp.seq++; return envia(res, 200, { ok: true });
+    }
     /* so no teste: o token da jogadora ganha 3 m de deslocamento por turno e o mapa passa a avisar ou a bloquear */
     if ((m = p.match(/^\/__mapa-desl\/(\d+)\/(aviso|bloqueio)$/))) { const mp = (MAPAS[m[1]] || []).find(x => x.ativo), e = mp.els.find(x => x.id === 301); e.dados.desl = 3; e.dados.usado = 0; mp.regras.limite = m[2]; mp.hist = []; mp.seq++; return envia(res, 200, { ok: true }); }
     if ((m = p.match(/^\/__sse\/(\d)$/))) { SEM_SSE = m[1] === '0'; return envia(res, 200, { ok: true }); }
@@ -405,6 +427,13 @@ http.createServer(async (req, res) => {
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
         const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
         f.nome = b.nome || f.nome; f.json = b.json || f.json;
+        /* como o servidor: o alcance da ficha vai para a copia dos tokens ligados a ela */
+        let v; try { v = JSON.parse(f.json).visao; } catch { v = null; }
+        for (const mp of MAPAS[m[1]] || []) for (const e of mp.els) {
+          if (e.tipo !== 'TOKEN' || e.dados.fichaId !== f.id || !e.dados.vinculo) continue;
+          if (v == null || v === '') delete e.dados.visaoFicha; else e.dados.visaoFicha = Number(v);
+          mp.seq++;
+        }
         return envia(res, 200, { ok: true });
       }
       if ((m = p.match(/^\/api\/c\/(\d+)\/(guia|mesa)$/))) {

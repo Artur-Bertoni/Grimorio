@@ -12,7 +12,8 @@
 var MP={lista:[],id:null,mapa:null,els:[],seq:0,sel:null,cid:null,carregado:false,querAbrir:null,
   es:null,esT:null,poll:null,voltas:0,arrastando:null,multi:[],pings:[],ocultas:{},caixa:null,area:null,rascunho:null,
   estilo:{cor:"ouro",esp:3,preench:0,vis:true},
-  ferramenta:"mover",reguaModo:"reta",regua:null,medida:null};
+  ferramenta:"mover",reguaModo:"reta",regua:null,medida:null,
+  paredeKind:"parede",fogForma:"retangulo",fogRevela:true,comoJogador:false};
 var MP_POLL_MS=3000;
 /* WIP: o tabletop esta em construcao (docs/plano-tabletop.md). Enquanto a administracao nao liberar
    (Administracao > Mapa, `mapa.liberado` na tabela config, que vem em /api/sessao), so ela abre a
@@ -287,15 +288,17 @@ function mpAcaoSelecao(k,valor){
     var tranca=!els.every(function(e){ return e.bloqueado; });
     itens=els.filter(function(e){ return !!e.bloqueado!==tranca; }).map(function(e){ return {id:e.id,bloqueado:tranca}; });
   } else if(k==="visivel"){
-    var mostra=!els.every(function(e){ return e.visivel!==false; });
-    itens=els.filter(function(e){ return !e.bloqueado; }).map(function(e){ return {id:e.id,visivel:mostra}; });
+    /* parede e nevoa nao se escondem: a visao do jogador depende delas */
+    var comum=els.filter(function(e){ return e.tipo==="TOKEN"||e.tipo==="DESENHO"; });
+    var mostra=!comum.every(function(e){ return e.visivel!==false; });
+    itens=comum.filter(function(e){ return !e.bloqueado; }).map(function(e){ return {id:e.id,visivel:mostra}; });
   } else if(k==="frente"||k==="tras"){
     /* a selecao mantem a ordem que tinha entre si: para ir a frente, o de baixo vai primeiro; para tras, o de cima */
     var idx=function(e){ return MP.els.indexOf(e); }, ord=els.filter(function(e){ return !e.bloqueado; }).sort(function(a,b){ return idx(a)-idx(b); });
     if(k==="tras"){ ord.reverse(); }
     itens=ord.map(function(e){ return {id:e.id,ordem:k}; });
   } else {
-    itens=els.filter(function(e){ return !e.bloqueado&&mpCamadaDe(e)!==valor; }).map(function(e){ return {id:e.id,camada:valor}; });
+    itens=els.filter(function(e){ return !e.bloqueado&&(e.tipo==="TOKEN"||e.tipo==="DESENHO")&&mpCamadaDe(e)!==valor; }).map(function(e){ return {id:e.id,camada:valor}; });
   }
   if(!itens.length){ toast("Nada para mudar: o que está trancado precisa ser destrancado antes.","aviso"); return Promise.resolve(); }
   return mpLote(itens).catch(function(){ /* o aviso ja saiu em mpGrava */ });
@@ -319,7 +322,7 @@ function mpRemoveElemento(el){
     MP.els=MP.els.filter(function(e){ return e!==el; });
     mpPodaSel();
     mpRedesenhaTokens();
-    toastAcao((el.tipo==="DESENHO"?"Desenho":Vm("token"))+" removido","Desfazer",function(){
+    toastAcao(mpNomeDoTipo(el)+" removido","Desfazer",function(){
       if(String(MP.id)!==String(mid))return;
       mpDesfaz(r?.seq).then(function(ok){ if(ok){ toast("Desfeito"); } });
     });
@@ -367,7 +370,7 @@ function mpSincronizaTurno(s){
 function mpTokenDaOrdem(x){
   if(x.tokenId){ return String(x.tokenId); }
   if(!x.elencoId){ return ""; }
-  var t=MP.els.find(function(e){ return e.tipo!=="DESENHO"&&String(e.dados?.elencoId||"")===String(x.elencoId); });
+  var t=MP.els.find(function(e){ return e.tipo==="TOKEN"&&String(e.dados?.elencoId||"")===String(x.elencoId); });
   return t?String(t.id):"";
 }
 /* Novo turno a mao: para quando nao ha iniciativa rodando. */

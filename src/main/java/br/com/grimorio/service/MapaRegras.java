@@ -19,16 +19,44 @@ import java.util.Set;
  */
 final class MapaRegras {
 
-    static final Set<String> TIPOS_GRID = Set.of("quadrado", "hex", "nenhum");
+    private static final String NENHUM = "nenhum";
+    private static final String AVISO = "aviso";
+    private static final String MARCA = "marca";
+    private static final String POLIGONO = "poligono";
+    private static final String PAREDE = "parede";
+    private static final String K_VISAO = "visao";
+    static final String K_VISAO_FICHA = "visaoFicha";
+    /** Regras da nevoa que o mapa guarda: se lembra o que ja foi explorado, a versao dessa memoria e o alcance padrao da visao. */
+    static final String K_FOG_MEMORIA = "fogMemoria";
+    static final String K_FOG_VER = "fogVer";
+    static final String K_VISAO_PADRAO = "visaoPadrao";
+    static final double VISAO_PADRAO = 6;
+    private static final String K_ENCAIXE = "encaixe";
+    private static final String K_ELENCO = "elencoId";
+    private static final String K_VIDA_PUBLICA = "vidaPublica";
+    private static final String K_VIDA_CAMPO = "vidaCampo";
+    private static final String K_PREENCH = "preench";
+    private static final String K_ROTULO = "rotulo";
+    private static final String K_ABERTA = "aberta";
+    private static final String K_REVELA = "revela";
+    static final Set<String> TIPOS_GRID = Set.of("quadrado", "hex", NENHUM);
     static final Set<String> DIAGONAIS = Set.of("1", "121", "eu");
     static final Set<String> QUEM_MOVE = Set.of("dono", "todos");
-    static final Set<String> LIMITES = Set.of("aviso", "bloqueio");
+    static final Set<String> LIMITES = Set.of(AVISO, "bloqueio");
     private static final int MAX_TRAJETO = 60;
     /** Da de baixo para a de cima: e a ordem em que a tela desenha. */
     static final List<String> CAMADAS = List.of("cenario", "objetos", "personagens", "npcs", "decoracao");
-    static final Set<String> FORMAS = Set.of("linha", "circulo", "retangulo", "poligono", "marca");
+    static final Set<String> FORMAS = Set.of("linha", "circulo", "retangulo", POLIGONO, MARCA);
     /** Nomes de cor, nao cores: a tela traduz cada um para um token do tema (ouro, sangue, texto, ok, aviso). */
-    static final Set<String> CORES = Set.of("ouro", "sangue", "neutro", "ok", "aviso");
+    static final Set<String> CORES = Set.of("ouro", "sangue", "neutro", "ok", AVISO);
+    /** Nevoa do mapa: nenhuma, so as areas que o mestre revela, ou tambem a visao dos tokens dos jogadores. */
+    static final Set<String> FOGS = Set.of(NENHUM, "manual", K_VISAO);
+    /** Parede barra movimento e visao; janela so o movimento; porta, so fechada. */
+    static final Set<String> PAREDES = Set.of(PAREDE, "janela", "porta");
+    /** "traco" e o que o pincel pinta: um caminho com a largura do pincel, a ponta (formato) e a borda macia ou firme. */
+    static final String TRACO = "traco";
+    static final Set<String> PONTAS = Set.of("redondo", "quadrado", "losango");
+    static final Set<String> FORMAS_FOG = Set.of("retangulo", "circulo", POLIGONO, TRACO);
     private static final int MAX_MARCAS = 12;
     private static final int MAX_PONTOS = 100;
     private static final String K_TIPO = "tipo";
@@ -69,10 +97,15 @@ final class MapaRegras {
     static Map<String, Object> regras(Map<String, Object> in) {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("quem", escolha(in, "quem", QUEM_MOVE, "dono"));
-        r.put("limite", escolha(in, "limite", LIMITES, "aviso"));
+        r.put("limite", escolha(in, "limite", LIMITES, AVISO));
         /* encaixar na grade: o mestre escolhe e vale para todos (token, regua, moldes e desenhos) */
-        r.put("encaixe", in == null || !in.containsKey("encaixe") || bool(in, "encaixe"));
+        r.put(K_ENCAIXE, in == null || !in.containsKey(K_ENCAIXE) || bool(in, K_ENCAIXE));
         r.put("trancadas", trancadas(in));
+        r.put("fog", escolha(in, "fog", FOGS, NENHUM));
+        r.put(K_FOG_MEMORIA, in != null && bool(in, K_FOG_MEMORIA));
+        /* "esquecer o explorado" so soma um: cada navegador guarda a memoria com esse numero e ignora a de versao velha */
+        r.put(K_FOG_VER, Math.round(num(in, K_FOG_VER, 0, 0, 1000000)));
+        r.put(K_VISAO_PADRAO, Math.round(num(in, K_VISAO_PADRAO, VISAO_PADRAO, 1, 100) * 10) / 10.0);
         return r;
     }
 
@@ -117,15 +150,26 @@ final class MapaRegras {
         aparencia(d, x, novo);
         if (x.containsKey(K_LIVRE)) d.put(K_LIVRE, bool(x, K_LIVRE));
         /* a quem do elenco o token pertence: e por ai que a iniciativa libera o movimento na vez dele */
-        if (x.containsKey("elencoId")) {
-            String e = corta(texto(x, "elencoId", "").trim(), 80);
-            if (e.isEmpty()) d.remove("elencoId"); else d.put("elencoId", e);
+        if (x.containsKey(K_ELENCO)) {
+            String e = corta(texto(x, K_ELENCO, "").trim(), 80);
+            if (e.isEmpty()) d.remove(K_ELENCO); else d.put(K_ELENCO, e);
         }
         /* deslocamento por turno, na unidade do mapa; 0 e sem limite. O gasto (usado) so o servidor escreve. */
         if (x.containsKey("desl")) d.put("desl", Math.round(num(x, "desl", 0, 0, 100000) * 100) / 100.0);
+        /* alcance da visao, em casas; vazio tira o campo e vale o da ficha ou o padrao do mapa, 0 e cego. A copia da
+           ficha (visaoFicha) o servidor mantem quando a ficha muda; aqui so entra o valor de quem cria o token a partir dela. */
+        alcance(d, x, K_VISAO);
+        alcance(d, x, K_VISAO_FICHA);
         vinculo(d, x, novo);
         marcadores(d, x);
         return d;
+    }
+
+    private static void alcance(ObjectNode d, Map<String, Object> x, String k) {
+        if (!x.containsKey(k)) return;
+        Object v = x.get(k);
+        if (v == null || String.valueOf(v).isBlank()) d.remove(k);
+        else d.put(k, Math.round(num(x, k, VISAO_PADRAO, 0, 100) * 10) / 10.0);
     }
 
     /**
@@ -134,12 +178,12 @@ final class MapaRegras {
      */
     private static void marcadores(ObjectNode d, Map<String, Object> x) {
         if (x.containsKey(K_VIDA_MAX)) {
-            double max = Math.round(num(x, K_VIDA_MAX, 0, 0, 99999));
+            double max = (double) Math.round(num(x, K_VIDA_MAX, 0, 0, 99999));
             if (max <= 0) { d.remove(K_VIDA_MAX); d.remove(K_VIDA); } else d.put(K_VIDA_MAX, max);
         }
         if (x.containsKey(K_VIDA) && d.has(K_VIDA_MAX)) d.put(K_VIDA, Math.round(num(x, K_VIDA, 0, 0, 99999)));
-        if (x.containsKey("vidaPublica")) d.put("vidaPublica", bool(x, "vidaPublica"));
-        if (x.containsKey("vidaCampo")) d.put("vidaCampo", corta(texto(x, "vidaCampo", "").trim(), 80));
+        if (x.containsKey(K_VIDA_PUBLICA)) d.put(K_VIDA_PUBLICA, bool(x, K_VIDA_PUBLICA));
+        if (x.containsKey(K_VIDA_CAMPO)) d.put(K_VIDA_CAMPO, corta(texto(x, K_VIDA_CAMPO, "").trim(), 80));
         marcas(d, x);
     }
 
@@ -154,15 +198,19 @@ final class MapaRegras {
         ArrayNode a = d.putArray(K_MARCAS);
         if (x.get(K_MARCAS) instanceof Collection<?> c) {
             for (Object o : c) {
-                if (a.size() >= MAX_MARCAS) break;
-                Map<?, ?> m = o instanceof Map<?, ?> mm ? mm : null;
-                String t = corta(String.valueOf(m == null ? o : m.get("t")).trim(), 30);
-                if (t.isEmpty() || "null".equals(t)) continue;
-                String cor = m != null && CORES.contains(String.valueOf(m.get("c"))) ? String.valueOf(m.get("c")) : "aviso";
-                a.addObject().put("t", t).put("c", cor);
+                if (a.size() < MAX_MARCAS) umaMarca(a, o);
             }
         }
         if (a.isEmpty()) d.remove(K_MARCAS);
+    }
+
+    /** Uma marca: o texto (cortado) e o nome de uma cor da paleta; texto vazio nao entra. */
+    private static void umaMarca(ArrayNode a, Object o) {
+        Map<?, ?> m = o instanceof Map<?, ?> mm ? mm : null;
+        String t = corta(String.valueOf(m == null ? o : m.get("t")).trim(), 30);
+        if (t.isEmpty() || "null".equals(t)) return;
+        String cor = m != null && CORES.contains(String.valueOf(m.get("c"))) ? String.valueOf(m.get("c")) : AVISO;
+        a.addObject().put("t", t).put("c", cor);
     }
 
     /**
@@ -180,17 +228,54 @@ final class MapaRegras {
         if (novo || x.containsKey(K_PTS)) d.set(K_PTS, pontos(d, x.get(K_PTS), d.path(K_FORMA).asString(""), m));
         if (novo || x.containsKey(K_COR)) d.put(K_COR, escolha(x, K_COR, CORES, "ouro"));
         if (novo || x.containsKey("esp")) d.put("esp", Math.round(num(x, "esp", 3, 1, 12)));
-        if (novo || x.containsKey("preench")) d.put("preench", Math.round(num(x, "preench", 0, 0, 0.8) * 100) / 100.0);
-        if (novo || x.containsKey("rotulo")) d.put("rotulo", corta(texto(x, "rotulo", "").trim(), 80));
+        if (novo || x.containsKey(K_PREENCH)) d.put(K_PREENCH, Math.round(num(x, K_PREENCH, 0, 0, 0.8) * 100) / 100.0);
+        if (novo || x.containsKey(K_ROTULO)) d.put(K_ROTULO, corta(texto(x, K_ROTULO, "").trim(), 80));
         return d;
+    }
+
+    /**
+     * Dados de uma parede: o tipo (parede, janela ou porta), se a porta esta aberta e a linha de
+     * pontos por onde ela passa (cada par de pontos seguidos e um trecho).
+     */
+    static ObjectNode dadosParede(ObjectNode d, Map<String, Object> in, Mapa m) {
+        boolean novo = d.isEmpty();
+        Map<String, Object> x = in == null ? Map.of() : in;
+        if (novo || x.containsKey("kind")) d.put("kind", escolha(x, "kind", PAREDES, d.path("kind").asString(PAREDE)));
+        /* so porta abre e fecha: trocar o tipo para outro fecha de vez */
+        boolean aberta = x.containsKey(K_ABERTA) ? bool(x, K_ABERTA) : d.path(K_ABERTA).asBoolean(false);
+        d.put(K_ABERTA, "porta".equals(d.path("kind").asString("")) && aberta);
+        if (novo || x.containsKey(K_PTS)) d.set(K_PTS, pontos(d, x.get(K_PTS), PAREDE, m));
+        return d;
+    }
+
+    /** Dados de uma area de nevoa: a forma (so ao nascer), os pontos e se ela revela ou cobre. */
+    static ObjectNode dadosFog(ObjectNode d, Map<String, Object> in, Mapa m) {
+        boolean novo = d.isEmpty();
+        Map<String, Object> x = in == null ? Map.of() : in;
+        if (novo) {
+            String f = escolha(x, K_FORMA, FORMAS_FOG, "");
+            if (f.isEmpty()) throw new IllegalArgumentException("forma de névoa inválida");
+            d.put(K_FORMA, f);
+        }
+        if (novo || x.containsKey(K_PTS)) d.set(K_PTS, pontos(d, x.get(K_PTS), d.path(K_FORMA).asString(""), m));
+        if (novo || x.containsKey(K_REVELA)) d.put(K_REVELA, !x.containsKey(K_REVELA) || bool(x, K_REVELA));
+        if (TRACO.equals(d.path(K_FORMA).asString(""))) pincel(d, x, novo);
+        return d;
+    }
+
+    /** Largura (em pixels do mapa), ponta e borda do pincel; so a mudanca de quem mandou, o resto fica como estava. */
+    private static void pincel(ObjectNode d, Map<String, Object> x, boolean novo) {
+        if (novo || x.containsKey("larg")) d.put("larg", Math.round(num(x, "larg", 70, 4, 1000)));
+        if (novo || x.containsKey("ponta")) d.put("ponta", escolha(x, "ponta", PONTAS, "redondo"));
+        if (novo || x.containsKey("suave")) d.put("suave", !x.containsKey("suave") || bool(x, "suave"));
     }
 
     /** Pontos [x, y] presos a uma margem em volta do mapa; a forma diz quantos precisa (e o excesso cai). */
     private static ArrayNode pontos(ObjectNode d, Object v, String forma, Mapa m) {
         double w = Math.max(1, m.getLargura());
         double h = Math.max(1, m.getAltura());
-        int minimo = switch (forma) { case "poligono" -> 3; case "marca" -> 1; default -> 2; };
-        int maximo = switch (forma) { case "poligono" -> MAX_PONTOS; case "marca" -> 1; default -> 2; };
+        int minimo = switch (forma) { case POLIGONO -> 3; case MARCA, TRACO -> 1; default -> 2; };
+        int maximo = switch (forma) { case POLIGONO, PAREDE, TRACO -> MAX_PONTOS; case MARCA -> 1; default -> 2; };
         ArrayNode out = d.arrayNode();
         if (v instanceof Collection<?> c) {
             for (Object o : c) {
