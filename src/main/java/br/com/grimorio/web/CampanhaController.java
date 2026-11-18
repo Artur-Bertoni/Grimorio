@@ -3,13 +3,13 @@ package br.com.grimorio.web;
 import br.com.grimorio.model.Campanha;
 import br.com.grimorio.model.Convite;
 import br.com.grimorio.model.Papel;
+import br.com.grimorio.service.ApagaCampanhaService;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.MidiaService;
-import br.com.grimorio.repo.*;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.*;
 
 @RestController
@@ -19,31 +19,14 @@ public class CampanhaController {
     private final CampanhaService svc;
     private final Atual atual;
     private final MidiaService midia;
-    private final CampanhaRepo campanhas;
-    private final DocumentoRepo documentos;
-    private final AnotacaoRepo anotacoes;
-    private final MuralRepo mural;
-    private final MembroRepo membros;
-    private final ConviteRepo convites;
-    private final RolagemRepo rolagens;
-    private final FichaRepo fichas;
+    private final ApagaCampanhaService apagador;
 
-    public CampanhaController(CampanhaService svc, Atual atual, MidiaService midia,
-                              CampanhaRepo campanhas, DocumentoRepo documentos,
-                              AnotacaoRepo anotacoes, MuralRepo mural,
-                              MembroRepo membros, ConviteRepo convites, RolagemRepo rolagens,
-                              FichaRepo fichas) {
-        this.fichas = fichas;
+    /* apagar a campanha mora em ApagaCampanhaService: e ele que conhece todas as tabelas dela */
+    public CampanhaController(CampanhaService svc, Atual atual, MidiaService midia, ApagaCampanhaService apagador) {
         this.svc = svc;
         this.atual = atual;
         this.midia = midia;
-        this.campanhas = campanhas;
-        this.documentos = documentos;
-        this.anotacoes = anotacoes;
-        this.mural = mural;
-        this.membros = membros;
-        this.convites = convites;
-        this.rolagens = rolagens;
+        this.apagador = apagador;
     }
 
     public static class CorpoCampanha {
@@ -62,7 +45,7 @@ public class CampanhaController {
     }
 
     @PostMapping("/campanhas")
-    public Map<String, Object> criar(@RequestBody CorpoCampanha c) throws Exception {
+    public Map<String, Object> criar(@RequestBody CorpoCampanha c) throws IOException {
         Campanha nova = svc.criar(atual.id(), c.nome, c.sistema);
         midia.prepararPastas(nova.getId());
         Map<String, Object> m = new LinkedHashMap<>();
@@ -78,18 +61,8 @@ public class CampanhaController {
     }
 
     @DeleteMapping("/campanhas/{cid}")
-    @Transactional
-    public ResponseEntity<?> apagar(@PathVariable Long cid) throws Exception {
-        svc.exigeDono(cid, atual.id());
-        documentos.deleteByCampanhaId(cid);
-        anotacoes.deleteByCampanhaId(cid);
-        mural.deleteByCampanhaId(cid);
-        rolagens.deleteByCampanhaId(cid);
-        fichas.deleteByCampanhaId(cid);
-        convites.deleteByCampanhaId(cid);
-        membros.deleteByCampanhaId(cid);
-        midia.apagarTudoDaCampanha(cid);
-        campanhas.deleteById(cid);
+    public ResponseEntity<Void> apagar(@PathVariable Long cid) throws IOException {
+        apagador.apagar(cid, atual.id());
         return ResponseEntity.noContent().build();
     }
 
@@ -117,7 +90,7 @@ public class CampanhaController {
     }
 
     @DeleteMapping("/campanhas/{cid}/membros/{uid}")
-    public ResponseEntity<?> removerMembro(@PathVariable Long cid, @PathVariable Long uid) {
+    public ResponseEntity<Void> removerMembro(@PathVariable Long cid, @PathVariable Long uid) {
         svc.remover(cid, atual.id(), uid);
         return ResponseEntity.noContent().build();
     }
@@ -147,7 +120,7 @@ public class CampanhaController {
     }
 
     @DeleteMapping("/campanhas/{cid}/convites/{id}")
-    public ResponseEntity<?> apagarConvite(@PathVariable Long cid, @PathVariable Long id) {
+    public ResponseEntity<Void> apagarConvite(@PathVariable Long cid, @PathVariable Long id) {
         svc.apagarConvite(cid, atual.id(), id);
         return ResponseEntity.noContent().build();
     }

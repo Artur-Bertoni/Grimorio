@@ -1,9 +1,9 @@
-/* Templates HTML das paginas e componentes, e o preenchimento deles com petite-vue. */
+/* Templates HTML das paginas e dos componentes, e o preenchimento deles com petite-vue. */
 "use strict";
 
 /* Cada arquivo em paginas/ e componentes/ guarda um ou mais <template id="...">. Eles sao
    lidos uma vez, antes da partida, e ficam num bloco escondido no fim do <body>.
-   Arquivo novo de template precisa entrar nesta lista. */
+   Arquivo novo de template precisa entrar nesta lista (o do mapa entrou com o tabletop). */
 var TEMPLATES=[
   "componentes/marca.html",
   "componentes/navegacao.html",
@@ -27,6 +27,8 @@ var TEMPLATES=[
   "paginas/campanha.html",
   "paginas/mesa.html",
   "paginas/sessao.html",
+  "componentes/mapa.html",
+  "paginas/mapa.html",
   "paginas/configuracoes.html"
 ];
 
@@ -49,7 +51,7 @@ function carregarTemplates(){
    e isso que permite devolver texto e manter o redesenho de tela inteira de sempre. */
 function htmlDe(id,dados){
   var t=document.getElementById(id);
-  if(!t||!t.content)throw new Error("template "+id+" não existe");
+  if(!t?.content)throw new Error("template "+id+" não existe");
   var d=document.createElement("div");
   d.appendChild(t.content.cloneNode(true));
   PetiteVue.createApp(dados||{}).directive("attr",vAttr).mount(d);
@@ -78,7 +80,7 @@ function vAttr(ctx){
 /* <span data-solta v-html="..."> encaixa outro template ja preenchido sem deixar o span:
    o elemento sai e fica so o conteudo, para o HTML final ser o mesmo de sempre. */
 function soltaEnvoltorios(no){
-  $$("[data-solta]",no).forEach(function(e){ while(e.firstChild)e.parentNode.insertBefore(e.firstChild,e); e.remove(); });
+  $$("[data-solta]",no).forEach(function(e){ while(e.firstChild){ e.parentNode.insertBefore(e.firstChild,e); } e.remove(); });
 }
 /* Tira as ancoras que o petite-vue deixa para v-if/v-for e o recuo dos arquivos de template.
    Recuo e espaco so com quebra de linha: entre botoes inline ele viraria um vao que o HTML
@@ -86,6 +88,6 @@ function soltaEnvoltorios(no){
 function limpaAncoras(no){
   var w=document.createTreeWalker(no,NodeFilter.SHOW_COMMENT|NodeFilter.SHOW_TEXT), lixo=[];
   while(w.nextNode()){ var n=w.currentNode;
-    if(n.nodeType===8||(n.data.indexOf("\n")>=0&&!n.data.trim()))lixo.push(n); }
+    if(n.nodeType===8||(n.data.includes("\n")&&!n.data.trim()))lixo.push(n); }
   lixo.forEach(function(c){ c.remove(); });
 }

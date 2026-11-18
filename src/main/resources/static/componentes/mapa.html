@@ -1,0 +1,7 @@
+<!-- Componentes do tabletop (js/pagina-mapa.js); a pagina mora em paginas/mapa.html -->
+
+<!-- escolher de onde o token nasce: itens [{id, nome, sub, img}]; vazio: o texto quando nao ha nenhum -->
+<template id="t-mapa-escolha">
+  <ul v-if="itens.length" class="mpescolha"><li v-for="x in itens"><button type="button" class="mpnome" :data-mp-pega="x.id"><img v-if="x.img" class="mpava" :src="x.img" alt="" loading="lazy"><span v-else class="mpava" aria-hidden="true"></span><span class="cresce">{{ x.nome }}<span v-if="x.sub" class="muted sm"> · {{ x.sub }}</span></span></button></li></ul>
+  <p v-else class="empty">{{ vazio }}</p>
+</template>

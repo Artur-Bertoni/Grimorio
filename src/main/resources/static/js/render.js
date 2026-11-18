@@ -8,14 +8,15 @@
 var ROT_CURTO={notas:"Anotações",regras:"Consulta",quem:"Quem é quem"};
 function itensDasAbas(){
   if(!CID||S.view==="semcampanha"||S.view==="escolher")return [];
+  var mapa={id:"mapa",ico:"mapa",rot:Vm("mapa"),atual:S.view==="mapa",msec:null};
   if(!GM)return MSECS().map(function(m){
-    return {id:"mesa",msec:m[0],ico:m[0],rot:ROT_CURTO[m[0]]||m[1],atual:S.view==="mesa"&&S.msec===m[0]}; });
+    return {id:"mesa",msec:m[0],ico:m[0],rot:ROT_CURTO[m[0]]||m[1],atual:S.view==="mesa"&&S.msec===m[0]}; }).concat([mapa]);
   return [
     {id:"home",ico:"home",rot:Vm("campanha"),atual:S.view==="home",msec:null},
     {id:"sessoes",ico:"sessoes",rot:Vm("sessoes"),atual:S.view==="sessoes"||S.view==="sessao",msec:null},
     {id:"elenco",ico:"elenco",rot:"Elenco",atual:S.view==="elenco",msec:null},
     {id:"biblioteca",ico:"biblioteca",rot:"Biblioteca",atual:S.view==="biblioteca",msec:null},
-    {id:"mesa",ico:"mesa",rot:Vm("mesa"),atual:S.view==="mesa",msec:null}];
+    {id:"mesa",ico:"mesa",rot:Vm("mesa"),atual:S.view==="mesa",msec:null},mapa];
 }
 function irParaAba(b){
   S.view=b.dataset.aba;
@@ -27,17 +28,21 @@ function irParaAba(b){
 function abrirMaisAbas(b,itens){
   var resto=itens.filter(function(x){ return x.sobra; });
   menuSolto(b,htmlDe("t-menu",{titulo:"Mais seções",itens:resto.map(function(x){ return {v:x.msec||x.id,rot:x.rot,dica:"",perigo:false,desligado:false}; })}),
-    function(it){ S.view="mesa"; S.msec=it.dataset.v; render(); },{alinha:"direita"});
+    function(it){ var x=resto.find(function(r){ return (r.msec||r.id)===it.dataset.v; });
+      S.view=x?x.id:"mesa"; if(x?.msec)S.msec=x.msec; render(); },{alinha:"direita"});
 }
+/* O mestre tem seis abas: no celular as cinco de sempre ficam na barra e o Mapa vai para o menu
+   Mais do topo (abrirMais), sem a aba "Mais", que tiraria a Mesa da barra de baixo. */
 function renderTabs(){
-  var t=$("#tabs"), itens=itensDasAbas();
-  if(itens.length>5){
+  var t=$("#tabs"), itens=itensDasAbas(), comMais=itens.length>5&&!GM;
+  if(GM)itens.forEach(function(x){ x.sobra=x.id==="mapa"; });
+  else if(comMais){
     var atual=itens.findIndex(function(x){ return x.atual; }), vis=[0,1,2,3];
     if(atual>3)vis[3]=atual;
     itens.forEach(function(x,i){ x.sobra=vis.indexOf(i)<0; });
   }
   t.innerHTML=itens.map(function(x){ return htmlDe("t-aba",x); }).join("")+
-    (itens.length>5?htmlDe("t-aba",{id:"mais",ico:"mais",rot:"Mais",atual:false,msec:null}):"");
+    (comMais?htmlDe("t-aba",{id:"mais",ico:"mais",rot:"Mais",atual:false,msec:null}):"");
   $$(".tab",t).forEach(function(b,i){ if(itens[i]?.sobra)b.classList.add("sobra"); });
   var bm=$('[data-aba="mais"]',t);
   if(bm){ bm.classList.add("tabmais"); bm.setAttribute("aria-haspopup","menu"); bm.setAttribute("aria-expanded","false");
@@ -67,7 +72,8 @@ var TELAS={
   sessoes:{v:function(){ return viewSessoes(); },h:function(v){ ligarSessoes(v); }},
   elenco:{v:function(){ return viewElenco(); },h:function(v){ hydrateElenco(v); }},
   biblioteca:{v:function(){ return viewBiblioteca(); },h:function(v){ hydrateBiblioteca(v); }},
-  sessao:{v:function(){ return viewSessao(); },h:function(v){ hydrateSessao(v); }}
+  sessao:{v:function(){ return viewSessao(); },h:function(v){ hydrateSessao(v); }},
+  mapa:{v:function(){ return viewMapa(); },h:function(v){ hydrateMapa(v); }}
 };
 function telaAtual(){
   if(GM&&CID&&BOOTERR&&TELAS_DO_GUIA[S.view])return TELAS.vazio;
@@ -75,7 +81,7 @@ function telaAtual(){
 }
 function chaveDaTela(){
   return [S.view,S.view==="sessao"?S.sessao+S.vmode:"",S.view==="elenco"?S.el:"",S.view==="biblioteca"?S.bib:"",
-    S.view==="ajustes"?S.aj:"",S.view==="mesa"?S.msec:"",CID].join("|");
+    S.view==="ajustes"?S.aj:"",S.view==="mesa"?S.msec:"",S.view==="mapa"?MP.id:"",CID].join("|");
 }
 function marcaCorpo(v,board){
   document.body.classList.toggle("board",board);
@@ -166,12 +172,14 @@ function devolveFoco(v,mesma,focoSel){
 function render(){
   /* a previa de tema da Aparencia so vale enquanto a pessoa esta la */
   if(TEMA_PREVIA&&S.view!=="ajustes"){ TEMA_PREVIA=null; aplicarTema(temaAtivo()); }
-  if(CID&&!GM&&S.view!=="ajustes")S.view="mesa";
+  if(CID&&!GM&&!TELAS_DO_JOGADOR[S.view])S.view="mesa";
+  /* o tempo real do mapa so fica ligado com o mapa na tela */
+  if(S.view!=="mapa"||!CID)mpDesliga();
   if(S.view==="sessao"&&!curSess())S.view="sessoes";
   /* no celular o quadro nao cabe: a sessao abre no roteiro, a nao ser que a pessoa escolha */
   if(S.view==="sessao"&&!S.vmodeEscolhido&&window.innerWidth<860)S.vmode="roteiro";
   renderTabs();
-  var v=$("#view"), board=(GM&&S.view==="sessao"&&S.vmode==="canvas"&&!BOOTERR);
+  var v=$("#view"), board=(GM&&S.view==="sessao"&&S.vmode==="canvas"&&!BOOTERR)||(S.view==="mapa"&&!!CID&&!mapaBloqueado());
   marcaCorpo(v,board);
   pintarMarca();
   var chave=chaveDaTela(), y=window.scrollY||0, mesma=(chave===ULT); ULT=chave;

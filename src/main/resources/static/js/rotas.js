@@ -11,21 +11,26 @@
    #/c/{id}/elenco[/aba]
    #/c/{id}/biblioteca[/aba]
    #/c/{id}/mesa[/secao]
+   #/c/{id}/mapa[/idDoMapa]
    #/c/{id}/configuracoes[/secao] */
 "use strict";
 
 var ROTA_PENDENTE=null, ROTA_ULT="";
-var NOME_TELA={home:"campanha",sessoes:"sessoes",sessao:"sessao",elenco:"elenco",biblioteca:"biblioteca",mesa:"mesa",ajustes:"configuracoes"};
-var TELA_DO_NOME={campanha:"home",sessoes:"sessoes",sessao:"sessao",elenco:"elenco",biblioteca:"biblioteca",mesa:"mesa",configuracoes:"ajustes"};
+var NOME_TELA={home:"campanha",sessoes:"sessoes",sessao:"sessao",elenco:"elenco",biblioteca:"biblioteca",mesa:"mesa",mapa:"mapa",ajustes:"configuracoes"};
+var TELA_DO_NOME={campanha:"home",sessoes:"sessoes",sessao:"sessao",elenco:"elenco",biblioteca:"biblioteca",mesa:"mesa",mapa:"mapa",configuracoes:"ajustes"};
+/* telas que o jogador tambem tem; as outras sao so do mestre (render() e aplicaRota) */
+var TELAS_DO_JOGADOR={mesa:1,mapa:1,ajustes:1};
 /* a parte do endereco depois da tela: qual aba, secao ou sessao */
 var SUB_DA_TELA={
   elenco:function(){ return S.el; }, biblioteca:function(){ return S.bib; },
   mesa:function(){ return S.msec; }, ajustes:function(){ return S.aj; },
+  mapa:function(){ return MP.id?String(MP.id):""; },
   sessao:function(){ var s=curSess(); return encodeURIComponent(s?.id||"")+(S.vmode==="roteiro"?"/roteiro":""); }
 };
 var APLICA_SUB={
   elenco:function(v){ if(v)S.el=v; }, biblioteca:function(v){ if(v)S.bib=v; },
-  mesa:function(v){ if(v)S.msec=v; }, ajustes:function(v){ S.aj=v||""; }
+  mesa:function(v){ if(v)S.msec=v; }, ajustes:function(v){ S.aj=v||""; },
+  mapa:function(v){ if(v&&String(v)!==String(MP.id))MP.querAbrir=v; }
 };
 
 function rotaDeS(){
@@ -52,7 +57,7 @@ function aplicaSessao(r){
 function aplicaRota(r){
   if(!r?.view)return false;
   if(r.view==="sessao"&&!aplicaSessao(r))return false;
-  if(r.view!=="mesa"&&r.view!=="ajustes"&&!GM)return false;
+  if(!TELAS_DO_JOGADOR[r.view]&&!GM)return false;
   S.view=r.view;
   APLICA_SUB[r.view]?.(r.sub);
   return true;
@@ -106,6 +111,7 @@ var TITULO_DA_TELA={
   ajustes:function(){ return "Configurações"; }, home:function(){ return Vm("campanha"); },
   sessoes:function(){ return Vm("sessoes"); }, elenco:function(){ return "Elenco"; },
   biblioteca:function(){ return "Biblioteca"; },
+  mapa:function(){ return MP.mapa?.nome||Vm("mapa"); },
   sessao:function(){ return curSess()?.titulo||Vm("sessao"); },
   mesa:function(){ var m=MSECS().find(function(x){ return x[0]===S.msec; }); return GM?Vm("mesa"):(m?.[1]||Vm("mesa")); }
 };

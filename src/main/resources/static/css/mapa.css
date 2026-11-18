@@ -1,0 +1,44 @@
+/* Tabletop (js/mapa-motor.js, js/pagina-mapa.js). Folha de layout: a tela usa o modo "board" do
+   quadro (main.board, altura da janela), e o tema veste depois, em pele.css e seguintes. O
+   desenho do mapa e canvas: as cores dele saem dos tokens do tema, lidos pelo JS. */
+main.board .mpwrap{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;height:auto}
+.mpcv{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.mpcv:active{cursor:grabbing}
+
+/* zoom a esquerda, porque a direita mora o painel */
+fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
+.mpwrap .cvtools{top:var(--s-3);left:var(--s-3);right:auto}
+.mphint{left:var(--s-3);right:auto;bottom:var(--s-3);text-align:left;max-width:calc(100% - 20rem)}
+
+.mppainel{position:absolute;top:var(--s-3);right:var(--s-3);bottom:var(--s-3);width:17.5rem;z-index:var(--z-elevado);
+  display:flex;flex-direction:column;gap:var(--s-5);overflow:auto;padding:var(--s-3);
+  background:color-mix(in srgb,var(--bg) 93%,transparent);border:1px solid var(--line2);border-radius:var(--rc);box-shadow:var(--e2)}
+.mppainel[hidden]{display:none}
+.mpsec{display:flex;flex-direction:column;gap:var(--s-2)}
+.mptit{margin:0;font-family:var(--ui);font-size:var(--fs-1);font-weight:600;letter-spacing:var(--tr-caixa-larga);text-transform:uppercase;color:var(--fg3)}
+.mplista,.mpescolha{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1)}
+.mpitem{display:flex;align-items:center;gap:var(--s-2);padding-right:var(--s-1);border-radius:var(--rb)}
+/* aberto e selecionado: fundo --bg4, nunca dourado (dourado e do primario) */
+.mpitem.aberto,.mpitem.sel{background:var(--bg4)}
+
+/* linha de lista clicavel (mapa, token, ficha, NPC): nao e botao de acao, e o item inteiro */
+.mpnome{flex:1;min-width:0;display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-g);padding:var(--s-1) var(--s-2);
+  background:none;border:0;border-radius:var(--rb);color:var(--fg);font:inherit;font-size:var(--fs-3);text-align:left;cursor:pointer}
+.mpnome:hover{background:var(--bg3)}
+.mpnome .cresce{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpava{width:1.75rem;height:1.75rem;flex:0 0 auto;border-radius:var(--r-pill);object-fit:cover;background:var(--bg3);border:1px solid var(--line2)}
+.mpescolha{max-height:min(60vh,30rem);overflow:auto}
+.mpaviso{display:block}
+
+.mpvazio{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-6);text-align:center}
+
+/* celular: o painel vira uma gaveta embaixo do mapa, por cima dele, e a dica sai */
+@media (max-width:899px){
+  .mppainel{left:var(--s-2);right:var(--s-2);top:auto;bottom:var(--s-2);width:auto;max-height:55%}
+  .mphint{display:none}
+}
+
+/* aviso de obra (MAPA_WIP): ocupa o lugar do mapa para quem nao e administrador */
+.mpwip{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-7) var(--s-4);text-align:center}
+.mpwip h1{margin:0}
+.mpwipsel{margin:0;font-family:var(--disp);font-weight:800;font-size:clamp(4rem,18vw,9rem);line-height:1;letter-spacing:var(--tr-caixa-larga);color:var(--fg3)}

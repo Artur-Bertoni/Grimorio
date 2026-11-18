@@ -18,11 +18,13 @@ function PUBD(){ if(GM&&D&&D.campanha)return D.campanha; return MESA||{}; }
 function cAPI(p){ return "/api/c/"+CID+p; }
 /* Caminho de imagem do guia vira URL da mídia da campanha. */
 /* tam "mini": a versao de ate 512px que o servidor gera na primeira vez que alguem pede, para
-   miniatura e lista. Nunca carregar a foto original numa miniatura de 30px. */
+   miniatura e lista. Nunca carregar a foto original numa miniatura de 30px. tam "mapa": a de
+   ate 4096px que o tabletop desenha. */
 function IMG(p,tam){ var x=String(p==null?"":p); if(!x)return "";
   if(/^(https?:|data:|blob:|\/)/i.test(x))return x;
   var rel=x.replace(/^\.?\//,"");
-  return MIDIABASE+rel+(tam==="mini"&&/^img\//.test(rel)?"?mini=1":""); }
+  var reduz=rel.startsWith("img/")?({mini:"?mini=1",mapa:"?mapa=1"}[tam]||""):"";
+  return MIDIABASE+rel+reduz; }
 function parametro(n){ try{ return new URLSearchParams(location.search).get(n)||""; }catch(e){ return ""; } }
 function limparUrl(){ try{ history.replaceState({},"",location.pathname); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } }
 
@@ -32,7 +34,7 @@ var VOCAB_PADRAO={campanha:"Campanha",campanhas:"Campanhas",sessao:"Sessão",ses
  npc:"NPC",npcs:"NPCs",local:"Local",locais:"Locais",mestre:"Mestre",jogador:"Jogador",
  jogadores:"Jogadores",trilha:"Trilha",mesa:"Mesa",quadro:"Quadro",roteiro:"Roteiro",
  metodo:"Método",referencia:"Consulta rápida",ficha:"Ficha",fichas:"Fichas",
-  personagem:"Personagem",personagens:"Personagens"};
+  personagem:"Personagem",personagens:"Personagens",mapa:"Mapa",mapas:"Mapas",token:"Token",tokens:"Tokens"};
 function V(k){ var v=PUBD().vocab||{}; return v[k]||VOCAB_PADRAO[k]||k; }
 function Vm(k){ var t=V(k); return t?t.charAt(0).toUpperCase()+t.slice(1):t; }
 var MESA={resumos:[],ev:[],npcs:[],locais:[],at:0},mesaT=null;

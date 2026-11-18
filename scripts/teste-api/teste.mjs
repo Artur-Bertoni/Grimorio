@@ -51,12 +51,12 @@ class Pessoa {
 // PDF minimo de uma pagina com texto, para exercitar o PDFBox sem arquivo externo.
 function pdfMinimo(texto) {
   const objs = [];
-  objs.push("<< /Type /Catalog /Pages 2 0 R >>");
-  objs.push("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
-  objs.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>");
   const fluxo = `BT /F1 14 Tf 20 100 Td (${texto}) Tj ET`;
-  objs.push(`<< /Length ${fluxo.length} >>\nstream\n${fluxo}\nendstream`);
-  objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  objs.push("<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${fluxo.length} >>\nstream\n${fluxo}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   let s = "%PDF-1.4\n"; const pos = [];
   objs.forEach((o, i) => { pos.push(s.length); s += `${i + 1} 0 obj\n${o}\nendobj\n`; });
   const x = s.length;
@@ -66,6 +66,30 @@ function pdfMinimo(texto) {
 }
 // PNG 1x1 valido.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
+/* PNG de qualquer tamanho feito na mao (zlib do Node), para a miniatura e o mapa terem o que reduzir */
+const { deflateSync } = await import("node:zlib");
+const CRC_T = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) { c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; }
+  return c >>> 0;
+});
+function crc32(b) {
+  let c = 0xffffffff;
+  for (const x of b) { c = CRC_T[(c ^ x) & 255] ^ (c >>> 8); }
+  return (c ^ 0xffffffff) >>> 0;
+}
+function pngGrande(w, h) {
+  const bloco = (tipo, dados) => { const t = Buffer.from(tipo); const len = Buffer.alloc(4); len.writeUInt32BE(dados.length);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc32(Buffer.concat([t, dados]))); return Buffer.concat([len, t, dados, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const linhas = [];
+  for (let y = 0; y < h; y++) {
+    const l = Buffer.alloc(1 + w * 3);
+    for (let x = 0; x < w; x++) { l[1 + x * 3] = x % 256; l[2 + x * 3] = (y * 6) % 256; l[3 + x * 3] = 120; }
+    linhas.push(l);
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), bloco("IHDR", ihdr), bloco("IDAT", deflateSync(Buffer.concat(linhas))), bloco("IEND", Buffer.alloc(0))]);
+}
 
 /* nomes das entradas de um zip, lidos do diretorio central (o conteudo comprimido pode citar
    os mesmos caminhos, entao procurar o texto no arquivo inteiro engana) */
@@ -233,6 +257,121 @@ console.log("\n=== fichas ===");
   ok(r.s === 200, "jogador edita a propria ficha");
 }
 
+console.log("\n=== mapa (tabletop) ===");
+{
+  let r = await mestre.post(`/api/c/${cid}/midia/img`, null, { form: forma("arquivo", pngGrande(5000, 40), "mapa.png", "image/png", { nome: "mapa-grande" }) });
+  ok(r.s === 200 && r.d?.arquivo, "mestre envia a imagem do mapa", r.d);
+  const img = r.d.arquivo, imgId = r.d.id;
+  r = await mestre.post(`/api/c/${cid}/mapas`, { nome: "Masmorra", imagem: img });
+  ok(r.s === 200 && r.d.largura === 5000 && r.d.altura === 40 && r.d.ativo === false, "cria o mapa com o tamanho lido da imagem, desligado", r.d);
+  const mid = r.d.id;
+  r = await mestre.get(`/midia/c${cid}/${img}?mapa=1`);
+  ok(r.s === 200 && /jpeg/.test(r.tipo) && r.bruto.length > 0, "a versao de mapa (ate 4096px) e gerada", r.tipo);
+  r = await jogador.post(`/api/c/${cid}/mapas`, { nome: "Do jogador" });
+  ok(r.s === 403, "jogador nao cria mapa", r.s);
+  r = await jogador.get(`/api/c/${cid}/mapas`);
+  ok(r.s === 200 && Array.isArray(r.d) && r.d.length === 0, "mapa desligado nao aparece na lista do jogador", r.d);
+  r = await jogador.get(`/api/c/${cid}/mapas/${mid}`);
+  ok(r.s === 404, "mapa desligado responde 404 ao jogador", r.s);
+
+  const eu = (await jogador.get("/api/sessao")).d;
+  r = await jogador.post(`/api/c/${cid}/fichas`, { nome: "Batedora", json: "{}" });
+  const fichaJ = r.d.id;
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/elementos`, { dados: { nome: "Batedora", fichaId: fichaJ, x: 35, y: 35 } });
+  ok(r.s === 200 && r.d.dono === eu.id && r.d.dados.vinculo === true, "token de ficha fica com o dono da ficha e nasce vinculado", r.d);
+  const tJog = r.d.id;
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/elementos`, { visivel: false, dados: { nome: "Emboscada", npcId: "n1", x: 105, y: 35 } });
+  const tOculto = r.d.id;
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/elementos`, { dados: { nome: "Guarda", x: 175, y: 35 } });
+  const tGuarda = r.d.id;
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/elementos`, { dados: { nome: "Fora", img: "https://exemplo.com/x.png" } });
+  ok(r.s === 400, "imagem de fora da campanha e recusada", r.s);
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/elementos`, { dados: { nome: "Outra", fichaId: 999999 } });
+  ok(r.s === 400, "ficha de outra campanha nao vira token", r.s);
+  r = await jogador.post(`/api/c/${cid}/mapas/${mid}/elementos`, { dados: { nome: "Meu" } });
+  ok(r.s === 403, "jogador nao cria token", r.s);
+
+  /* SSE do jogador aberto antes de o mapa ligar: ve o "ola", o "ativo" e os tokens que pode ver */
+  const sse = await fetch(B + `/api/c/${cid}/mapas/eventos`, { headers: { Cookie: Object.entries(jogador.cookies).map(([k, v]) => k + "=" + v).join("; "), Accept: "text/event-stream" } });
+  ok(sse.status === 200 && /text\/event-stream/.test(sse.headers.get("content-type") || ""), "jogador abre o fluxo SSE do mapa", sse.status);
+  const leitor = sse.body.getReader(), dec = new TextDecoder();
+  /* a leitura que sobra quando o tempo acaba fica guardada para a proxima espera: descartar
+     perderia o pedaco do fluxo que ela trouxer */
+  let recebido = "", lendo = null;
+  const espera = async (re, ms = 4000) => {
+    const fim = Date.now() + ms;
+    while (!re.test(recebido) && Date.now() < fim) {
+      lendo ??= leitor.read();
+      const t = new Promise(res => setTimeout(() => res({ timeout: true }), Math.max(1, fim - Date.now())));
+      const p = await Promise.race([lendo, t]);
+      if (p.timeout) break;
+      lendo = null;
+      if (p.done) break;
+      recebido += dec.decode(p.value);
+    }
+    return re.test(recebido);
+  };
+  ok(await espera(/"tipo":"ola"/), "o primeiro evento e o ola", recebido);
+
+  r = await mestre.post(`/api/c/${cid}/mapas/${mid}/ativo`, { ativo: true });
+  ok(r.s === 200 && r.d.ativo === mid, "mestre mostra o mapa aos jogadores", r.d);
+  ok(await espera(new RegExp(`"tipo":"ativo","ativo":${mid}`)), "o jogador fica sabendo pelo SSE", recebido.slice(-200));
+  r = await jogador.get(`/api/c/${cid}/mapas`);
+  ok(r.d?.length === 1 && r.d[0].id === mid && !("cenaId" in r.d[0]), "o jogador ve o mapa ativo, sem o vinculo com a cena", r.d);
+  r = await jogador.get(`/api/c/${cid}/mapas/${mid}`);
+  const ids = (r.d?.elementos || []).map(e => e.id);
+  ok(r.s === 200 && ids.includes(tJog) && ids.includes(tGuarda) && !ids.includes(tOculto), "token oculto nao sai para o jogador", ids);
+  const meu = r.d.elementos.find(e => e.id === tJog);
+  ok(meu.meu === true && meu.podeMover === true && !("fichaId" in meu.dados) && !("ordem" in meu), "o jogador ve o proprio token, sem o vinculo com a ficha", meu);
+  ok(r.d.elementos.find(e => e.id === tGuarda).podeMover === false, "e o do mestre vem marcado como fixo para ele");
+  const seq = r.d.seq;
+  r = await jogador.get(`/api/c/${cid}/mapas/${mid}?desde=${seq}`);
+  ok(r.s === 200 && r.d.igual === true && !r.d.elementos, "polling com o seq atual devolve so o seq", r.d);
+
+  recebido = "";
+  r = await mestre.put(`/api/c/${cid}/mapas/${mid}/elementos/${tOculto}`, { dados: { x: 245 } });
+  ok(r.s === 200 && r.d.dados.x === 245, "mestre move o token oculto");
+  ok(!(await espera(new RegExp(`${tOculto}`), 1200)), "e o jogador nao recebe nada sobre ele, nem o id", recebido);
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tJog}`, { dados: { x: 105, y: 35, nome: "Trocado", tam: 4 }, visivel: false, dono: 0 });
+  ok(r.s === 200 && r.d.dados.x === 105 && r.d.dados.nome === "Batedora" && r.d.dados.tam === 1 && r.d.visivel === true && r.d.dono === eu.id,
+    "jogador move o proprio token e so a posicao muda", r.d);
+  ok(await espera(new RegExp(`"tipo":"elemento".*"id":${tJog}`)), "o movimento sai pelo SSE", recebido.slice(-300));
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { x: 0 } });
+  ok(r.s === 403 && r.d?.codigo === "proibido", "jogador nao move o token dos outros", r.d);
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tOculto}`, { dados: { x: 0 } });
+  ok(r.s === 404, "token oculto responde 404 ao jogador", r.s);
+  await mestre.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { livre: true } });
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { x: 245 } });
+  ok(r.s === 200 && r.d.dados.x === 245, "token liberado pelo mestre o jogador move", r.d);
+  recebido = "";
+  await mestre.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { visivel: false });
+  ok(await espera(new RegExp(`"tipo":"some".*"id":${tGuarda}`)), "token que o mestre esconde some da tela do jogador", recebido.slice(-200));
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}`, { nome: "Hackeado" });
+  ok(r.s === 403, "jogador nao edita o mapa", r.s);
+  r = await jogador.del(`/api/c/${cid}/mapas/${mid}/elementos/${tJog}`);
+  ok(r.s === 403, "jogador nao remove token", r.s);
+  r = await mestre.put(`/api/c/${cid}/mapas/${mid}`, { grid: { tipo: "hex", tam: 5, opac: 7, lixo: 1 }, regras: { quem: "todos" } });
+  ok(r.s === 200 && r.d.grid.tipo === "hex" && r.d.grid.tam === 8 && r.d.grid.opac === 1 && !("lixo" in r.d.grid) && r.d.regras.quem === "todos",
+    "grade e regras passam pela faixa do servidor", r.d);
+  r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tJog}`, { dados: { x: 99999 } });
+  ok(r.s === 200 && r.d.dados.x === 10000, "posicao fica presa perto do mapa", r.d?.dados);
+  await leitor.cancel();
+
+  const outro = new Pessoa("outro");
+  await outro.post("/api/registrar", { login: "outro", nome: "Outro", senha: SENHA });
+  r = await outro.get(`/api/c/${cid}/mapas/eventos`);
+  ok(r.s === 403 || r.s === 401, "quem nao e da campanha nao abre o SSE", r.s);
+  await mestre.post(`/api/c/${cid}/mapas/${mid}/ativo`, { ativo: false });
+  r = await jogador.get(`/api/c/${cid}/mapas/${mid}`);
+  ok(r.s === 404, "mapa desligado de novo some para o jogador", r.s);
+  r = await mestre.del(`/api/c/${cid}/mapas/${mid}`);
+  ok(r.s === 204, "mestre apaga o mapa", r.s);
+  r = await mestre.get(`/api/c/${cid}/mapas`);
+  ok(r.d?.length === 0, "e ele sai da lista", r.d);
+  r = await mestre.del(`/api/c/${cid}/midia/${imgId}`);
+  ok(r.s === 204 || r.s === 200, "a imagem do mapa sai da biblioteca (as contagens adiante nao a esperam)", r.s);
+}
+
 console.log("\n=== notas e mural ===");
 {
   let r = await jogador.get(`/api/c/${cid}/notas`);
@@ -325,8 +464,13 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(r.s === 200 && /dragao/i.test(r.bruto.toString()), "a busca da campanha nova acha o texto do PDF");
   r = await mestre.get(`/api/c/${novo}/fichas`);
   ok(r.s === 200 && r.d.some(f => /Heroi/.test(f.nome)), "fichas entram em nome de quem importou", r.d);
+  /* com um mapa e um token dentro: apagar a campanha leva as tabelas do tabletop junto */
+  const mapaNovo = (await mestre.post(`/api/c/${novo}/mapas`, { nome: "Vai junto" })).d.id;
+  await mestre.post(`/api/c/${novo}/mapas/${mapaNovo}/elementos`, { dados: { nome: "Token" } });
   r = await mestre.del(`/api/campanhas/${novo}`);
-  ok(r.s === 204 || r.s === 200, "apaga a campanha importada", r.s);
+  ok(r.s === 204 || r.s === 200, "apaga a campanha importada, com mapa e token", r.s);
+  r = await mestre.get(`/api/c/${novo}/mapas/${mapaNovo}`);
+  ok(r.s === 403 || r.s === 404, "o mapa da campanha apagada nao abre mais", r.s);
 }
 
 console.log("\n=== modelos de campanha ===");
@@ -401,10 +545,10 @@ console.log("\n=== administracao e suporte ===");
   ok(r.s === 200, "entra com a senha nova");
   r = await t.get("/api/admin/usuarios");
   ok(r.s === 403, "terceiro nao e admin");
-  r = await mestre.put(`/api/admin/usuarios/${uid}`, { admin: true });
+  await mestre.put(`/api/admin/usuarios/${uid}`, { admin: true });
   r = await t.get("/api/admin/usuarios");
   ok(r.s === 200, "promover vale na hora, sem novo login");
-  r = await mestre.put(`/api/admin/usuarios/${uid}`, { admin: false });
+  await mestre.put(`/api/admin/usuarios/${uid}`, { admin: false });
   r = await t.get("/api/admin/usuarios");
   ok(r.s === 403, "rebaixar vale na hora");
   r = await mestre.del(`/api/admin/usuarios/${uid}`);
@@ -417,17 +561,6 @@ console.log("\n=== administracao e suporte ===");
 
 console.log("\n=== miniatura, textos publicos, 404, uso e recuperacao de senha ===");
 {
-  /* PNG de 900x40 feito na mao (zlib do Node), para a miniatura ter o que reduzir */
-  const zlib = await import("node:zlib");
-  function pngGrande(w, h) {
-    const crcT = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c >>> 0; }
-    const crc = b => { let c = 0xffffffff; for (const x of b) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-    const bloco = (tipo, dados) => { const t = Buffer.from(tipo); const len = Buffer.alloc(4); len.writeUInt32BE(dados.length);
-      const c = Buffer.alloc(4); c.writeUInt32BE(crc(Buffer.concat([t, dados]))); return Buffer.concat([len, t, dados, c]); };
-    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
-    const linhas = []; for (let y = 0; y < h; y++) { const l = Buffer.alloc(1 + w * 3); for (let x = 0; x < w; x++) { l[1 + x * 3] = x % 256; l[2 + x * 3] = y * 6; l[3 + x * 3] = 120; } linhas.push(l); }
-    return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), bloco("IHDR", ihdr), bloco("IDAT", zlib.deflateSync(Buffer.concat(linhas))), bloco("IEND", Buffer.alloc(0))]);
-  }
   const camp = (await mestre.get("/api/sessao")).d.campanhas[0].id;
   let r = await mestre.req("POST", `/api/c/${camp}/midia/img`, undefined, { form: forma("arquivo", pngGrande(900, 40), "largo.png", "image/png", { nome: "largo" }) });
   ok(r.s === 200 && r.d?.arquivo, "mestre sobe imagem grande", r.d);
@@ -483,7 +616,7 @@ console.log("\n=== miniatura, textos publicos, 404, uso e recuperacao de senha =
   ok(r.s === 200 && r.d?.email === "jogador@exemplo.com", "pessoa grava o e-mail de recuperacao", r.d);
   r = await mestre.put("/api/perfil", { email: "JOGADOR@exemplo.com" });
   ok(r.s === 400, "o mesmo e-mail nao vale em duas contas", r.s);
-  r = await jogador.put("/api/perfil", { tourVisto: "jogador" });
+  await jogador.put("/api/perfil", { tourVisto: "jogador" });
   r = await jogador.get("/api/sessao");
   ok((r.d?.toursVistos || []).includes("jogador"), "tour visto fica na conta", r.d?.toursVistos);
   await anonimo.ping();

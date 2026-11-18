@@ -1,4 +1,4 @@
-/* Liga os botoes fixos e da a partida. */
+/* Liga os botoes fixos e da a partida do app. */
 "use strict";
 
 /* ---------- BOOT ---------- */
@@ -19,9 +19,12 @@ $("#btnRol").onclick=function(){ painelRolagens(); };
 $("#rdSup").onclick=function(){ abrirSuporte(); };
 $("#rdAno").textContent=new Date().getFullYear();
 $("#nbName").onclick=function(){ abrirTrilha(); };
-$("#nbPlay").onclick=function(){ if(!PL.cur)return; if(PL.cur.paused)PL.cur.play(); else PL.cur.pause(); playerUI(); };
+$("#nbPlay").onclick=function(){
+  if(!PL.cur){ return; }
+  if(PL.cur.paused){ PL.cur.play(); } else { PL.cur.pause(); }
+  playerUI(); };
 $("#nbStop").onclick=function(){ parar(); };
-$("#nbLoop").onclick=function(){ PL.loop=!PL.loop; if(PL.cur)PL.cur.loop=PL.loop; playerUI();
+$("#nbLoop").onclick=function(){ PL.loop=!PL.loop; if(PL.cur){ PL.cur.loop=PL.loop; } playerUI();
   var lp=$("#plLoop"); if(lp){ lp.setAttribute("aria-pressed",PL.loop); lp.textContent="Repetir "+(PL.loop?"ligado":"desligado"); }
   toast(PL.loop?"Repetir a faixa: ligado":"Repetir a faixa: desligado"); };
 function alternaAjustes(){
@@ -34,14 +37,18 @@ $("#btnAjustes").onclick=alternaAjustes;
 
 /* Menu "Mais" do celular: as acoes que nao cabem no topo. Cada item aciona o botao de verdade,
    que continua existindo (escondido) para o tour e os atalhos. */
-var ICO_MAIS={btnTrilha:"#btnTrilha svg",btnDados:"#btnDados svg",btnRol:"#btnRol svg",btnAjustes:"#btnAjustes svg"};
+var ICO_MAIS={abaMapa:'#tabs [data-aba="mapa"] svg',btnTrilha:"#btnTrilha svg",btnDados:"#btnDados svg",btnRol:"#btnRol svg",btnAjustes:"#btnAjustes svg"};
 function abrirMais(){
   var b=$("#btnMais"), itens=[];
+  /* o Mapa do mestre nao cabe na barra de baixo (renderTabs): no celular ele mora aqui */
+  if(GM&&CID)itens.push({id:"abaMapa",rot:Vm("mapa")});
   if(GM&&CID)itens.push({id:"btnTrilha",rot:"Trilha sonora"});
-  if(CID){ itens.push({id:"btnDados",rot:"Rolar dados"}); itens.push({id:"btnRol",rot:"Painel de rolagens",estado:rpAberto()?"aberto":""}); }
+  if(CID){ itens.push({id:"btnDados",rot:"Rolar dados"},{id:"btnRol",rot:"Painel de rolagens",estado:rpAberto()?"aberto":""}); }
   itens.push({id:"btnAjustes",rot:"Configurações"});
   itens.forEach(function(x){ var s=$(ICO_MAIS[x.id]); x.ico=s?s.outerHTML:""; });
-  menuSolto(b,htmlDe("t-menu-mais",{itens:itens}),function(it){ $("#"+it.dataset.mais).click(); });
+  menuSolto(b,htmlDe("t-menu-mais",{itens:itens}),function(it){
+    if(it.dataset.mais==="abaMapa"){ S.view="mapa"; render(); return; }
+    $("#"+it.dataset.mais).click(); });
 }
 $("#btnMais").onclick=abrirMais;
 
@@ -58,6 +65,7 @@ var bh=document.getElementById("brandHome");
 if(bh)bh.onclick=function(){ if(PRONTO||CID)trocarCampanha(); };
 function medeTopo(){ document.documentElement.style.setProperty("--hh",($(".top").offsetHeight||56)+"px"); }
 window.addEventListener("resize",medeTopo);
-/* os templates de paginas/ e componentes/ precisam estar no lugar antes da primeira tela */
-carregarTemplates().then(boot).catch(function(e){
+/* os templates de paginas/ e componentes/ precisam estar no lugar antes da primeira tela.
+   Script classico (sem modulo): nao ha await no topo, por isso a corrente de promessa */
+carregarTemplates().then(boot).catch(function(e){ // NOSONAR: script classico nao tem await de topo
   document.getElementById("view").textContent="Não consegui carregar a interface: "+mensagemDeErro(e)+" Recarregue a página."; });

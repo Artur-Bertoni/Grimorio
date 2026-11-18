@@ -1,5 +1,6 @@
 package br.com.grimorio.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -31,7 +32,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http) {
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
 
@@ -42,6 +43,10 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .httpBasic(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(a -> a
+                /* o despacho assincrono so acontece para um pedido que ja passou pela autorizacao
+                   (o fluxo SSE do mapa, o download do pacote); conferir de novo no fim dele, com a
+                   resposta ja comecada, so geraria erro no log */
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
                 .requestMatchers("/login.html", "/paginas/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
                                  "/api/ping", "/api/registrar", "/api/publico/**").permitAll()
