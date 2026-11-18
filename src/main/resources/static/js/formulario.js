@@ -139,6 +139,8 @@ function formulario(titulo,campos,valor,o){
     return false;
   }
   ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{wide:!!o.wide,firme:true,foco:false});
+  /* compacto: campos mais baixos e em colunas mais estreitas, para formularios longos (o do token) */
+  if(o.compacto){ ov.querySelector(".form")?.classList.add("compacto"); }
   var fecha=ov.close;
   ov.close=function(){
     if(fechando){ fecha(); return; }

@@ -18,17 +18,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * andamento, em que turno (a rodada) ela esta, de quem e a vez e quem esta nela. A iniciativa mora
  * no guia, que o servidor nao le; o navegador do mestre manda este resumo a cada mudanca.
  *
- * Com iniciativa em andamento, um token vinculado a alguem do elenco so se move na vez desse alguem.
- * O elo e o id do elenco: o token escolhe a quem pertence (formulario do token) e a entrada da
- * ordem escolhe quem e (formulario da iniciativa). Token sem vinculo, ou vinculado a quem nao esta
- * na ordem, continua livre, senao quem ficou de fora travaria para sempre.
+ * Com iniciativa em andamento, um token que uma entrada da ordem aponta so se move na vez dessa entrada.
+ * O elo e o id do proprio token: a entrada da ordem escolhe o token (formulario da iniciativa). Token que
+ * nenhuma entrada aponta, ou apontado por quem nao esta na ordem, continua livre, senao quem ficou de fora travaria para sempre.
  *
  * Fica na tabela {@code config} (uma chave por campanha) e em memoria: a instancia e unica.
  */
 @Component
 public class MapaTurnos {
 
-    /** {@code vez} e o id do elenco de quem tem a vez; {@code ids}, os de todos na ordem que tem vinculo */
+    /** {@code vez} e o id do token de quem tem a vez; {@code ids}, os tokens de todos na ordem que apontam para um */
     public record Turno(boolean ativo, int rodada, String vez, Set<String> ids) {
         public static final Turno PARADO = new Turno(false, 0, "", Set.of());
     }

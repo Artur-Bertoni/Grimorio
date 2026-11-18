@@ -5,32 +5,42 @@
    (PUT de um elemento), e o servidor empurra o resultado para todos por SSE. Quem decide o que
    cada um ve e o servidor; a tela so desenha o que chegou.
    lista: os mapas que a pessoa enxerga (o jogador, so o ativo); id/mapa/els: o mapa aberto;
-   seq: a ultima operacao que a tela conhece; sel: o elemento selecionado. */
+   seq: a ultima operacao que a tela conhece; sel: o elemento selecionado (multi: a lista, quando
+   passa de um); ocultas: camadas que esta pessoa escondeu (so na tela dela); caixa, area e
+   rascunho: o que a ferramenta ativa esta desenhando agora; estilo: cor, espessura e
+   preenchimento dos proximos desenhos do mestre. */
 var MP={lista:[],id:null,mapa:null,els:[],seq:0,sel:null,cid:null,carregado:false,querAbrir:null,
-  es:null,esT:null,poll:null,voltas:0,arrastando:null,
-  ferramenta:"mover",regua:null,medida:null};
+  es:null,esT:null,poll:null,voltas:0,arrastando:null,multi:[],pings:[],ocultas:{},caixa:null,area:null,rascunho:null,
+  estilo:{cor:"ouro",esp:3,preench:0,vis:true},
+  ferramenta:"mover",reguaModo:"reta",regua:null,medida:null};
 var MP_POLL_MS=3000;
 /* WIP: o tabletop esta em construcao (docs/plano-tabletop.md). Enquanto a administracao nao liberar
    (Administracao > Mapa, `mapa.liberado` na tabela config, que vem em /api/sessao), so ela abre a
    aba Mapa; os outros veem o aviso. A decisao de liberar para todos e do dono. */
 var MAPA_LIBERADO=false;
 function mapaBloqueado(){ return !MAPA_LIBERADO&&!ADMIN; }
-/* Encaixar na grade: preferencia de quem usa (fica no navegador), ligada de saida. Com ela
-   desligada o token fica onde foi solto; Alt inverte so naquele arraste. */
-MP.encaixa=(function(){ try{ return localStorage.getItem("grim_mapa_encaixe")!=="0"; }catch(error_){ return true; } })();
+/* Encaixar na grade: o mestre escolhe e vale para todos (regras.encaixe do mapa, ligado de saida). Com
+   ele desligado ninguem e encaixado; so o mestre tem o Alt, que inverte a regra naquele arraste. */
 function mpAlternaEncaixe(){
-  MP.encaixa=!MP.encaixa;
-  try{ localStorage.setItem("grim_mapa_encaixe",MP.encaixa?"1":"0"); }catch(error_){ /* sem armazenamento a escolha vale so ate recarregar */ }
+  var r=MP.mapa?.regras||{};
+  return mpSalvaMapa({regras:{quem:r.quem,limite:r.limite,trancadas:r.trancadas||[],encaixe:r.encaixe===false}});
 }
 
-/* Ferramenta ativa: "mover" (arrasta token e fundo) ou "regua" (arrasta para medir). A regua e so
-   de quem mede: nada dela vai para o servidor nem para os outros. */
+/* Ferramenta ativa: "mover" (arrasta token e fundo), "selecionar" (o mestre arrasta uma caixa),
+   "regua" (em linha reta ou por pontos, MP.reguaModo), "a-cone" / "a-circulo" / "a-linha" (moldes de area) e, so para o mestre, as
+   formas de desenho. Regua e areas sao de quem mede: nada vai para o servidor nem para os outros. */
+var MP_FERRAMENTAS_AREA=["a-cone","a-circulo","a-linha"];
 function mpFerramenta(f){
   MP.ferramenta=f;
-  if(f!=="regua"){ MP.regua=null; }
-  var b=$("#mpRegua");
-  if(b){ b.classList.toggle("on",f==="regua"); b.setAttribute("aria-pressed",String(f==="regua")); }
-  if(MPC){ MPC.cv.classList.toggle("regua",f==="regua"); mpDesenha(); }
+  MP.regua=null; MP.area=null; MP.rascunho=null; MP.caixa=null;
+  var rm=$("#mpRegModo"); if(rm){ rm.hidden=f!=="regua"; }
+  $$("[data-mpf]").forEach(function(b){
+    var on=b.dataset.mpf===f||(b.dataset.mpf==="area"&&f.indexOf("a-")===0)||(b.dataset.mpf==="desenho"&&MP_FORMAS.includes(f));
+    b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on));
+  });
+  if(MPC){ MPC.cv.classList.toggle("regua",mpMira()); mpDesenha(); }
+  mpGavetaDesenho(false);
+  mpPintaPainel();
 }
 
 function mpAPI(p){ return cAPI("/mapas"+(p||"")); }
@@ -64,7 +74,7 @@ function mpSincroniza(){
 function mpAbrir(id){
   var troca=String(id)!==String(MP.id);
   MP.id=id||null;
-  if(troca){ MP.mapa=null; MP.els=[]; MP.seq=0; MP.sel=null; }
+  if(troca){ MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); }
   if(!MP.id){ mpRepinta(); return Promise.resolve(); }
   return mpRecarrega();
 }
@@ -81,7 +91,7 @@ function mpAplicaEstado(r){
   if(r.igual)return;
   var mesmo=mpChaveMapa(MP.mapa)===mpChaveMapa(r.mapa);
   MP.mapa=r.mapa; MP.els=r.elementos||[];
-  if(MP.sel&&!mpEl(MP.sel))MP.sel=null;
+  mpPodaSel();
   mpTrocaNaLista(r.mapa);
   if(mesmo)mpRedesenhaTokens(); else mpRepinta();
 }
@@ -152,7 +162,7 @@ function mpDesliga(){
   if(MP.poll){ clearInterval(MP.poll); MP.poll=null; }
 }
 function mpZera(){
-  MP.lista=[]; MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; MP.sel=null; MP.carregado=false; MP.voltas=0;
+  MP.lista=[]; MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); MP.carregado=false; MP.voltas=0; MP.ocultas={};
 }
 function mpModoTempoReal(){ if(MP.es){ return "sse"; } return MP.poll?"polling":""; }
 
@@ -176,9 +186,21 @@ var MP_EVENTOS={
     if(String(d.mapa)!==String(MP.id))return;
     MP.seq=Math.max(MP.seq,d.seq||0);
     /* o token que a pessoa esta arrastando nao pula para tras com um eco antigo */
-    if(MP.arrastando&&String(MP.arrastando)===String(d.el.id))return;
+    if(MP.arrastando?.includes(String(d.el.id)))return;
     mpGuarda(d.el);
     mpRedesenhaTokens();
+  },
+  /* alguem apontou um ponto: aparece para todos por alguns segundos, sem ficar gravado */
+  ping:function(d){
+    if(String(d.mapa)!==String(MP.id))return;
+    MP.pings.push({x:d.x,y:d.y,quem:d.meu?"":d.quem,t:Date.now()});
+    mpDesenha();
+  },
+  /* a ordem de empilhar mudou: a lista vem de novo do servidor, que e quem sabe a ordem */
+  ordem:function(d){
+    if(String(d.mapa)!==String(MP.id))return;
+    MP.seq=Math.max(MP.seq,d.seq||0);
+    mpRecarrega();
   },
   turno:function(d){
     if(d.comIni&&!GM){
@@ -194,12 +216,12 @@ var MP_EVENTOS={
     if(String(d.mapa)!==String(MP.id))return;
     MP.seq=Math.max(MP.seq,d.seq||0);
     MP.els=MP.els.filter(function(e){ return String(e.id)!==String(d.id); });
-    if(String(MP.sel)===String(d.id))MP.sel=null;
+    mpPodaSel();
     mpRedesenhaTokens();
   }
 };
 function mpEvento(d){ var f=MP_EVENTOS[d.tipo]; if(f)f(d); }
-function mpZeraMapa(){ MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; MP.sel=null; }
+function mpZeraMapa(){ MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); }
 function mpGuarda(el){
   var i=MP.els.findIndex(function(e){ return String(e.id)===String(el.id); });
   if(i>=0)MP.els[i]=el; else MP.els.push(el);
@@ -212,11 +234,14 @@ function mpGrava(promessa,msg){
   return promessa.then(function(r){ estadoSalvo("salvo"); return r; }).catch(function(e){ mpFalhou(e,msg); throw e; });
 }
 /* Mover e otimista: o token ja esta no lugar novo; se o servidor recusar, volta. */
-function mpMover(el,x,y){
+function mpMover(el,x,y,trilha){
   var ax=el.dados.x, ay=el.dados.y;
   el.dados.x=x; el.dados.y=y;
   mpDesenha();
-  return mpGrava(api(mpAPI("/"+MP.id+"/elementos/"+el.id),{method:"PUT",body:{dados:{x:x,y:y}}}),"não consegui mover")
+  /* o trajeto so vai quando o mapa mede por ele: o servidor cobra o caminho andado (nunca menos que a reta) */
+  var corpo={dados:{x:x,y:y}};
+  if(trilha?.length){ corpo.trajeto=trilha.map(function(q){ return [mpArred(q[0]),mpArred(q[1])]; }); }
+  return mpGrava(api(mpAPI("/"+MP.id+"/elementos/"+el.id),{method:"PUT",body:corpo}),"não consegui mover")
     .then(function(r){ if(r?.id){ mpGuarda(r); } mpRedesenhaTokens(); if(r?.passou){ mpAvisaLimite(r); } })
     .catch(function(){ el.dados.x=ax; el.dados.y=ay; mpDesenha(); });
 }
@@ -225,13 +250,66 @@ function mpAvisaLimite(r){
   var d=r.dados||{};
   toast("Passou do deslocamento deste turno: usou "+mpFmt(mpNum(d.usado,0))+" de "+mpFmt(mpNum(d.desl,0))+" "+mpUnidade()+".","aviso");
 }
-function mpMudaElemento(el,corpo){
-  return mpGrava(api(mpAPI("/"+MP.id+"/elementos/"+el.id),{method:"PUT",body:corpo}),"não consegui salvar o "+vmin("token"))
+function mpMudaElemento(el,corpo,msg){
+  return mpGrava(api(mpAPI("/"+MP.id+"/elementos/"+el.id),{method:"PUT",body:corpo}),msg||"não consegui salvar o "+vmin("token"))
     .then(function(r){ if(r?.id){ mpGuarda(r); } mpRedesenhaTokens(); return r; });
 }
-function mpCriaElemento(corpo){
-  return mpGrava(api(mpAPI("/"+MP.id+"/elementos"),{method:"POST",body:corpo}),"não consegui pôr o "+vmin("token"))
-    .then(function(r){ if(r?.id){ mpGuarda(r); MP.sel=r.id; } mpRedesenhaTokens(); return r; });
+function mpCriaElemento(corpo,msg){
+  return mpGrava(api(mpAPI("/"+MP.id+"/elementos"),{method:"POST",body:corpo}),msg||"não consegui pôr o "+vmin("token"))
+    .then(function(r){ if(r?.id){ mpGuarda(r); mpSelecionaIds([r.id]); } mpRedesenhaTokens(); return r; });
+}
+/* Desenho novo: a forma e os pontos vem da ferramenta; cor, espessura e preenchimento do painel. */
+function mpCriaDesenho(forma,pts,extra){
+  var e=MP.estilo;
+  return mpCriaElemento({tipo:"DESENHO",visivel:e.vis!==false,
+    dados:{forma:forma,pts:pts.map(function(q){ return [mpArred(q[0]),mpArred(q[1])]; }),cor:e.cor,esp:e.esp,preench:e.preench,rotulo:extra?.rotulo||""}},
+    "não consegui pôr o desenho").catch(function(){ /* o aviso ja saiu em mpGrava */ });
+}
+/* Varios de uma vez (mover ou organizar a selecao): uma operacao so no servidor, um desfazer so. */
+function mpLote(itens,msg){
+  return mpGrava(api(mpAPI("/"+MP.id+"/elementos"),{method:"PUT",body:{itens:itens}}),msg||"não consegui salvar").then(function(r){
+    MP.seq=Math.max(MP.seq,r?.seq||0);
+    (r?.itens||[]).forEach(function(x){
+      if(x.removido){ MP.els=MP.els.filter(function(e){ return String(e.id)!==String(x.id); }); } else { mpGuarda(x); }
+    });
+    mpPodaSel(); mpRedesenhaTokens();
+    return r;
+  });
+}
+/* Acoes do painel sobre a selecao inteira (so o mestre). O que esta trancado nao entra: o servidor
+   recusaria o grupo todo. */
+function mpAcaoSelecao(k,valor){
+  var todos=mpSelecionados(), els=todos.filter(function(e){ return !mpCamadaTrancada(mpCamadaDe(e)); });
+  if(!todos.length){ return Promise.resolve(); }
+  if(k==="remover"){ return mpRemoveSelecao(els,todos.length-els.length); }
+  var itens;
+  if(k==="trancar"){
+    var tranca=!els.every(function(e){ return e.bloqueado; });
+    itens=els.filter(function(e){ return !!e.bloqueado!==tranca; }).map(function(e){ return {id:e.id,bloqueado:tranca}; });
+  } else if(k==="visivel"){
+    var mostra=!els.every(function(e){ return e.visivel!==false; });
+    itens=els.filter(function(e){ return !e.bloqueado; }).map(function(e){ return {id:e.id,visivel:mostra}; });
+  } else if(k==="frente"||k==="tras"){
+    /* a selecao mantem a ordem que tinha entre si: para ir a frente, o de baixo vai primeiro; para tras, o de cima */
+    var idx=function(e){ return MP.els.indexOf(e); }, ord=els.filter(function(e){ return !e.bloqueado; }).sort(function(a,b){ return idx(a)-idx(b); });
+    if(k==="tras"){ ord.reverse(); }
+    itens=ord.map(function(e){ return {id:e.id,ordem:k}; });
+  } else {
+    itens=els.filter(function(e){ return !e.bloqueado&&mpCamadaDe(e)!==valor; }).map(function(e){ return {id:e.id,camada:valor}; });
+  }
+  if(!itens.length){ toast("Nada para mudar: o que está trancado precisa ser destrancado antes.","aviso"); return Promise.resolve(); }
+  return mpLote(itens).catch(function(){ /* o aviso ja saiu em mpGrava */ });
+}
+function mpRemoveSelecao(els,deFora){
+  var soltos=els.filter(function(e){ return !e.bloqueado; }), presos=els.length-soltos.length+deFora;
+  if(!soltos.length){ toast("Está trancado: destranque para remover.","aviso"); return Promise.resolve(); }
+  var mid=MP.id;
+  return mpLote(soltos.map(function(e){ return {id:e.id,remover:true}; }),"não consegui remover").then(function(r){
+    toastAcao(soltos.length+" removidos"+(presos?" ("+presos+" trancados ficaram)":""),"Desfazer",function(){
+      if(String(MP.id)!==String(mid))return;
+      mpDesfaz(r?.seq).then(function(ok){ if(ok){ toast("Desfeito"); } });
+    });
+  }).catch(function(){ /* o aviso ja saiu em mpGrava */ });
 }
 /* Remover nao pergunta: faz e oferece desfazer. Quem desfaz e o servidor (pelo seq da remocao):
    ele recria o token igual, com outro id, e o historico passa a apontar para o novo. */
@@ -239,9 +317,9 @@ function mpRemoveElemento(el){
   var mid=MP.id;
   return mpGrava(api(mpAPI("/"+mid+"/elementos/"+el.id),{method:"DELETE"}),"não consegui remover").then(function(r){
     MP.els=MP.els.filter(function(e){ return e!==el; });
-    if(String(MP.sel)===String(el.id))MP.sel=null;
+    mpPodaSel();
     mpRedesenhaTokens();
-    toastAcao(Vm("token")+" removido","Desfazer",function(){
+    toastAcao((el.tipo==="DESENHO"?"Desenho":Vm("token"))+" removido","Desfazer",function(){
       if(String(MP.id)!==String(mid))return;
       mpDesfaz(r?.seq).then(function(ok){ if(ok){ toast("Desfeito"); } });
     });
@@ -254,8 +332,13 @@ function mpDesfaz(seq){
   return api(mpAPI("/"+mid+"/desfazer"),{method:"POST",body:seq?{seq:seq}:{}}).then(function(r){
     if(String(mid)!==String(MP.id)||!r){ return r; }
     MP.seq=Math.max(MP.seq,r.seq||0);
-    if(r.el){ mpGuarda(r.el); MP.sel=r.el.id; }
-    else { MP.els=MP.els.filter(function(e){ return String(e.id)!==String(r.id); }); if(String(MP.sel)===String(r.id)){ MP.sel=null; } }
+    /* um grupo desfeito volta inteiro: o primeiro vem nos campos de sempre, o resto em "outros" */
+    var todos=[r].concat(r.outros||[]);
+    todos.forEach(function(x){
+      if(x.el){ mpGuarda(x.el); } else { MP.els=MP.els.filter(function(e){ return String(e.id)!==String(x.id); }); }
+    });
+    var vivos=todos.filter(function(x){ return x.el; }).map(function(x){ return x.id; });
+    if(vivos.length){ mpSelecionaIds(vivos); } else { mpPodaSel(); }
     mpRedesenhaTokens();
     return r;
   }).catch(function(e){
@@ -272,12 +355,20 @@ function mpDesfaz(seq){
 function mpSincronizaTurno(s){
   if(!GM||!CID||!s){ return Promise.resolve(null); }
   var ini=iniDe(s), ordem=iniOrdem(ini), vez=ini.lista.find(function(x){ return x.id===ini.vez; })||ordem[0];
-  var corpo={ativo:ordem.length>0,rodada:ini.rodada||1,vez:vez?vez.elencoId||"":"",
-    ids:ini.lista.filter(function(x){ return x.elencoId; }).map(function(x){ return x.elencoId; }),ini:MESA.ini||null};
+  var corpo={ativo:ordem.length>0,rodada:ini.rodada||1,vez:vez?mpTokenDaOrdem(vez):"",
+    ids:ini.lista.map(mpTokenDaOrdem).filter(Boolean),ini:MESA.ini||null};
   return api(mpAPI("/turno"),{method:"PUT",body:corpo}).then(function(r){
     if(r?.novo){ mpAvisaTurno(r.rodada); }
     return r;
   }).catch(function(error_){ console.debug("turno do mapa:",error_?.message); return null; });
+}
+/* O elo e o id do token: cada entrada da ordem aponta para o seu (tokenId). Entrada antiga, que so tinha o
+   elenco, acha o token do mapa aberto ligado ao mesmo alguem do elenco. */
+function mpTokenDaOrdem(x){
+  if(x.tokenId){ return String(x.tokenId); }
+  if(!x.elencoId){ return ""; }
+  var t=MP.els.find(function(e){ return e.tipo!=="DESENHO"&&String(e.dados?.elencoId||"")===String(x.elencoId); });
+  return t?String(t.id):"";
 }
 /* Novo turno a mao: para quando nao ha iniciativa rodando. */
 function mpNovoTurno(){
@@ -310,6 +401,12 @@ function mpSalvaMapa(corpo){
 function mpAtiva(id,liga){
   return mpGrava(api(mpAPI("/"+id+"/ativo"),{method:"POST",body:{ativo:liga}}),"não consegui trocar o "+vmin("mapa")+" ativo").then(function(r){
     MP_EVENTOS.ativo({ativo:r?r.ativo:null}); });
+}
+/* Aponta um ponto do mapa para todos. Sem SSE (polling) o proprio aviso nao volta, entao aparece aqui na hora. */
+function mpPing(p){
+  if(!MP.id){ return; }
+  if(!MP.es){ MP.pings.push({x:p.x,y:p.y,quem:"",t:Date.now()}); mpDesenha(); }
+  api(mpAPI("/"+MP.id+"/ping"),{method:"POST",body:{x:mpArred(p.x),y:mpArred(p.y)}}).catch(function(){ /* o aviso e so um aceno: se nao foi, nao ha o que refazer */ });
 }
 function mpApagaMapa(id){
   return mpGrava(api(mpAPI("/"+id),{method:"DELETE"}),"não consegui apagar o "+vmin("mapa")).then(function(){

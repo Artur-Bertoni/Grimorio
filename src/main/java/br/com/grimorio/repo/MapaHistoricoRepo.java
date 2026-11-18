@@ -15,6 +15,7 @@ public interface MapaHistoricoRepo extends JpaRepository<MapaHistorico, Long> {
     void deleteByMapaId(Long mapaId);
     List<MapaHistorico> findTop20ByMapaIdAndUsuarioIdAndDesfeitoFalseAndOperacaoInOrderByIdDesc(Long mapaId, long usuarioId, Collection<String> operacoes);
     Optional<MapaHistorico> findFirstByMapaIdAndSeqAndUsuarioId(Long mapaId, long seq, long usuarioId);
+    List<MapaHistorico> findByMapaIdAndSeqAndUsuarioId(Long mapaId, long seq, long usuarioId);
     List<MapaHistorico> findByMapaIdOrderByIdDesc(Long mapaId, Pageable p);
     List<MapaHistorico> findByMapaIdAndUsuarioIdOrderByIdDesc(Long mapaId, long usuarioId, Pageable p);
 

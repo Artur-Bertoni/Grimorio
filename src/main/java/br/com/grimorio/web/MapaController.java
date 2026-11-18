@@ -2,6 +2,7 @@ package br.com.grimorio.web;
 
 import br.com.grimorio.service.MapaService;
 import br.com.grimorio.service.MapaService.CorpoElemento;
+import br.com.grimorio.service.MapaService.CorpoLote;
 import br.com.grimorio.service.MapaService.CorpoMapa;
 import br.com.grimorio.service.MapaService.CorpoTurno;
 import org.springframework.http.CacheControl;
@@ -31,6 +32,9 @@ public class MapaController {
     }
 
     public static class CorpoAtivo { public boolean ativo = true; }
+
+    /** onde o jogador apontou, em coordenadas do mapa */
+    public static class CorpoPing { public double x; public double y; }
 
     /** seq: a operacao a desfazer; sem ele, a ultima da pessoa */
     public static class CorpoDesfazer { public Long seq; }
@@ -105,9 +109,22 @@ public class MapaController {
         return mapas.historico(cid, atual.id(), mid, limite);
     }
 
+    /** Aponta um ponto do mapa para todo mundo ver por alguns segundos. Nada fica gravado. */
+    @PostMapping("/{mid}/ping")
+    public ResponseEntity<Void> ping(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoPing c) {
+        mapas.ping(cid, atual.id(), mid, c.x, c.y);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{mid}/elementos")
     public Map<String, Object> criarElemento(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoElemento c) {
         return mapas.criarElemento(cid, atual.id(), mid, c);
+    }
+
+    /** Mover ou organizar a selecao inteira (so o mestre): uma operacao, um desfazer. */
+    @PutMapping("/{mid}/elementos")
+    public Map<String, Object> lote(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoLote c) {
+        return mapas.lote(cid, atual.id(), mid, c);
     }
 
     @PutMapping("/{mid}/elementos/{eid}")

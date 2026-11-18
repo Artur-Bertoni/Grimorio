@@ -145,39 +145,59 @@ function iniNomeDoElenco(id){
   return q?(q.nome||""):"";
 }
 /* Quem tem token ligado ao elenco no mapa ativo entra na ordem (token escondido entra escondido). */
+/* os tokens do mapa que a iniciativa pode apontar: o mapa aberto na tela do mestre ou, sem ele, o que os jogadores veem */
+function iniTokensDoMapa(){
+  var fim=function(els){ return (els||[]).filter(function(e){ return e.tipo!=="DESENHO"; }).map(function(e){ return [String(e.id),e.dados?.nome||V("token")]; }); };
+  if(MP.id&&MP.els.length&&String(MP.cid)===String(CID)){ return Promise.resolve(fim(MP.els)); }
+  return api(cAPI("/mapas")).then(function(l){
+    var m=(l||[]).find(function(x){ return x.ativo; });
+    return m?api(cAPI("/mapas/"+m.id)):null;
+  }).then(function(r){ return fim(r?.elementos); }).catch(function(){ return []; });
+}
 function iniPuxaDoMapa(s){
-  var ini=iniDe(s), el=D.elenco||{}, todos=(el.personagens||[]).concat(el.npcs||[]);
+  var ini=iniDe(s);
   api(cAPI("/mapas")).then(function(l){
     var m=(l||[]).find(function(x){ return x.ativo; });
     return m?api(cAPI("/mapas/"+m.id)):null;
   }).then(function(r){
     if(!r){ toast("Nenhum "+vmin("mapa")+" está sendo mostrado aos "+vmin("jogadores")+"."); return; }
-    var ja={}; ini.lista.forEach(function(x){ if(x.elencoId)ja[x.elencoId]=1; });
+    var ja={}; ini.lista.forEach(function(x){ if(x.tokenId)ja["t"+x.tokenId]=1; if(x.elencoId)ja["e"+x.elencoId]=1; });
     var n=0, com=0;
     (r.elementos||[]).forEach(function(e){
-      var id=e.dados?.elencoId; if(!id)return;
+      if(e.tipo==="DESENHO")return;
       com++;
-      var q=todos.find(function(p){ return String(p.id)===String(id); });
-      if(!q||ja[id])return;
-      ja[id]=1; n++;
-      ini.lista.push({id:uid("i"),nome:q.nome||"",elencoId:String(id),v:"",oc:e.visivel===false}); });
-    if(!com){ toast("Nenhum token do "+vmin("mapa")+" está ligado ao elenco."); return; }
+      var eid=e.dados?.elencoId?String(e.dados.elencoId):"";
+      /* entrada antiga, que so sabia do elenco, passa a apontar para o token */
+      var velha=eid&&ini.lista.find(function(x){ return !x.tokenId&&String(x.elencoId||"")===eid; });
+      if(velha){ velha.tokenId=String(e.id); }
+      if(ja["t"+e.id]||(eid&&ja["e"+eid]))return;
+      ja["t"+e.id]=1; n++;
+      ini.lista.push({id:uid("i"),nome:e.dados?.nome||"",tokenId:String(e.id),elencoId:eid,v:"",oc:e.visivel===false}); });
+    if(!com){ toast("Nenhum token no "+vmin("mapa")+"."); return; }
     if(!ini.vez&&ini.lista.length)ini.vez=iniOrdem(ini)[0].id;
     toast(n?n+" entraram na ordem. Token escondido entra oculto.":"Todo mundo do mapa já estava na ordem"); iniMudou(s);
   }).catch(function(e){ toast(e?.message||"não consegui ler o mapa","erro"); });
 }
 function iniEditar(s,x){
-  var ini=iniDe(s), novo=!x;
+  iniTokensDoMapa().then(function(toks){ iniEditarForm(s,x,toks); });
+}
+function iniEditarForm(s,x,toks){
+  var ini=iniDe(s), novo=!x, nomeTok=function(id){ var t=toks.find(function(o){ return o[0]===String(id); }); return t?t[1]:""; };
+  /* entrada antiga, so com elenco: o token do mapa ligado ao mesmo alguem aparece ja escolhido */
+  var tokenAtual=x?mpTokenDaOrdem(x):"";
+  if(tokenAtual&&!toks.some(function(o){ return o[0]===tokenAtual; })){ toks=toks.concat([[tokenAtual,"Token de outro mapa"]]); }
   formulario(novo?"Entrar na iniciativa":"Editar · iniciativa",[
     {k:"elencoId",rot:"Alguém do elenco (opcional)",tipo:"sel",ops:iniOpcoesElenco(),
-      dica:"Ligar ao elenco preenche o nome e deixa o token do mapa ligado a essa pessoa se mover só na vez dela."},
-    {k:"nome",rot:"Quem",dica:"Vazio, usa o nome de quem do elenco foi escolhido.",
-      valida:function(v,w){ return String(v||"").trim()||w.elencoId?"":"Informe um nome ou escolha alguém do elenco."; }},
+      dica:"Preenche o nome."},
+    {k:"tokenId",rot:"Token no mapa (opcional)",tipo:"sel",ops:[["","Nenhum"]].concat(toks),
+      dica:"O token ligado aqui só se move na vez desta entrada (o do jogador, não o seu)."},
+    {k:"nome",rot:"Quem",dica:"Vazio, usa o nome do token ou de quem do elenco foi escolhido.",
+      valida:function(v,w){ return String(v||"").trim()||w.elencoId||w.tokenId?"":"Informe um nome ou escolha alguém do elenco ou um token."; }},
     {k:"v",rot:"Iniciativa",tipo:"num"},
     {k:"oc",rot:"Esconder nome e valor dos "+V("jogadores").toLowerCase(),tipo:"check"}
-  ],x||{nome:"",v:"",oc:false,elencoId:""},{
-    salvar:function(w){ var alvo=x||{id:uid("i")}; alvo.elencoId=w.elencoId||"";
-      alvo.nome=String(w.nome).trim()||iniNomeDoElenco(w.elencoId); alvo.v=w.v; alvo.oc=!!w.oc;
+  ],x?{...x,tokenId:tokenAtual}:{nome:"",v:"",oc:false,elencoId:"",tokenId:""},{
+    salvar:function(w){ var alvo=x||{id:uid("i")}; alvo.elencoId=w.elencoId||""; alvo.tokenId=w.tokenId||"";
+      alvo.nome=String(w.nome).trim()||nomeTok(w.tokenId)||iniNomeDoElenco(w.elencoId); alvo.v=w.v; alvo.oc=!!w.oc;
       if(novo)ini.lista.push(alvo); if(!ini.vez)ini.vez=iniOrdem(ini)[0].id; iniMudou(s); },
     remover:novo?null:function(){ comDesfazer("Saiu da iniciativa",function(){
       ini.lista=ini.lista.filter(function(y){ return y!==x; }); if(ini.vez===x.id)ini.vez=(iniOrdem(ini)[0]||{}).id||""; iniMudou(s); }); }

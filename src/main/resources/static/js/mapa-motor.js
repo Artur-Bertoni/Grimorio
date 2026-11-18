@@ -1,4 +1,5 @@
-/* Tabletop: desenho do mapa no canvas, pan, zoom, pinca e arraste de token (js/mapa-motor.js). */
+/* Tabletop: desenho do mapa no canvas, pan, zoom, pinca, arraste e ferramentas (js/mapa-motor.js).
+   Camadas, desenhos, areas e selecao moram em js/mapa-formas.js. */
 "use strict";
 
 /* O mapa e desenhado num canvas 2D, nao em DOM: uma imagem de 4096px com centenas de casas e
@@ -37,7 +38,7 @@ function mpCores(){
   var s=getComputedStyle(document.documentElement);
   function c(n){ return s.getPropertyValue(n).trim(); }
   return {fundo:c("--bg"),area:c("--bg2"),ficha:c("--bg3"),grade:c("--fg"),linha:c("--line2"),
-    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),perigo:c("--blood"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif"};
+    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),perigo:c("--blood"),ok:c("--ok"),aviso:c("--warn"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif"};
 }
 
 /* ---------- desenho ---------- */
@@ -61,7 +62,11 @@ function mpPinta(){
   var tela={x0:-v.x/v.z,y0:-v.y/v.z,x1:(c.w-v.x)/v.z,y1:(c.h-v.y)/v.z};
   mpPintaGrid(ctx,tela,v.z,cor,W,H);
   ctx.strokeStyle=cor.linha; ctx.lineWidth=1/v.z; ctx.strokeRect(0,0,W,H);
-  MP.els.forEach(function(el){ mpPintaToken(ctx,el,v.z,cor,tela); });
+  /* camada por camada, de baixo para cima; dentro de cada uma, na ordem da lista */
+  mpOrdenados().forEach(function(el){
+    if(el.tipo==="DESENHO"){ mpPintaDesenho(ctx,el,v.z,cor); } else { mpPintaToken(ctx,el,v.z,cor,tela); }
+  });
+  mpPintaFerramentas(ctx,v.z,cor);
   mpPintaMedidas(ctx,v.z,cor);
 }
 function mpPintaGrid(ctx,tela,z,cor,W,H){
@@ -112,7 +117,7 @@ function mpRaio(el){ return Math.max(4,mpNum(el.dados?.tam,1)*mpLado()/2); }
 function mpPintaToken(ctx,el,z,cor,tela){
   var d=el.dados||{}, R=mpRaio(el), x=mpNum(d.x,0), y=mpNum(d.y,0);
   if(x+R<tela.x0||x-R>tela.x1||y+R<tela.y0||y-R>tela.y1){ return; }
-  var sel=String(MP.sel)===String(el.id);
+  var sel=mpEhSel(el.id);
   ctx.save();
   ctx.translate(x,y);
   if(el.visivel===false){ ctx.globalAlpha=0.5; }
@@ -127,8 +132,15 @@ function mpPintaToken(ctx,el,z,cor,tela){
   /* a vez da iniciativa: contorno tracejado em volta do token (o da selecao e inteiro) */
   if(el.daVez){ ctx.lineWidth=2/z; ctx.strokeStyle=cor.ouro; ctx.setLineDash([6/z,4/z]); ctx.strokeRect(-R-3/z,-R-3/z,2*R+6/z,2*R+6/z); ctx.setLineDash([]); }
   if(!im){ mpPintaIniciais(ctx,d,R,cor); }
-  if(R*z>=12||sel){ mpPintaRotulo(ctx,d.nome,R,z,cor); }
+  if(R*z>=8){ mpPintaVida(ctx,d,R,z,cor); }
+  if(R*z>=12||sel){ mpPintaRotulo(ctx,mpRotuloDoToken(d),R,z,cor); mpPintaMarcas(ctx,d,R,z,cor); }
+  if(GM&&mpTrancado(el)){ mpPintaCadeado(ctx,-R,-R,z,cor); }
   ctx.restore();
+}
+/* o nome e, com vida, quanto ela vale: a barra sozinha seria so cor */
+function mpRotuloDoToken(d){
+  var max=mpNum(d.vidaMax,0);
+  return max>0?String(d.nome||"")+" · "+mpFmt(mpNum(d.vida,0))+"/"+mpFmt(max):d.nome;
 }
 /* cabe inteira dentro de 2R x 2R, mantendo a proporcao */
 function mpPintaImagem(ctx,im,R){
@@ -143,7 +155,8 @@ function mpPintaIniciais(ctx,d,R,cor){
   ctx.fillStyle=cor.texto; ctx.textAlign="center"; ctx.textBaseline="middle";
   ctx.font="600 "+Math.max(6,R*0.7)+"px "+cor.fonte;
   ctx.fillText(mpIniciais(d.nome),0,0);
-}/* nome embaixo do token, sempre com 12px na tela, seja qual for o zoom */
+}
+/* nome embaixo do token, sempre com 12px na tela, seja qual for o zoom */
 function mpPintaRotulo(ctx,nome,R,z,cor){
   var t=String(nome||"");
   if(!t){ return; }
@@ -157,6 +170,45 @@ function mpPintaRotulo(ctx,nome,R,z,cor){
   ctx.fillStyle=cor.texto; ctx.textAlign="center"; ctx.textBaseline="top";
   ctx.fillText(t,0,R+pad*2);
 }
+/* barra de vida em cima do token; o numero vai no rotulo, a cor so reforca */
+function mpPintaVida(ctx,d,R,z,cor){
+  var max=mpNum(d.vidaMax,0);
+  if(max<=0){ return; }
+  var f=Math.max(0,Math.min(1,mpNum(d.vida,0)/max)), h=6/z, y=-R-h-2/z;
+  ctx.save(); ctx.globalAlpha=1;
+  ctx.fillStyle=cor.ficha; ctx.fillRect(-R,y,2*R,h);
+  ctx.fillStyle=f>0.5?cor.ok:(f>0.25?cor.aviso:cor.perigo); ctx.fillRect(-R,y,2*R*f,h);
+  ctx.strokeStyle=cor.linha; ctx.lineWidth=1/z; ctx.strokeRect(-R,y,2*R,h);
+  ctx.restore();
+}
+/* condicoes, efeitos e status ao lado do token: o texto e o que vale, a cor e so a faixa */
+function mpPintaMarcas(ctx,d,R,z,cor){
+  var ms=Array.isArray(d.marcas)?d.marcas:[];
+  if(!ms.length){ return; }
+  var fs=12/z, pad=3/z, alt=fs+pad*2, x=R+4/z;
+  ctx.save(); ctx.globalAlpha=1;
+  ctx.font="600 "+fs+"px "+cor.fonte; ctx.textAlign="left"; ctx.textBaseline="middle";
+  var lista=ms.slice(0,3).map(function(m){ return {t:m.t,c:m.c}; });
+  if(ms.length>3){ lista.push({t:"+"+(ms.length-3),c:"neutro"}); }
+  lista.forEach(function(m,i){
+    var w=ctx.measureText(m.t).width, y=-R+i*(alt+2/z);
+    ctx.globalAlpha=0.92; ctx.fillStyle=cor.rotulo; ctx.fillRect(x,y,w+pad*2+3/z,alt);
+    ctx.globalAlpha=1; ctx.fillStyle=mpCorDe(m.c,cor); ctx.fillRect(x,y,3/z,alt);
+    ctx.fillStyle=cor.texto; ctx.fillText(m.t,x+pad+3/z,y+alt/2);
+  });
+  ctx.restore();
+}
+/* o cadeado so aparece para o mestre: o jogador nao sabe o que esta trancado, so que nao se mexe */
+function mpPintaCadeado(ctx,x,y,z,cor){
+  var u=1/z;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle=cor.rotulo; ctx.fillRect(0,0,14*u,14*u);
+  ctx.fillStyle=cor.texto; ctx.fillRect(3*u,7*u,8*u,5*u);
+  ctx.strokeStyle=cor.texto; ctx.lineWidth=1.5*u;
+  ctx.beginPath(); ctx.arc(7*u,6*u,2.5*u,Math.PI,0); ctx.stroke();
+  ctx.restore();
+}
 
 /* ---------- medidas: regua e trajeto do token ---------- */
 /* Duas coisas se medem: a regua (dois pontos ou tokens, so na tela de quem mede) e o trajeto do
@@ -168,16 +220,45 @@ function mpDistTexto(casas){
   var t=mpFmt(casas*mpEscalaCasa())+" "+mpUnidade(), c=mpFmt(casas);
   return t.trim()+" · "+c+(c==="1"?" casa":" casas");
 }
+/* Regua por pontos: cada clique e um ponto do caminho; Enter ou duplo clique termina, o clique seguinte comeca outro. */
+function mpPontoDoTrajeto(a){
+  var r=MP.regua;
+  if(!r?.pts||r.fim){ MP.regua={a:a,b:a,pts:[a],fim:false,cursor:a}; return; }
+  r.pts.push(a); r.b=a;
+}
+function mpTerminaTrajeto(doisCliques){
+  var r=MP.regua;
+  if(!r?.pts){ return; }
+  /* o segundo clique do duplo clique ja pos um ponto igual ao anterior */
+  if(doisCliques&&r.pts.length>1){
+    var u=r.pts[r.pts.length-1], v=r.pts[r.pts.length-2];
+    if(Math.hypot(u.x-v.x,u.y-v.y)<2){ r.pts.pop(); }
+  }
+  r.fim=true; r.cursor=null; mpDesenha();
+}
 function mpPintaMedidas(ctx,z,cor){
   var a=MP.medida;
   if(a){ mpPintaTraco(ctx,z,cor,a); }
   var r=MP.regua;
+  if(r?.pts){
+    var t=r.pts.map(function(q){ return [q.x,q.y]; });
+    if(r.cursor&&!r.fim){ t.push([r.cursor.x,r.cursor.y]); }
+    if(t.length>1){ mpPintaTraco(ctx,z,cor,{x0:t[0][0],y0:t[0][1],x1:t[t.length-1][0],y1:t[t.length-1][1],trilha:t,fantasma:0}); }
+    return;
+  }
   if(r&&(r.a.x!==r.b.x||r.a.y!==r.b.y)){ mpPintaTraco(ctx,z,cor,{x0:r.a.x,y0:r.a.y,x1:r.b.x,y1:r.b.y,fantasma:0}); }
 }
 /* a linha, as pontas e o rotulo com 12px na tela; passando do deslocamento, a linha vira vermelha
    e o rotulo diz quanto passou (a cor sozinha nao conta) */
+/* a soma dos trechos de um caminho; nunca menos que a reta, como o servidor cobra */
+function mpDistTrilha(t){
+  var s=0;
+  for(var i=1;i<t.length;i++){ s+=mpDistCasas(t[i-1][0],t[i-1][1],t[i][0],t[i][1]); }
+  var u=t[t.length-1];
+  return Math.max(s,mpDistCasas(t[0][0],t[0][1],u[0],u[1]));
+}
 function mpPintaTraco(ctx,z,cor,a){
-  var casas=mpDistCasas(a.x0,a.y0,a.x1,a.y1), texto=mpDistTexto(casas), passa=false;
+  var casas=a.trilha?mpDistTrilha(a.trilha):mpDistCasas(a.x0,a.y0,a.x1,a.y1), texto=mpDistTexto(casas), passa=false;
   if(a.el&&!GM&&mpNum(a.el.dados?.desl,0)>0){
     var resta=a.el.dados.desl-mpNum(a.el.dados.usado,0), custo=casas*mpEscalaCasa();
     passa=custo>resta+0.000001;
@@ -186,11 +267,13 @@ function mpPintaTraco(ctx,z,cor,a){
   ctx.save();
   ctx.strokeStyle=passa?cor.perigo:cor.ouro; ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=2/z;
   ctx.setLineDash([8/z,5/z]);
-  ctx.beginPath(); ctx.moveTo(a.x0,a.y0); ctx.lineTo(a.x1,a.y1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(a.x0,a.y0);
+  if(a.trilha){ a.trilha.forEach(function(q,i){ if(i){ ctx.lineTo(q[0],q[1]); } }); } else { ctx.lineTo(a.x1,a.y1); }
+  ctx.stroke();
   ctx.setLineDash([]);
   [[a.x0,a.y0],[a.x1,a.y1]].forEach(function(p){ ctx.beginPath(); ctx.arc(p[0],p[1],4/z,0,Math.PI*2); ctx.fill(); });
   if(a.destino){ ctx.strokeRect(a.destino.x-a.destino.R,a.destino.y-a.destino.R,2*a.destino.R,2*a.destino.R); }
-  var fs=12/z, pad=4/z, mx=(a.x0+a.x1)/2, my=(a.y0+a.y1)/2;
+  var fs=12/z, pad=4/z, mx=a.trilha?a.x1:(a.x0+a.x1)/2, my=a.trilha?a.y1-14/z:(a.y0+a.y1)/2;
   ctx.font="600 "+fs+"px "+cor.fonte;
   var w=ctx.measureText(texto).width;
   ctx.globalAlpha=0.92; ctx.fillStyle=cor.rotulo; ctx.fillRect(mx-w/2-pad,my-fs/2-pad,w+pad*2,fs+pad*2);
@@ -204,11 +287,25 @@ function mpMundo(e){
   var r=MPC.cv.getBoundingClientRect(), v=mpVista();
   return {x:(e.clientX-r.left-v.x)/v.z, y:(e.clientY-r.top-v.y)/v.z};
 }
+/* O token (so token) que esta embaixo do ponto: de cima para baixo, sem as camadas escondidas. */
 function mpTokenEm(wx,wy){
-  for(var i=MP.els.length-1;i>=0;i--){
-    var el=MP.els[i], d=el.dados||{};
-    var R=mpRaio(el);
-    if(Math.abs(wx-mpNum(d.x,0))<=R&&Math.abs(wy-mpNum(d.y,0))<=R){ return el; }
+  var l=mpOrdenados();
+  for(var i=l.length-1;i>=0;i--){
+    var el=l[i];
+    if(el.tipo!=="DESENHO"&&mpAcertaToken(el,wx,wy)){ return el; }
+  }
+  return null;
+}
+function mpAcertaToken(el,wx,wy){
+  var d=el.dados||{}, R=mpRaio(el);
+  return Math.abs(wx-mpNum(d.x,0))<=R&&Math.abs(wy-mpNum(d.y,0))<=R;
+}
+/* O elemento de cima do ponto, token ou desenho: e o que o mestre seleciona. */
+function mpElementoEm(wx,wy){
+  var l=mpOrdenados(), z=mpVista().z;
+  for(var i=l.length-1;i>=0;i--){
+    var el=l[i];
+    if(el.tipo==="DESENHO"?mpAcertaDesenho(el,wx,wy,z):mpAcertaToken(el,wx,wy)){ return el; }
   }
   return null;
 }
@@ -274,8 +371,8 @@ function mpZoom(fator,cx,cy){
 }
 function mpCentraliza(el){
   if(!MPC||!el){ return; }
-  var v=mpVista(), d=el.dados||{};
-  v.x=(MPC.w-mpLarguraDoPainel())/2-mpNum(d.x,0)*v.z; v.y=MPC.h/2-mpNum(d.y,0)*v.z;
+  var v=mpVista(), b=mpBBox(el);
+  v.x=(MPC.w-mpLarguraDoPainel())/2-(b.x0+b.x1)/2*v.z; v.y=MPC.h/2-(b.y0+b.y1)/2*v.z;
   mpDesenha();
 }
 function mpMede(){
@@ -287,48 +384,61 @@ function mpMede(){
 }
 
 /* ---------- mouse, dedo e caneta ---------- */
+/* mover e selecionar arrastam; regua, area e as formas de desenho "miram" (cursor de mira) */
+function mpMira(){ return MP.ferramenta!=="mover"&&MP.ferramenta!=="selecionar"; }
+/* Encaixar na grade e escolha do mestre para todos (regras.encaixe do mapa); o Alt, so do mestre, inverte no arraste. */
+function mpEncaixando(){ return MP.mapa?.regras?.encaixe!==false; }
+function mpLivre(e){
+  var enc=mpEncaixando();
+  return GM?(enc?e.altKey:!e.altKey):!enc;
+}
 function mpMotor(wrap){
   var cv=$("#mpCanvas",wrap);
   if(!cv){ return; }
   MPC={wrap:wrap,cv:cv,ctx:cv.getContext("2d"),w:0,h:0,dpr:1,pedido:0};
-  cv.classList.toggle("regua",MP.ferramenta==="regua");
+  cv.classList.toggle("regua",mpMira());
   mpMede();
   if(window.ResizeObserver){ new ResizeObserver(mpMede).observe(wrap); }
   var toques={}, pinca=null, arr=null;
   function dois(){ var k=Object.keys(toques); return k.length===2?[toques[k[0]],toques[k[1]]]:null; }
-  function soltaToken(volta){
-    if(arr?.m==="t"&&arr.moveu&&volta){ arr.el.dados.x=arr.ox; arr.el.dados.y=arr.oy; mpDesenha(); }
-    MP.arrastando=null;
-  }
   cv.addEventListener("pointerdown",function(e){
     if(e.pointerType==="mouse"&&e.button>1){ return; }
     try{ cv.setPointerCapture(e.pointerId); }catch(error_){ /* sem captura o arraste so para na borda */ }
     toques[e.pointerId]={x:e.clientX,y:e.clientY};
     var par=dois();
-    if(par){ soltaToken(true); MP.medida=null; arr=null; pinca=mpComecaPinca(par,cv); return; }
+    if(par){ mpRestauraArraste(arr); MP.arrastando=null; MP.medida=null; MP.rascunho=null; MP.caixa=null; arr=null; pinca=mpComecaPinca(par,cv); return; }
     arr=mpComecaArraste(e);
     mpPintaPainel(); mpDesenha();
   });
   cv.addEventListener("pointermove",function(e){
     if(toques[e.pointerId]){ toques[e.pointerId]={x:e.clientX,y:e.clientY}; }
     if(pinca){ var par=dois(); if(par){ mpSeguePinca(pinca,par); } return; }
-    if(arr){ mpSegueArraste(arr,e); }
+    if(arr){ mpSegueArraste(arr,e); return; }
+    /* o poligono e o trajeto da regua mostram o proximo lado seguindo o cursor, mesmo sem botao apertado */
+    if(MP.rascunho?.forma==="poligono"){ var q=mpPontoDesenho(e,mpMundo(e)); MP.rascunho.cursor=q; mpDesenha(); }
+    else if(MP.regua?.pts&&!MP.regua.fim){ MP.regua.cursor=mpPontoDaRegua(e,mpMundo(e)); mpDesenha(); }
   });
   function fim(e,cancelou){
     delete toques[e.pointerId];
     if(!dois()){ pinca=null; }
-    if(arr?.m==="t"&&arr.moveu&&!cancelou){ mpSoltaToken(arr,MP.encaixa?e.altKey:!e.altKey); }
-    else { soltaToken(cancelou); }
-    /* um clique solto com a regua apaga a medida; arrastar deixa ela na tela ate o proximo clique ou Esc */
-    if(arr?.m==="r"&&(!arr.moveu||cancelou)){ MP.regua=null; }
+    var a=arr; arr=null;
+    if(a){ mpTerminaArraste(a,e,cancelou); } else { MP.arrastando=null; }
     MP.medida=null; mpDesenha();
-    arr=null;
   }
   cv.addEventListener("pointerup",function(e){ fim(e,false); });
   cv.addEventListener("pointercancel",function(e){ fim(e,true); });
   cv.addEventListener("dblclick",function(e){
-    var p=mpMundo(e), el=mpTokenEm(p.x,p.y);
-    if(el&&GM){ mpEditaToken(el); }
+    if(MP.rascunho?.forma==="poligono"){ mpFechaPoligono(true); return; }
+    if(MP.regua?.pts&&!MP.regua.fim){ mpTerminaTrajeto(true); return; }
+    if(!GM){
+      /* o jogador abre so o proprio token: nele ele muda a vida e as marcas */
+      var q=mpMundo(e), meu=mpTokenEm(q.x,q.y);
+      if(meu?.meu){ mpEditaMeuToken(meu); }
+      return;
+    }
+    var p=mpMundo(e), el=mpElementoEm(p.x,p.y);
+    if(!el){ return; }
+    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else { mpEditaToken(el); }
   });
   cv.addEventListener("wheel",function(e){
     e.preventDefault();
@@ -336,63 +446,249 @@ function mpMotor(wrap){
     mpZoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);
   },{passive:false});
 }
+/* O que cada modo de arraste faz ao soltar (arr.m: t token do jogador, g grupo do mestre, p fundo,
+   r regua, a area, d/dp/dm desenho, s caixa de selecao). */
+function mpTerminaArraste(a,e,cancelou){
+  var livre=mpLivre(e);
+  if(a.m==="t"&&a.moveu&&!cancelou){ mpSoltaToken(a,livre); }
+  else if(a.m==="g"&&a.moveu&&!cancelou){ mpSoltaGrupo(a,livre); }
+  else { if(cancelou){ mpRestauraArraste(a); } MP.arrastando=null; }
+  /* um clique solto com a regua ou a area apaga a medida; arrastar deixa ela na tela ate o proximo clique ou Esc */
+  if(a.m==="r"&&(!a.moveu||cancelou)){ MP.regua=null; }
+  if(a.m==="a"){ if(!a.moveu||cancelou){ MP.area=null; } mpPintaPainel(); }
+  if(a.m==="d"||a.m==="dp"||a.m==="dm"){ mpTerminaDesenho(a,cancelou); }
+  if(a.m==="s"){ mpTerminaCaixa(a,cancelou); }
+}
 /* ponta da regua: o centro do token que esta embaixo, ou o ponto (no centro da casa, se encaixa) */
 function mpPontoDaRegua(e,p){
   var el=mpTokenEm(p.x,p.y);
   if(el){ return {x:mpNum(el.dados.x,0),y:mpNum(el.dados.y,0)}; }
-  return (MP.encaixa?e.altKey:!e.altKey)?{x:p.x,y:p.y}:mpEncaixa(p.x,p.y,1);
+  return mpLivre(e)?{x:p.x,y:p.y}:mpEncaixa(p.x,p.y,1);
 }
+/* origem de uma area: o centro do token, ou o canto da casa mais perto (e onde o molde se apoia) */
+function mpPontoDaArea(e,p){
+  var el=mpTokenEm(p.x,p.y);
+  if(el){ return {x:mpNum(el.dados.x,0),y:mpNum(el.dados.y,0)}; }
+  return mpPontoDesenho(e,p);
+}
+function mpArrastaFundo(e,v){ return {m:"p",sx:e.clientX,sy:e.clientY,ox:v.x,oy:v.y,moveu:false}; }
 function mpComecaArraste(e){
-  var p=mpMundo(e), v=mpVista();
-  if(MP.ferramenta==="regua"&&e.button!==1){
+  var p=mpMundo(e), v=mpVista(), f=MP.ferramenta;
+  if(e.button===1){ return mpArrastaFundo(e,v); }
+  if(f==="ping"){ mpPing(p); return {m:"n",sx:e.clientX,sy:e.clientY,moveu:false}; }
+  if(f==="regua"){
     var a=mpPontoDaRegua(e,p);
+    if(MP.reguaModo==="trajeto"){ mpPontoDoTrajeto(a); return {m:"n",sx:e.clientX,sy:e.clientY,moveu:false}; }
     MP.regua={a:a,b:a};
     return {m:"r",sx:e.clientX,sy:e.clientY,moveu:false};
   }
-  var el=e.button===1?null:mpTokenEm(p.x,p.y);
-  MP.sel=el?el.id:null;
+  if(f.indexOf("a-")===0){
+    var o=mpPontoDaArea(e,p);
+    MP.area={tipo:f.slice(2),a:o,b:o};
+    return {m:"a",sx:e.clientX,sy:e.clientY,moveu:false};
+  }
+  if(GM&&MP_FORMAS.includes(f)){ return mpComecaDesenho(e,p,f); }
+  return GM?mpComecaSelecao(e,p,v):mpComecaJogador(e,p,v);
+}
+/* o jogador so mexe nos tokens: tocar em desenho ou fundo arrasta o fundo */
+function mpComecaJogador(e,p,v){
+  var el=mpTokenEm(p.x,p.y);
+  mpSelecionaIds(el?[el.id]:[]);
   /* o servidor so libera o token na vez dele: sem este aviso o arraste viraria um empurrao no fundo, sem explicacao */
   if(el?.esperaVez&&Date.now()-(MP.avisouVezEm||0)>1500){ MP.avisouVezEm=Date.now(); toast("Ainda não é a vez de "+(el.dados.nome||Vm("token"))+".","aviso"); }
-  if(el?.podeMover){
+  if(el&&mpMovivel(el)){
     return {m:"t",el:el,dx:p.x-mpNum(el.dados.x,0),dy:p.y-mpNum(el.dados.y,0),sx:e.clientX,sy:e.clientY,
-      ox:el.dados.x,oy:el.dados.y,moveu:false};
+      ox:el.dados.x,oy:el.dados.y,moveu:false,trilha:[[mpNum(el.dados.x,0),mpNum(el.dados.y,0)]]};
   }
-  return {m:"p",sx:e.clientX,sy:e.clientY,ox:v.x,oy:v.y,moveu:false};
+  return mpArrastaFundo(e,v);
+}
+/* O mestre seleciona token e desenho. Shift ou Ctrl soma ou tira da selecao; arrastar um item da
+   selecao leva todos os soltos juntos; arrastar o vazio (com Shift, ou na ferramenta Selecionar)
+   desenha a caixa de selecao. */
+function mpComecaSelecao(e,p,v){
+  var el=mpElementoEm(p.x,p.y), aditivo=e.shiftKey||e.ctrlKey||e.metaKey;
+  if(el){
+    if(aditivo){ mpAlternaSel(el.id); return {m:"n",sx:e.clientX,sy:e.clientY,moveu:false}; }
+    if(!mpEhSel(el.id)){ mpSelecionaIds([el.id]); }
+    if(mpMovivel(el)){ return mpComecaGrupo(e,p,el); }
+    if(Date.now()-(MP.avisouTrancoEm||0)>1500){ MP.avisouTrancoEm=Date.now(); toast("Está trancado: destranque para mexer.","aviso"); }
+    return mpArrastaFundo(e,v);
+  }
+  if(MP.ferramenta==="selecionar"||aditivo){
+    MP.caixa={a:p,b:p};
+    return {m:"s",a:p,b:p,add:aditivo,base:aditivo?mpSelecao():[],sx:e.clientX,sy:e.clientY,moveu:false};
+  }
+  mpSelecionaIds([]);
+  return mpArrastaFundo(e,v);
+}
+/* ---------- arraste em grupo (mestre) ---------- */
+function mpAncora(el){
+  var d=el.dados||{};
+  return el.tipo==="DESENHO"?{x:d.pts[0][0],y:d.pts[0][1]}:{x:mpNum(d.x,0),y:mpNum(d.y,0)};
+}
+/* o estado de antes de cada item: e dele que se parte a cada quadro, e para ele que se volta se der errado */
+function mpSnap(el){
+  var d=el.dados, s={el:el};
+  if(el.tipo==="DESENHO"){ s.pts=d.pts.map(function(q){ return [q[0],q[1]]; }); } else { s.x=mpNum(d.x,0); s.y=mpNum(d.y,0); }
+  return s;
+}
+function mpAplicaSnap(s,dx,dy){
+  var d=s.el.dados;
+  if(s.pts){ d.pts=s.pts.map(function(q){ return [q[0]+dx,q[1]+dy]; }); } else { d.x=s.x+dx; d.y=s.y+dy; }
+}
+function mpComecaGrupo(e,p,el){
+  var snaps=mpSelecionados().filter(mpMovivel).map(mpSnap), an=mpAncora(el);
+  return {m:"g",el:el,snaps:snaps,an:an,dx:p.x-an.x,dy:p.y-an.y,delta:{x:0,y:0},sx:e.clientX,sy:e.clientY,moveu:false};
+}
+/* onde o grupo cai: o item que se segura vai para o encaixe (o centro da casa, para o token; o canto, para o desenho) e os outros andam o mesmo */
+function mpDeltaFinal(arr,livre){
+  if(livre){ return {dx:arr.delta.x,dy:arr.delta.y}; }
+  var tx=arr.an.x+arr.delta.x, ty=arr.an.y+arr.delta.y;
+  var s=arr.el.tipo==="DESENHO"?mpEncaixaPonto(tx,ty):mpEncaixa(tx,ty,mpNum(arr.el.dados.tam,1));
+  return {dx:s.x-arr.an.x,dy:s.y-arr.an.y};
+}
+function mpRestauraGrupo(arr){
+  arr.snaps.forEach(function(s){ mpAplicaSnap(s,0,0); });
+  mpDesenha();
+}
+function mpRestauraArraste(a){
+  if(!a?.moveu){ return; }
+  if(a.m==="t"){ a.el.dados.x=a.ox; a.el.dados.y=a.oy; mpDesenha(); }
+  else if(a.m==="g"){ mpRestauraGrupo(a); }
+}
+function mpArred(n){ return Math.round(n*10)/10; }
+function mpItemMovido(el){
+  var d=el.dados;
+  return {id:el.id,dados:d.pts?{pts:d.pts.map(function(q){ return [mpArred(q[0]),mpArred(q[1])]; })}:{x:mpArred(d.x),y:mpArred(d.y)}};
+}
+function mpSoltaGrupo(arr,livre){
+  var f=mpDeltaFinal(arr,livre);
+  MP.arrastando=null;
+  if(Math.abs(f.dx)<0.05&&Math.abs(f.dy)<0.05){ mpRestauraGrupo(arr); return; }
+  var un=arr.snaps.length===1?arr.snaps[0]:null;
+  /* um token so segue o caminho de sempre (PUT do token); o resto vai numa operacao so */
+  if(un&&!un.pts){ mpAplicaSnap(un,0,0); mpMover(un.el,mpArred(un.x+f.dx),mpArred(un.y+f.dy)); return; }
+  var itens=arr.snaps.map(function(s){ mpAplicaSnap(s,f.dx,f.dy); return mpItemMovido(s.el); });
+  mpLote(itens,"não consegui mover").catch(function(){ mpRestauraGrupo(arr); });
+}
+/* ---------- desenhar ---------- */
+function mpComecaDesenho(e,p,f){
+  var a=mpPontoDesenho(e,p), base={sx:e.clientX,sy:e.clientY,moveu:false,forma:f,p:a};
+  if(f==="marca"){ base.m="dm"; return base; }
+  if(f==="poligono"){ base.m="dp"; return base; }
+  MP.rascunho={forma:f,pts:[[a.x,a.y],[a.x,a.y]]};
+  base.m="d";
+  return base;
+}
+function mpTerminaDesenho(a,cancelou){
+  if(a.m==="d"){
+    var r=MP.rascunho; MP.rascunho=null;
+    if(!cancelou&&a.moveu&&r&&Math.hypot(r.pts[1][0]-r.pts[0][0],r.pts[1][1]-r.pts[0][1])>=2){ mpCriaDesenho(r.forma,r.pts); }
+  } else if(!cancelou&&!a.moveu){
+    if(a.m==="dm"){ mpNovaMarca(a.p); } else { mpPontoPoligono(a.p); }
+  }
+}
+/* cada clique e um vertice; clicar perto do primeiro, dar dois cliques ou apertar Enter fecha */
+function mpPontoPoligono(p){
+  var r=MP.rascunho;
+  if(!r){ MP.rascunho={forma:"poligono",pts:[[p.x,p.y]],cursor:p}; return; }
+  var pr=r.pts[0];
+  if(r.pts.length>=3&&Math.hypot(p.x-pr[0],p.y-pr[1])<=10/mpVista().z){ mpFechaPoligono(false); return; }
+  r.pts.push([p.x,p.y]);
+}
+function mpFechaPoligono(doisCliques){
+  var r=MP.rascunho;
+  if(!r){ return; }
+  var pts=r.pts.slice();
+  /* o segundo clique do duplo clique ja pos um vertice igual ao anterior */
+  if(doisCliques&&pts.length>1){
+    var u=pts[pts.length-1], a=pts[pts.length-2];
+    if(Math.hypot(u[0]-a[0],u[1]-a[1])<2){ pts.pop(); }
+  }
+  MP.rascunho=null;
+  if(pts.length>=3){ mpCriaDesenho("poligono",pts); } else { mpDesenha(); }
+}
+/* ---------- caixa de selecao ---------- */
+function mpTerminaCaixa(a,cancelou){
+  MP.caixa=null;
+  if(cancelou){ return; }
+  if(!a.moveu){ if(!a.add){ mpSelecionaIds([]); } return; }
+  var r={x0:Math.min(a.a.x,a.b.x),y0:Math.min(a.a.y,a.b.y),x1:Math.max(a.a.x,a.b.x),y1:Math.max(a.a.y,a.b.y)};
+  var ids=mpOrdenados().filter(function(el){ var b=mpBBox(el); return b.x1>=r.x0&&b.x0<=r.x1&&b.y1>=r.y0&&b.y0<=r.y1; })
+    .map(function(el){ return String(el.id); });
+  mpSelecionaIds(a.base.concat(ids.filter(function(i){ return !a.base.includes(i); })));
 }
 function mpSegueArraste(arr,e){
   var dx=e.clientX-arr.sx, dy=e.clientY-arr.sy;
   if(!arr.moveu&&Math.abs(dx)<4&&Math.abs(dy)<4){ return; }
   arr.moveu=true;
-  if(arr.m==="r"){
+  var m=arr.m;
+  if(m==="r"){
     MP.regua.b=mpPontoDaRegua(e,mpMundo(e));
-  } else if(arr.m==="t"){
-    MP.arrastando=arr.el.id;
+  } else if(m==="a"){
+    MP.area.b=mpPontoDaArea(e,mpMundo(e));
+  } else if(m==="d"){
+    var b=mpPontoDesenho(e,mpMundo(e));
+    MP.rascunho.pts[1]=[b.x,b.y];
+  } else if(m==="s"){
+    arr.b=mpMundo(e); MP.caixa={a:arr.a,b:arr.b};
+  } else if(m==="t"){
+    MP.arrastando=[String(arr.el.id)];
     var p=mpMundo(e), d=arr.el.dados;
     d.x=p.x-arr.dx; d.y=p.y-arr.dy;
     /* o trajeto mostra onde o token vai cair, ja com o encaixe, e quanto custa chegar la */
-    var s=(MP.encaixa?e.altKey:!e.altKey)?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
-    MP.medida={x0:arr.ox,y0:arr.oy,x1:s.x,y1:s.y,el:arr.el,destino:{x:s.x,y:s.y,R:mpRaio(arr.el)}};
-  } else {
+    var s=mpLivre(e)?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
+    mpAnotaTrilha(arr,d);
+    MP.medida={x0:arr.ox,y0:arr.oy,x1:s.x,y1:s.y,el:arr.el,destino:{x:s.x,y:s.y,R:mpRaio(arr.el)},
+      trilha:arr.trilha.concat([[s.x,s.y]])};
+  } else if(m==="g"){
+    mpSegueGrupo(arr,e);
+  } else if(m==="p"){
     var v=mpVista(); v.x=arr.ox+dx; v.y=arr.oy+dy;
   }
   mpDesenha();
 }
+function mpSegueGrupo(arr,e){
+  MP.arrastando=arr.snaps.map(function(s){ return String(s.el.id); });
+  var p=mpMundo(e);
+  arr.delta={x:p.x-arr.dx-arr.an.x,y:p.y-arr.dy-arr.an.y};
+  arr.snaps.forEach(function(s){ mpAplicaSnap(s,arr.delta.x,arr.delta.y); });
+  if(arr.el.tipo==="DESENHO"){ return; }
+  var f=mpDeltaFinal(arr,mpLivre(e));
+  MP.medida={x0:arr.an.x,y0:arr.an.y,x1:arr.an.x+f.dx,y1:arr.an.y+f.dy,el:arr.el,destino:{x:arr.an.x+f.dx,y:arr.an.y+f.dy,R:mpRaio(arr.el)}};
+}
 /* Um passo de teclado: uma casa para o lado escolhido. Na grade hexagonal as setas para os lados andam
-   uma casa e as de cima e de baixo vao para a vizinha da direita (com Shift, da esquerda). */
+   uma casa e as de cima e de baixo vao para a vizinha da direita (com Shift, da esquerda). Com varios
+   itens selecionados (mestre) todos andam juntos, numa operacao so. */
 function mpAnda(dx,dy,esquerda){
-  var el=mpEl(MP.sel);
-  if(!el?.podeMover){ return; }
-  var d=el.dados, g=mpGrid(), T=mpLado(), x=mpNum(d.x,0), y=mpNum(d.y,0), nx=x+dx*T, ny=y+dy*T;
-  if(g.tipo==="hex"&&dy!==0){ ny=y+dy*1.5*T/Math.sqrt(3); nx=x+(esquerda?-1:1)*T/2; }
-  var s=MP.encaixa?mpEncaixa(nx,ny,mpNum(d.tam,1)):{x:nx,y:ny};
-  mpMover(el,Math.round(s.x*10)/10,Math.round(s.y*10)/10);
+  var sels=mpSelecionados().filter(mpMovivel);
+  if(!sels.length){ return; }
+  var g=mpGrid(), T=mpLado(), pdx=dx*T, pdy=dy*T;
+  if(g.tipo==="hex"&&dy!==0){ pdy=dy*1.5*T/Math.sqrt(3); pdx=(esquerda?-1:1)*T/2; }
+  if(sels.length===1&&sels[0].tipo==="TOKEN"){
+    var d=sels[0].dados, x=mpNum(d.x,0)+pdx, y=mpNum(d.y,0)+pdy;
+    var s=mpEncaixando()?mpEncaixa(x,y,mpNum(d.tam,1)):{x:x,y:y};
+    mpMover(sels[0],mpArred(s.x),mpArred(s.y));
+    return;
+  }
+  mpLote(sels.map(function(el){
+    var sn=mpSnap(el); mpAplicaSnap(sn,pdx,pdy); var it=mpItemMovido(el); mpAplicaSnap(sn,0,0); return it;
+  }),"não consegui mover").catch(function(){ /* o aviso ja saiu em mpGrava */ });
+}
+/* O arraste do jogador guarda os pontos por onde passou: o deslocamento do turno e cobrado pelo caminho (nunca menos que a reta). */
+function mpAnotaTrilha(arr,d){
+  var u=arr.trilha[arr.trilha.length-1];
+  if(Math.hypot(d.x-u[0],d.y-u[1])<mpLado()/2){ return; }
+  arr.trilha.push([d.x,d.y]);
+  /* o servidor aceita ate 60 pontos: passando de 50, fica um sim e um nao */
+  if(arr.trilha.length>50){ arr.trilha=arr.trilha.filter(function(q,i){ return i===0||i%2===0||i===arr.trilha.length-1; }); }
 }
 function mpSoltaToken(arr,livre){
   var el=arr.el, d=el.dados, s=livre?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
   /* volta ao ponto de partida antes de gravar: se o servidor recusar, mpMover desfaz para la */
   d.x=arr.ox; d.y=arr.oy;
   MP.arrastando=null;
-  mpMover(el,Math.round(s.x*10)/10,Math.round(s.y*10)/10);
+  mpMover(el,mpArred(s.x),mpArred(s.y),arr.trilha.slice(1));
 }
 function mpComecaPinca(par,cv){
   var r=cv.getBoundingClientRect(), v=mpVista();

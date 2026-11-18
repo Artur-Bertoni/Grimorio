@@ -162,12 +162,16 @@ function mapasIniciais() {
 mapasIniciais();
 const mestreEm = cid => (CAMPS.find(x => x.id === Number(cid)) || {}).papel !== 'JOGADOR';
 const mapaJson = (m, mestre) => { const { els, ...r } = m; if (!mestre) delete r.cenaId; return r; };
-const podeMover = (m, e, mestre) => mestre || (e.visivel && (e.dono === ST.perfil.id || e.dados.livre || m.regras.quem === 'todos'));
+const camadaTrancada = (m, e) => (m.regras.trancadas || []).includes(e.camada);
+const trancado = (m, e) => !!e.bloqueado || camadaTrancada(m, e);
+const podeMover = (m, e, mestre) => mestre ? !trancado(m, e) : (e.tipo === 'TOKEN' && e.visivel && !trancado(m, e) && (e.dono === ST.perfil.id || e.dados.livre || m.regras.quem === 'todos'));
 const elJson = (m, e, mestre) => {
   const r = { ...e, dados: { ...e.dados }, meu: e.dono === ST.perfil.id, podeMover: podeMover(m, e, mestre) };
   if (!mestre) {
-    const fica = ['x', 'y', 'tam', 'rot', 'nome', 'img', ...(r.meu || r.podeMover ? ['desl', 'usado'] : [])];
-    for (const k of Object.keys(r.dados)) if (!fica.includes(k)) delete r.dados[k];
+    if (e.tipo === 'TOKEN') {
+      const fica = ['x', 'y', 'tam', 'rot', 'nome', 'img', 'marcas', ...(r.meu || r.podeMover ? ['desl', 'usado'] : []), ...(r.meu || e.dados.vidaPublica ? ['vida', 'vidaMax'] : [])];
+      for (const k of Object.keys(r.dados)) if (!fica.includes(k)) delete r.dados[k];
+    }
     delete r.bloqueado;
   }
   return r;
@@ -181,7 +185,7 @@ const casasEntre = (mp, a, b) => {
 };
 const registra = (mp, op, e, antes) => { (mp.hist ||= []).push({ seq: mp.seq, usuario: ST.perfil.id, op, id: e.id, antes: antes ? structuredClone(antes) : null, depois: op === 'remover' ? null : structuredClone(e), desfeito: false }); };
 function rotaMapa(M, p, b, req, res) {
-  let m = p.match(/^\/api\/c\/(\d+)\/mapas(?:\/(\w+))?(?:\/(elementos|ativo|desfazer|historico))?(?:\/(\d+))?$/);
+  let m = p.match(/^\/api\/c\/(\d+)\/mapas(?:\/(\w+))?(?:\/(elementos|ativo|desfazer|historico|ping))?(?:\/(\d+))?$/);
   if (!m) return false;
   const cid = m[1], lista = (MAPAS[cid] ||= []), mestre = mestreEm(cid);
   const sem = (c = 204) => { res.writeHead(c, { 'Set-Cookie': 'XSRF-TOKEN=t0; Path=/' }); res.end(); return true; };
@@ -222,13 +226,14 @@ function rotaMapa(M, p, b, req, res) {
       envia(res, 200, { seq: mp.seq, mapa: mapaJson(mp, mestre), elementos: mp.els.filter(e => mestre || e.visivel).map(e => elJson(mp, e, mestre)) }); return true;
     }
     if (!mestre) { envia(res, 403, { erro: 'so o mestre', codigo: 'proibido' }); return true; }
-    if (M === 'PUT') { for (const k of ['nome', 'imagem', 'grid', 'regras', 'cenaId']) if (b[k] != null) mp[k] = b[k]; mp.seq++; envia(res, 200, mapaJson(mp, true)); return true; }
+    if (M === 'PUT') { for (const k of ['nome', 'imagem', 'grid', 'regras', 'cenaId']) if (b[k] != null) mp[k] = k === 'regras' ? { ...b[k], trancadas: b[k].trancadas || mp.regras.trancadas || [] } : b[k]; mp.seq++; envia(res, 200, mapaJson(mp, true)); return true; }
     if (M === 'DELETE') { MAPAS[cid] = lista.filter(x => x !== mp); return sem(); }
   }
+  if (m[3] === 'ping' && M === 'POST') { sseEnvia(cid, { tipo: 'ping', mapa: mp.id, x: b.x, y: b.y, quem: ST.perfil.nome || 'Alguem', meu: false }); return sem(); }
   if (m[3] === 'historico' && M === 'GET') {
     const linhas = (mp.hist || []).filter(h => mestre || h.usuario === ST.perfil.id).slice().reverse().map(h => {
       const a = h.antes?.dados, d = h.depois?.dados, l = { seq: h.seq, em: new Date().toISOString(), quem: ST.perfil.nome || 'Alguem', operacao: h.op, elemento: h.id,
-        nome: d?.nome || a?.nome || '', desfeito: h.desfeito, meu: h.usuario === ST.perfil.id };
+        nome: d?.nome || a?.nome || d?.rotulo || a?.rotulo || '', tipo: (h.depois || h.antes)?.tipo || 'TOKEN', desfeito: h.desfeito, meu: h.usuario === ST.perfil.id };
       if (a && d && (a.x !== d.x || a.y !== d.y)) l.casas = casasEntre(mp, a, d);
       return l;
     });
@@ -236,31 +241,71 @@ function rotaMapa(M, p, b, req, res) {
   }
   if (m[3] === 'desfazer' && M === 'POST') {
     const alvo = b.seq == null ? null : Number(b.seq);
-    const h = (mp.hist || []).slice().reverse().find(x => x.usuario === ST.perfil.id && !x.desfeito && ['criar', 'mudar', 'remover'].includes(x.op) && (alvo == null || x.seq === alvo));
-    if (!h) { envia(res, alvo == null ? 409 : 404, { erro: 'não há nada seu para desfazer' }); return true; }
-    h.desfeito = true;
-    let e = mp.els.find(x => x.id === h.id), saiu = false;
-    if (h.op === 'criar') { mp.els = mp.els.filter(x => x !== e); saiu = true; }
-    else if (h.op === 'mudar' && e) { if (mestre) Object.assign(e, { dono: h.antes.dono, visivel: h.antes.visivel, dados: structuredClone(h.antes.dados) }); else { for (const k of ['x', 'y']) if (k in h.antes.dados) e.dados[k] = h.antes.dados[k]; e.dados.usado = Math.max(0, (e.dados.usado || 0) - Math.max(0, (h.depois.dados.usado || 0) - (h.antes.dados.usado || 0))); } }
-    else if (h.op === 'remover' && !e) { e = { ...structuredClone(h.antes), id: ++MAPA_SEQ }; mp.els.push(e); for (const x of mp.hist) if (x.id === h.id) x.id = e.id; }
-    mp.seq++; registra(mp, 'desfazer', e || { id: h.id }, null);
-    envia(res, 200, { seq: mp.seq, id: e.id, el: saiu ? null : elJson(mp, e, mestre) }); return true;
+    const h0 = (mp.hist || []).slice().reverse().find(x => x.usuario === ST.perfil.id && !x.desfeito && ['criar', 'mudar', 'remover'].includes(x.op) && (alvo == null || x.seq === alvo));
+    if (!h0) { envia(res, alvo == null ? 409 : 404, { erro: 'não há nada seu para desfazer' }); return true; }
+    const grupo = mp.hist.filter(x => x.usuario === ST.perfil.id && !x.desfeito && ['criar', 'mudar', 'remover'].includes(x.op) && x.seq === h0.seq);
+    const rs = [];
+    for (const h of grupo) {
+      h.desfeito = true;
+      let e = mp.els.find(x => x.id === h.id), saiu = false;
+      if (h.op === 'criar') { mp.els = mp.els.filter(x => x !== e); saiu = true; }
+      else if (h.op === 'mudar' && e) { if (mestre) Object.assign(e, { dono: h.antes.dono, visivel: h.antes.visivel, camada: h.antes.camada, bloqueado: h.antes.bloqueado, dados: structuredClone(h.antes.dados) }); else { for (const k of ['x', 'y']) if (k in h.antes.dados) e.dados[k] = h.antes.dados[k]; e.dados.usado = Math.max(0, (e.dados.usado || 0) - Math.max(0, (h.depois.dados.usado || 0) - (h.antes.dados.usado || 0))); } }
+      else if (h.op === 'remover' && !e) { e = { ...structuredClone(h.antes), id: ++MAPA_SEQ }; mp.els.push(e); for (const x of mp.hist) if (x.id === h.id) x.id = e.id; }
+      if (e) rs.push({ id: e.id, el: saiu ? null : elJson(mp, e, mestre) });
+    }
+    mp.seq++; registra(mp, 'desfazer', { id: h0.id }, null);
+    envia(res, 200, { seq: mp.seq, ...rs[0], ...(rs.length > 1 ? { outros: rs.slice(1) } : {}) }); return true;
   }
   if (m[3] === 'ativo' && mestre) { const liga = b.ativo !== false; for (const x of lista) x.ativo = liga && x === mp; envia(res, 200, { ativo: liga ? mp.id : null }); return true; }
   if (m[3] === 'elementos') {
+    if (M === 'PUT' && mestre && !m[4]) {
+      /* grupo: tudo ou nada, um seq so */
+      const antesTudo = structuredClone(mp.els); mp.seq++;
+      try {
+        const out = [];
+        for (const it of b.itens || []) {
+          const e = mp.els.find(x => x.id === it.id);
+          if (!e) throw new Error('nao achado');
+          if (trancado(mp, e) && !(it.bloqueado === false && e.bloqueado && !camadaTrancada(mp, e))) throw new Error('Está trancado: destranque para mexer.');
+          const antes = structuredClone(e);
+          if (it.remover) { mp.els = mp.els.filter(x => x !== e); registra(mp, 'remover', e, e); out.push({ id: e.id, removido: true }); continue; }
+          Object.assign(e.dados, it.dados || {});
+          for (const k of ['visivel', 'camada', 'bloqueado']) if (it[k] != null) e[k] = it[k];
+          registra(mp, 'mudar', e, antes); out.push(elJson(mp, e, true));
+        }
+        for (const el of out) sseEnvia(cid, el.removido ? { tipo: 'some', seq: mp.seq, mapa: mp.id, id: el.id } : { tipo: 'elemento', seq: mp.seq, mapa: mp.id, el });
+        envia(res, 200, { seq: mp.seq, itens: out }); return true;
+      } catch (err) { mp.els = antesTudo; mp.seq--; envia(res, 409, { erro: err.message }); return true; }
+    }
     if (M === 'POST' && mestre) {
       const d = b.dados || {};
-      const e = { id: ++MAPA_SEQ, tipo: 'TOKEN', camada: 'personagens', dono: b.dono ?? 0, visivel: b.visivel !== false, bloqueado: false, ordem: mp.els.length,
-        dados: { x: d.x ?? mp.largura / 2, y: d.y ?? mp.altura / 2, tam: d.tam || 1, rot: d.rot || 0, nome: d.nome || 'Token', img: d.img || '', ...(d.fichaId != null ? { fichaId: d.fichaId, vinculo: d.vinculo !== false } : {}), ...(d.npcId ? { npcId: d.npcId } : {}) } };
+      if (b.tipo === 'DESENHO') {
+        if (!['linha', 'circulo', 'retangulo', 'poligono', 'marca'].includes(d.forma) || !Array.isArray(d.pts) || !d.pts.length) { envia(res, 400, { erro: 'forma de desenho inválida' }); return true; }
+        const e = { id: ++MAPA_SEQ, tipo: 'DESENHO', camada: b.camada || 'decoracao', dono: 0, visivel: b.visivel !== false, bloqueado: !!b.bloqueado, ordem: mp.els.length,
+          dados: { forma: d.forma, pts: d.pts, cor: d.cor || 'ouro', esp: d.esp || 3, preench: d.preench || 0, rotulo: d.rotulo || '' } };
+        mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
+      }
+      const e = { id: ++MAPA_SEQ, tipo: 'TOKEN', camada: b.camada || (d.npcId ? 'npcs' : 'personagens'), dono: b.dono ?? 0, visivel: b.visivel !== false, bloqueado: false, ordem: mp.els.length,
+        dados: { x: d.x ?? mp.largura / 2, y: d.y ?? mp.altura / 2, tam: d.tam || 1, rot: d.rot || 0, nome: d.nome || 'Token', img: d.img || '', ...(d.fichaId != null ? { fichaId: d.fichaId, vinculo: d.vinculo !== false } : {}), ...(d.npcId ? { npcId: d.npcId } : {}), ...(d.vidaMax ? { vidaMax: d.vidaMax, vida: d.vida ?? d.vidaMax, ...(d.vidaCampo ? { vidaCampo: d.vidaCampo } : {}) } : {}) } };
       mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
     }
     const e = mp.els.find(x => String(x.id) === m[4] && (mestre || x.visivel));
     if (!e) { envia(res, 404, { erro: 'não encontrado' }); return true; }
     if (M === 'PUT') {
-      if (!podeMover(mp, e, mestre)) { envia(res, 403, { erro: 'este token não é seu para mover', codigo: 'proibido' }); return true; }
+      if (!mestre && e.dono === ST.perfil.id && ('vida' in (b.dados || {}) || 'marcas' in (b.dados || {}))) {
+        const antes = structuredClone(e); if (b.dados.vida != null) e.dados.vida = Math.min(b.dados.vida, e.dados.vidaMax || b.dados.vida); if (b.dados.marcas) e.dados.marcas = b.dados.marcas;
+        mp.seq++; registra(mp, 'mudar', e, antes); envia(res, 200, elJson(mp, e, false)); return true;
+      }
+      if (!mestre && !podeMover(mp, e, mestre)) { envia(res, 403, { erro: 'este token não é seu para mover', codigo: 'proibido' }); return true; }
       const d = b.dados || {}, antes = structuredClone(e);
       let passou = false;
-      if (mestre) { Object.assign(e.dados, d); if (b.dono != null) e.dono = b.dono; if (b.visivel != null) e.visivel = b.visivel; }
+      if (mestre) {
+        if (trancado(mp, e) && !(b.bloqueado === false && e.bloqueado && !camadaTrancada(mp, e))) { envia(res, 409, { erro: 'Está trancado: destranque para mexer.' }); return true; }
+        Object.assign(e.dados, d);
+        if (b.dono != null) e.dono = b.dono; if (b.visivel != null) e.visivel = b.visivel; if (b.camada) e.camada = b.camada; if (b.bloqueado != null) e.bloqueado = b.bloqueado;
+        if (e.dados.vidaMax === 0) { delete e.dados.vidaMax; delete e.dados.vida; }
+        if (Array.isArray(e.dados.marcas) && !e.dados.marcas.length) delete e.dados.marcas;
+      }
       else {
         const x0 = e.dados.x, y0 = e.dados.y, x1 = d.x ?? x0, y1 = d.y ?? y0, desl = e.dados.desl || 0;
         if (desl > 0 && (x0 !== x1 || y0 !== y1)) {
@@ -274,6 +319,7 @@ function rotaMapa(M, p, b, req, res) {
       mp.seq++; registra(mp, 'mudar', e, antes);
       envia(res, 200, { ...elJson(mp, e, mestre), ...(passou ? { passou: true } : {}) }); return true;
     }
+    if (M === 'DELETE' && mestre && trancado(mp, e)) { envia(res, 409, { erro: 'Está trancado: destranque para mexer.' }); return true; }
     if (M === 'DELETE' && mestre) { mp.els = mp.els.filter(x => x !== e); mp.seq++; registra(mp, 'remover', e, e); envia(res, 200, { seq: mp.seq }); return true; }
   }
   envia(res, 403, { erro: 'sem permissão', codigo: 'proibido' }); return true;

@@ -50,3 +50,41 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 .mpwip{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-7) var(--s-4);text-align:center}
 .mpwip h1{margin:0}
 .mpwipsel{margin:0;font-family:var(--disp);font-weight:800;font-size:clamp(4rem,18vw,9rem);line-height:1;letter-spacing:var(--tr-caixa-larga);color:var(--fg3)}
+
+/* ferramentas de desenho e de area: uma fileira ao lado da coluna do zoom */
+.mpwrap .cvtools.mpdesenho{left:calc(var(--s-3) + 3.5rem);flex-direction:row;flex-wrap:wrap;max-width:calc(100% - 20rem)}
+.mpwrap .cvtools.mpdesenho .cvsep{width:1px;height:auto;margin:0 var(--s-1)}
+@media (max-width:899px){
+  .mpwrap .cvtools.mpdesenho{left:calc(var(--s-3) + 3.75rem);max-width:calc(100% - 4.5rem)}
+}
+/* modo da regua (reta ou trajeto): dois botoes de texto ao lado, so com a regua ligada */
+.mpregmodo{display:flex;gap:var(--s-1)}
+.mpregmodo[hidden]{display:none}
+.mpwrap .cvtools .mpregmodo button{font-size:var(--fs-2)}
+/* camadas: o nome corta, os dois botoes ficam inteiros */
+.mpcam{padding-right:0}
+.mpcnome{padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
+/* tokens com vida, marcas e deslocamento: as etiquetas descem para a linha de baixo em vez de espremer o nome */
+.mpitem{flex-wrap:wrap}
+.mpnome{flex:1 1 7rem}
+
+/* gaveta das formas de desenho: abre ao lado do botao Desenhar e empurra por cima do mapa */
+.mpflyout{position:absolute;top:calc(100% + var(--s-1));left:0;display:flex;gap:var(--s-1);padding:var(--s-1);
+  background:color-mix(in srgb,var(--bg) 93%,transparent);border:1px solid var(--line2);border-radius:var(--rc);box-shadow:var(--e2);z-index:var(--z-elevado)}
+.mpflyout[hidden]{display:none}
+.mpwrap .cvtools.mpdesenho{position:absolute}
+
+/* secoes do painel: titulo clicavel, legivel, com seta que gira */
+details.mpsec{gap:0}
+details.mpsec>summary.mptit{display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-m);padding:var(--s-1) var(--s-2);
+  font-size:var(--fs-3);letter-spacing:var(--tr-caixa-larga);color:var(--fg);cursor:pointer;list-style:none;
+  background:var(--bg3);border-radius:var(--rb);user-select:none}
+details.mpsec>summary.mptit::-webkit-details-marker{display:none}
+details.mpsec>summary.mptit::before{content:"";width:.5rem;height:.5rem;flex:0 0 auto;border-right:2px solid var(--fg2);border-bottom:2px solid var(--fg2);transform:rotate(-45deg);transition:transform var(--dur-1) var(--ease)}
+details.mpsec[open]>summary.mptit::before{transform:rotate(45deg)}
+details.mpsec>summary.mptit:hover{background:var(--bg4)}
+details.mpsec>summary.mptit .chip{margin-left:auto}
+details.mpsec[open]>summary.mptit{margin-bottom:var(--s-2)}
+details.mpsec.form{gap:0}
+details.mpsec.form>*:not(summary){margin-bottom:var(--s-2)}
+.ibtn svg{width:1rem;height:1rem;flex:0 0 auto;vertical-align:-.2em}

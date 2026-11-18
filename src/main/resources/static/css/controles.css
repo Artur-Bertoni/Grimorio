@@ -243,3 +243,12 @@
 /* o dialogo recebe o foco ao abrir (para o leitor de tela anunciar o titulo); o contorno fica
    para os controles dentro dele, e nao em volta da janela inteira */
 :is([role=dialog],[role=alertdialog],[role=menu]):focus{outline:none}
+
+/* formulario compacto (opcao compacto de formulario()): campos de 32px, espaco menor, colunas de 8rem */
+.form.compacto{gap:var(--s-2)}
+.form.compacto label,.form.compacto legend{font-size:var(--fs-1)}
+.form.compacto input,.form.compacto select{min-height:var(--ctl-m);padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
+.form.compacto textarea{padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
+.form.compacto .fgrade{grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:var(--s-2)}
+.form.compacto .dica{font-size:var(--fs-1)}
+.form.compacto label.ck{font-size:var(--fs-3)}

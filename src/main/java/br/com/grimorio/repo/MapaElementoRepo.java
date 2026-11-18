@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface MapaElementoRepo extends JpaRepository<MapaElemento, Long> {
     List<MapaElemento> findByMapaIdOrderByOrdemAscIdAsc(Long mapaId);
+    List<MapaElemento> findByCampanhaIdAndTipo(Long campanhaId, MapaElemento.Tipo tipo);
     long countByMapaId(Long mapaId);
     void deleteByMapaId(Long mapaId);
     void deleteByCampanhaId(Long campanhaId);
