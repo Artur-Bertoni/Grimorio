@@ -225,6 +225,7 @@ document.addEventListener("click",function(e){
       var tid=b.dataset.t||s.territorios[0].id;
       editarCena(s,{id:uid("c"),n:Vm("cena")+" "+(s.cenas.length+1),titulo:"",territorio:tid,feito:false,blocos:[]},true); break; }
     case "scn-ed": if(c)editarCena(s,c,false); break;
+    case "scn-mapa": if(c)mpAbrirMapaDaCena(c.id); break;
     case "blk-add":{ if(!c)break; var sel=b.parentNode.querySelector("select");
       editarBloco(c,-1,novoBloco(sel?sel.value:"lista")); break; }
     case "blk-ed": if(c)editarBloco(c,bi); break;

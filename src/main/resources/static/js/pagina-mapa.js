@@ -13,7 +13,7 @@ function viewMapa(){
   if(mapaBloqueado()){ return htmlDe("t-mapa-wip",{}); }
   var m=MP.mapa, si=mpSessaoIni();
   return htmlDe("t-mapa",{ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,
-    painel:mpPainelAberto(),encaixa:MP.encaixa,regua:MP.ferramenta==="regua",nTokens:MP.els.length});
+    painel:mpPainelAberto(),encaixa:mpEncaixando(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),nTokens:MP.els.filter(function(e){ return e.tipo!=="DESENHO"; }).length});
 }
 function hydrateMapa(v){
   if(mapaBloqueado()){ return; }
@@ -30,14 +30,20 @@ function hydrateMapa(v){
   }; }
   var bg=$("#mpEncaixe",v);
   if(bg){ bg.onclick=function(){
-    mpAlternaEncaixe();
-    bg.classList.toggle("on",MP.encaixa); bg.setAttribute("aria-pressed",String(MP.encaixa));
-    toast(MP.encaixa?"Encaixe na grade: ligado":"Posição livre: ligada"); }; }
+    var liga=!mpEncaixando();
+    mpAlternaEncaixe().then(function(){ toast(liga?"Encaixe na grade: ligado para todos":"Posição livre: ligada para todos"); })
+      .catch(function(){ /* o aviso ja saiu em mpGrava */ }); }; }
   var be=$("#mpEd",v); if(be){ be.onclick=function(){ mpEditaMapa(); }; }
   var bt=$("#mpToken",v); if(bt){ bt.onclick=function(){ mpNovoToken(bt); }; }
   var ba=$("#mpAtiva",v); if(ba){ ba.onclick=function(){ mpAtiva(MP.id,!MP.mapa?.ativo); }; }
   var bn=$("#mpNovo",v); if(bn){ bn.onclick=function(){ mpNovoMapa(); }; }
-  var br=$("#mpRegua",v); if(br){ br.onclick=function(){ mpFerramenta(MP.ferramenta==="regua"?"mover":"regua"); }; }
+  $$("[data-mpf]",v).forEach(function(b){ b.onclick=function(){
+    var f=b.dataset.mpf;
+    if(f==="area"){ mpMenuArea(b); return; }
+    if(f==="desenho"){ mpGavetaDesenho(!MP.flyDes); return; }
+    mpFerramenta(MP.ferramenta===f?"mover":f);
+  }; });
+  $$("[data-mp-rmodo]",v).forEach(function(b){ b.onclick=function(){ mpReguaModo(b.dataset.mpRmodo); }; });
   var bd=$("#mpDesfaz",v); if(bd){ bd.onclick=function(){ mpDesfaz(); }; }
   $$("[data-mpz]",v).forEach(function(b){ b.onclick=function(){
     var k=b.dataset.mpz;
@@ -49,10 +55,29 @@ function hydrateMapa(v){
 /* ---------- painel ---------- */
 function mpItemToken(e){
   var d=e.dados||{};
-  var desl=mpNum(d.desl,0);
+  var desl=mpNum(d.desl,0), max=mpNum(d.vidaMax,0);
   return {id:e.id,nome:d.nome||Vm("token"),img:d.img?IMG(d.img,"mini"):"",oculto:e.visivel===false,meu:!!e.meu,
-    sel:String(MP.sel)===String(e.id),daVez:!!e.daVez,
+    sel:mpEhSel(e.id),daVez:!!e.daVez,trancado:GM&&mpTrancado(e),
+    vida:max>0?mpFmt(mpNum(d.vida,0))+"/"+mpFmt(max):"",
+    marcas:(Array.isArray(d.marcas)?d.marcas:[]).map(function(m){ return m.t; }),
     resta:desl>0?mpFmt(Math.max(0,desl-mpNum(d.usado,0)))+"/"+mpFmt(desl)+" "+mpUnidade():""};
+}
+var MP_NOME_FORMA={linha:"Linha",circulo:"Círculo",retangulo:"Retângulo",poligono:"Polígono",marca:"Marcação"};
+function mpItemDesenho(e){
+  var d=e.dados||{};
+  return {id:e.id,nome:(MP_NOME_FORMA[d.forma]||"Desenho")+(d.rotulo?" · "+d.rotulo:""),sel:mpEhSel(e.id),trancado:mpTrancado(e),oculto:e.visivel===false};
+}
+function mpDadosDoPainel(){
+  var sels=mpSelecionados(), tem=function(e){ return e.tipo==="DESENHO"; };
+  return {gm:GM,polling:mpModoTempoReal()==="polling",
+    mapas:GM?MP.lista.map(function(m){ return {id:m.id,nome:m.nome,ativo:!!m.ativo,aberto:String(m.id)===String(MP.id)}; }):[],
+    camadas:MP_CAMADAS.map(function(c){
+      return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
+    nSel:sels.length,todosTrancados:sels.length>0&&sels.every(function(e){ return e.bloqueado; }),
+    todosVisiveis:sels.every(function(e){ return e.visivel!==false; }),
+    abre:mpSecoes(),cores:MP_CORES,estilo:MP.estilo,temArea:!!MP.area&&!!mpAreaForma(MP.area),
+    desenhos:MP.els.filter(tem).map(mpItemDesenho),
+    tokens:MP.els.filter(function(e){ return !tem(e); }).map(mpItemToken)};
 }
 /* O painel se refaz a cada token que muda (de qualquer pessoa): o foco de quem estava num
    botao dele volta para o mesmo botao. */
@@ -60,14 +85,12 @@ function mpPintaPainel(){
   var p=$("#mpPainel");
   if(!p){ return; }
   var a=document.activeElement, foco=p.contains(a)?seletorEstavel(a):null;
-  p.innerHTML=htmlDe("t-mapa-painel",{gm:GM,polling:mpModoTempoReal()==="polling",
-    mapas:GM?MP.lista.map(function(m){ return {id:m.id,nome:m.nome,ativo:!!m.ativo,aberto:String(m.id)===String(MP.id)}; }):[],
-    tokens:MP.els.map(mpItemToken)});
+  p.innerHTML=htmlDe("t-mapa-painel",mpDadosDoPainel());
   if(foco){ var f=p.querySelector(foco); if(f){ f.focus({preventScroll:true}); } }
   $$("[data-mp-abre]",p).forEach(function(b){ b.onclick=function(){ mpAbrir(b.dataset.mpAbre); }; });
   $$("[data-mp-novo]",p).forEach(function(b){ b.onclick=function(){ mpNovoMapa(); }; });
   $$("[data-mp-sel]",p).forEach(function(b){ b.onclick=function(){
-    var el=mpEl(b.dataset.mpSel); MP.sel=el?el.id:null; mpCentraliza(el); mpPintaPainel(); }; });
+    var el=mpEl(b.dataset.mpSel); mpSelecionaIds(el?[el.id]:[]); mpCentraliza(el); mpPintaPainel(); }; });
   $$("[data-mp-undo]",p).forEach(function(b){ b.onclick=function(){ mpDesfaz(); }; });
   $$("[data-mp-hist]",p).forEach(function(b){ b.onclick=function(){ mpAbreHistorico(); }; });
   $$("[data-mp-turno]",p).forEach(function(b){ b.onclick=function(){
@@ -76,7 +99,65 @@ function mpPintaPainel(){
     var si=mpSessaoIni(), ini=si?iniDe(si):null;
     if(ini?.lista.length){ ini.rodada=(ini.rodada||1)+1; ini.vez=iniOrdem(ini)[0].id; som("vez"); iniMudou(si); }
     else { mpNovoTurno(); } }; });
-  $$("[data-mp-ed]",p).forEach(function(b){ b.onclick=function(){ var el=mpEl(b.dataset.mpEd); if(el){ mpEditaToken(el); } }; });
+  $$("[data-mp-ed]",p).forEach(function(b){ b.onclick=function(){
+    var el=mpEl(b.dataset.mpEd);
+    if(!el){ return; }
+    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else if(GM){ mpEditaToken(el); } else { mpEditaMeuToken(el); } }; });
+  $$("details[data-mp-sec]",p).forEach(function(d){ d.ontoggle=function(){ mpGuardaSecao(d.dataset.mpSec,d.open); }; });
+  mpLigaPainelFormas(p);
+}
+/* Secoes do painel: quais estao abertas fica guardado neste navegador (por pessoa, nao por mapa). */
+var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,desenhos:false,tokens:true,acoes:true};
+function mpSecoes(){
+  var o={...MP_SECOES_PADRAO};
+  try{ Object.assign(o,JSON.parse(localStorage.getItem("grim_mapa_secoes")||"{}")); }catch(error_){ /* sem armazenamento vale o padrao */ }
+  return o;
+}
+function mpGuardaSecao(id,aberta){
+  var o=mpSecoes(); if(o[id]===aberta){ return; }
+  o[id]=aberta;
+  try{ localStorage.setItem("grim_mapa_secoes",JSON.stringify(o)); }catch(error_){ /* a escolha vale so ate recarregar */ }
+}
+/* A gaveta das formas de desenho abre sob o botao Desenhar e fecha ao escolher uma forma. */
+function mpGavetaDesenho(abre){
+  MP.flyDes=abre;
+  var g=$("#mpFlyout"), b=$("#mpDesBtn");
+  if(g){ g.hidden=!abre; }
+  if(b){ b.setAttribute("aria-expanded",String(abre)); }
+}
+/* camadas, selecao e estilo do desenho */
+function mpLigaPainelFormas(p){
+  $$("[data-mp-cvis]",p).forEach(function(b){ b.onclick=function(){
+    var id=b.dataset.mpCvis; MP.ocultas[id]=!MP.ocultas[id]; mpDesenha(); mpPintaPainel(); }; });
+  $$("[data-mp-ctr]",p).forEach(function(b){ b.onclick=function(){ mpTrancaCamada(b.dataset.mpCtr); }; });
+  $$("[data-mp-sacao]",p).forEach(function(b){ b.onclick=function(){ mpAcaoSelecao(b.dataset.mpSacao); }; });
+  $$("[data-mp-fixa]",p).forEach(function(b){ b.onclick=function(){ mpFixaArea(); }; });
+  var sc=$("#mpSelCamada",p); if(sc){ sc.onchange=function(){ if(sc.value){ mpAcaoSelecao("camada",sc.value); } }; }
+  var cor=$("#mpDesCor",p); if(cor){ cor.onchange=function(){ MP.estilo.cor=cor.value; }; }
+  var esp=$("#mpDesEsp",p); if(esp){ esp.onchange=function(){ MP.estilo.esp=Math.min(12,Math.max(1,Math.round(Number(esp.value)||3))); esp.value=MP.estilo.esp; }; }
+  var pre=$("#mpDesPre",p); if(pre){ pre.onchange=function(){ MP.estilo.preench=pre.checked?0.25:0; }; }
+  var vis=$("#mpDesVis",p); if(vis){ vis.onchange=function(){ MP.estilo.vis=vis.checked; }; }
+}
+/* Trancar a camada vale para todos e fica no mapa: ninguem mexe no que esta nela ate destrancar. */
+function mpTrancaCamada(id){
+  var r=MP.mapa?.regras||{}, t=(r.trancadas||[]).slice(), i=t.indexOf(id);
+  if(i>=0){ t.splice(i,1); } else { t.push(id); }
+  mpSalvaMapa({regras:{quem:r.quem,limite:r.limite,trancadas:t}}).catch(function(){ /* o aviso ja saiu em mpGrava */ });
+}
+/* A regua mede de duas maneiras, escolhidas na hora: em linha reta (arrasta de um ponto a outro) ou pelo
+   caminho (um clique por ponto; Enter ou duplo clique termina). */
+function mpReguaModo(modo){
+  MP.reguaModo=modo; MP.regua=null;
+  $$("[data-mp-rmodo]").forEach(function(b){ var on=b.dataset.mpRmodo===modo; b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); });
+  mpDesenha();
+}
+function mpMenuArea(ancora){
+  var op=function(v,rot,dica){ return {v:v,rot:rot,dica:dica,perigo:false,desligado:false}; };
+  menuSolto(ancora,htmlDe("t-menu",{titulo:"Medir uma área",itens:[
+    op("a-cone","Cone","A largura no fim é igual ao comprimento"),
+    op("a-circulo","Círculo","Do centro até onde você arrastar"),
+    op("a-linha","Linha","Uma casa de largura")]}),
+  function(it){ MP.areaTipo=it.dataset.v; mpFerramenta(it.dataset.v); });
 }
 
 /* ---------- mapa ---------- */
@@ -166,10 +247,9 @@ function mpTokenAvulso(){
     {k:"nome",rot:"Nome",obrig:true},
     {k:"img",rot:"Imagem",tipo:"img"},
     {k:"tam",rot:"Tamanho",tipo:"sel",ops:MP_TAMANHOS},
-    {k:"elencoId",rot:"Ligado ao elenco",tipo:"sel",ops:mpOpcoesElenco(),dica:MP_DICA_ELENCO},
     {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"}
-  ],{nome:"",img:"",tam:"1",elencoId:"",visivel:true},{rotSalvar:"Pôr no "+vmin("mapa"),salvar:function(c){
-    mpCriaElemento({visivel:!!c.visivel,dados:{...mpMeioDaTela(),nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,elencoId:c.elencoId||""}}).catch(function(){ /* aviso em mpGrava */ });
+  ],{nome:"",img:"",tam:"1",visivel:true},{rotSalvar:"Pôr no "+vmin("mapa"),salvar:function(c){
+    mpCriaElemento({visivel:!!c.visivel,dados:{...mpMeioDaTela(),nome:c.nome,img:c.img||"",tam:Number(c.tam)||1}}).catch(function(){ /* aviso em mpGrava */ });
   }});
 }
 /* Escolher uma ficha ou um NPC numa lista com retrato; devolve o id escolhido ou null */
@@ -182,13 +262,21 @@ function mpEscolhe(titulo,itens,vazio){
     $$("[data-mp-pega]",ov).forEach(function(b){ b.onclick=function(){ feito=true; fecha(); fim(b.dataset.mpPega); }; });
   });
 }
+/* A vida do token nasce da primeira barra da ficha que tem maximo (de preferencia a que se chama vida). Com o
+   vinculo ligado o servidor mantem as duas iguais: mudou num, muda no outro. */
+function mpNumFicha(v){ var n=Number(String(v??"").replace(",",".")); return Number.isFinite(n)?n:0; }
+function mpVidaDaFicha(f){
+  var bs=fichaDados(f).campos.filter(function(c){ return c.tipo==="barra"&&mpNumFicha(c.max)>0; });
+  var c=bs.find(function(x){ return /vida|pv|hp/i.test(x.rot); })||bs[0];
+  return c?{vidaMax:mpNumFicha(c.max),vida:mpNumFicha(c.val),vidaCampo:c.rot}:{};
+}
 function mpTokenDeFicha(){
   carregaFichas().then(function(fs){
     return mpEscolhe("Escolher a "+vmin("ficha"),fs.map(function(f){ return {id:f.id,nome:f.nome,sub:f.dono||"",img:""}; }),
       "Nenhuma "+vmin("ficha")+" nesta "+vmin("campanha")+" ainda.").then(function(id){
       var f=fs.find(function(x){ return String(x.id)===String(id); });
       if(!f){ return null; }
-      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,fichaId:f.id,vinculo:true}});
+      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,fichaId:f.id,vinculo:true,...mpVidaDaFicha(f)}});
     });
   }).catch(function(e){ if(e){ toast(e.message||"não consegui ler as "+vmin("fichas"),"erro"); } });
 }
@@ -198,18 +286,12 @@ function mpTokenDeNpc(){
     "Nenhum "+vmin("npc")+" no elenco ainda.").then(function(id){
     var n=npcs.find(function(x){ return String(x.id)===String(id); });
     if(!n){ return; }
-    mpCriaElemento({visivel:false,dados:{...mpMeioDaTela(),nome:n.nome||Vm("npc"),img:n.img||"",npcId:n.id,elencoId:String(n.id)}})
+    mpCriaElemento({visivel:false,camada:"npcs",dados:{...mpMeioDaTela(),nome:n.nome||Vm("npc"),img:n.img||"",npcId:n.id,elencoId:String(n.id)}})
       .then(function(){ toast(Vm("token")+" posto escondido. Mostre aos "+vmin("jogadores")+" no formulário dele.","ok"); })
       .catch(function(){ /* aviso em mpGrava */ });
   });
 }
-/* personagens e NPCs do elenco, para vincular o token a alguem (a iniciativa libera o movimento por esse elo) */
-function mpOpcoesElenco(){
-  var el=D.elenco||{};
-  return [["","Ninguém"]].concat((el.personagens||[]).map(function(p){ return [String(p.id),(p.nome||Vm("personagem"))]; }),
-    (el.npcs||[]).map(function(n){ return [String(n.id),(n.nome||Vm("npc"))+" ("+vmin("npc")+")"]; }));
-}
-var MP_DICA_ELENCO="Com a iniciativa em andamento, o "+"jogador só move este token na vez de quem estiver ligado aqui. Sem vínculo, ele fica livre.";
+/* Quem e a vez de cada token se decide na iniciativa: a entrada da ordem aponta para o token (Token no mapa). */
 var MP_TAMANHOS=[["0.5","Meia casa"],["1","1 casa"],["2","2 × 2"],["3","3 × 3"],["4","4 × 4"]];
 function mpOpcoesDono(){
   return api("/api/campanhas/"+CID+"/membros").then(function(ms){
@@ -225,30 +307,93 @@ function mpEditaToken(el){
     var campos=[
       {k:"nome",rot:"Nome",obrig:true},
       {k:"img",rot:"Imagem",tipo:"img"},
-      {k:"tam",rot:"Tamanho",tipo:"sel",ops:MP_TAMANHOS},
-      {k:"rot",rot:"Rotação (graus)",tipo:"num",dica:"Para onde o "+vmin("token")+" está virado. 0 é para cima."},
-      {k:"desl",rot:"Deslocamento por turno ("+(mpUnidade()||"unidades do mapa")+")",tipo:"num",
-        dica:"Quanto ele anda a cada turno, na unidade do "+vmin("mapa")+". 0 é sem limite. A iniciativa zera o gasto."},
-      {k:"dono",rot:"Quem controla",tipo:"sel",ops:donos},
-      {k:"elencoId",rot:"Ligado ao elenco",tipo:"sel",ops:mpOpcoesElenco(),dica:MP_DICA_ELENCO},
+      {k:"tam",rot:"Tamanho",tipo:"sel",ops:MP_TAMANHOS,linha:"geo"},
+      {k:"rot",rot:"Rotação (graus)",tipo:"num",linha:"geo"},
+      {k:"desl",rot:"Deslocamento por turno ("+(mpUnidade()||"unidades do mapa")+")",tipo:"num",linha:"geo",
+        dica:"Rotação: para onde o "+vmin("token")+" está virado (0 é para cima). Deslocamento: quanto anda por turno, na unidade do "+vmin("mapa")+" (0 é sem limite)."},
+      {k:"dono",rot:"Quem controla",tipo:"sel",ops:donos,dica:"Com a iniciativa em andamento, o jogador só move o token na vez da entrada que aponta para ele (na iniciativa)."},
       {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
-      {k:"livre",rot:"Qualquer "+vmin("jogador")+" pode mover",tipo:"check"}];
+      {k:"livre",rot:"Qualquer "+vmin("jogador")+" pode mover",tipo:"check"},
+      {k:"camada",rot:"Camada",tipo:"sel",ops:MP_CAMADAS.map(function(c){ return [c,mpCamadaNome(c)]; })},
+      {k:"bloqueado",rot:"Trancado",tipo:"check",dica:"Trancado, ninguém move nem edita este "+vmin("token") +", nem você, até destrancar."},
+      {k:"vidaMax",rot:"Vida máxima",tipo:"num",linha:"vida",dica:"0 tira a barra de vida."},
+      {k:"vida",rot:"Vida atual",tipo:"num",linha:"vida"},
+      {k:"vidaPublica",rot:"Os "+vmin("jogadores")+" veem a vida deste "+vmin("token"),tipo:"check"},
+      {k:"marcas",rot:"Marcas (condições, efeitos, status)",tipo:"grupo",um:"marca",
+        novo:function(){ return {t:"",c:"aviso"}; },
+        campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]}];
     if(d.fichaId!=null){ campos.push({k:"vinculo",rot:"Ligado à "+vmin("ficha")+" de origem",tipo:"check"}); }
     var tam=MP_TAMANHOS.some(function(o){ return Number(o[0])===Number(d.tam); })?String(Number(d.tam)):"1";
-    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,elencoId:d.elencoId||"",dono:String(el.dono||0),
-      visivel:el.visivel!==false,livre:!!d.livre,vinculo:d.vinculo!==false},{rotRemover:"Remover do "+vmin("mapa"),
+    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,dono:String(el.dono||0),
+      visivel:el.visivel!==false,livre:!!d.livre,vinculo:d.vinculo!==false,camada:mpCamadaDe(el),bloqueado:!!el.bloqueado,
+      vidaMax:d.vidaMax||0,vida:d.vida||0,vidaPublica:!!d.vidaPublica,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{rotRemover:"Remover do "+vmin("mapa"),wide:true,compacto:true,
       salvar:function(c){
-        mpMudaElemento(el,{dono:Number(c.dono)||0,visivel:!!c.visivel,
-          dados:{nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,rot:c.rot??0,elencoId:c.elencoId||"",desl:Math.max(0,Number(c.desl)||0),livre:!!c.livre,vinculo:!!c.vinculo}})
+        if(el.bloqueado&&c.bloqueado){ toast("Está trancado: desmarque “Trancado” para salvar mudanças.","aviso"); return; }
+        var max=Math.max(0,Number(c.vidaMax)||0), vida=Math.max(0,Number(c.vida)||0);
+        mpMudaElemento(el,{dono:Number(c.dono)||0,visivel:!!c.visivel,camada:c.camada,bloqueado:!!c.bloqueado,
+          dados:{nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,rot:c.rot??0,desl:Math.max(0,Number(c.desl)||0),livre:!!c.livre,vinculo:!!c.vinculo,
+            vidaMax:max,vida:vida,vidaPublica:!!c.vidaPublica,marcas:(c.marcas||[]).filter(function(m){ return String(m.t||"").trim(); })}})
           .catch(function(){ /* aviso em mpGrava */ });
       },
       remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
   });
 }
 
+/* O jogador muda, no token que e dele, a vida atual (ate o maximo que o mestre pos) e as marcas. */
+function mpEditaMeuToken(el){
+  if(GM||!el.meu){ return; }
+  var d=el.dados||{}, max=mpNum(d.vidaMax,0);
+  var campos=[];
+  if(max>0){ campos.push({k:"vida",rot:"Vida atual (máximo "+mpFmt(max)+")",tipo:"num"}); }
+  campos.push({k:"marcas",rot:"Marcas (condições, efeitos, status)",tipo:"grupo",um:"marca",
+    novo:function(){ return {t:"",c:"aviso"}; },
+    campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]});
+  formulario("Seu "+vmin("token")+" · "+(d.nome||""),campos,{vida:d.vida||0,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{compacto:true,
+    salvar:function(c){
+      var dados={marcas:(c.marcas||[]).filter(function(m){ return String(m.t||"").trim(); })};
+      if(max>0){ dados.vida=Math.min(max,Math.max(0,Number(c.vida)||0)); }
+      mpMudaElemento(el,{dados:dados}).catch(function(){ /* aviso em mpGrava */ });
+    }});
+}
+/* O atalho da cena: abre o mapa que o mestre ligou a ela (formulario do mapa). Nao ativa nada para os jogadores. */
+function mpAbrirMapaDaCena(cenaId){
+  mpCarregaLista().then(function(l){
+    var m=(l||[]).find(function(x){ return String(x.cenaId||"")===String(cenaId); });
+    if(!m){ toast("Nenhum "+vmin("mapa")+" está ligado a esta "+vmin("cena")+". Ligue no formulário do "+vmin("mapa")+".","aviso"); return; }
+    MP.querAbrir=m.id; S.view="mapa"; render();
+    if(MP.carregado){ MP.querAbrir=null; mpAbrir(m.id); }
+  }).catch(function(e){ toast(e?.message||"não consegui ler os mapas","erro"); });
+}
+
+/* ---------- desenho ---------- */
+function mpNovaMarca(p){
+  formulario("Nova marcação",[{k:"rotulo",rot:"Texto",obrig:true,ph:"Armadilha, saída, tesouro…"}],{rotulo:""},
+    {rotSalvar:"Pôr no "+vmin("mapa"),salvar:function(c){ mpCriaDesenho("marca",[[p.x,p.y]],{rotulo:c.rotulo}); }});
+}
+function mpEditaDesenho(el){
+  if(!GM){ return; }
+  var d=el.dados||{}, marca=d.forma==="marca", cheia=!marca&&d.forma!=="linha";
+  var campos=[{k:"rotulo",rot:marca?"Texto":"Texto no desenho",obrig:marca,ph:marca?"":"Opcional"},
+    {k:"cor",rot:"Cor",tipo:"sel",ops:MP_CORES,linha:"traco"},
+    {k:"esp",rot:"Espessura",tipo:"num",linha:"traco"}];
+  if(cheia){ campos.push({k:"preench",rot:"Preencher",tipo:"check"}); }
+  campos.push({k:"camada",rot:"Camada",tipo:"sel",ops:MP_CAMADAS.map(function(c){ return [c,mpCamadaNome(c)]; })},
+    {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
+    {k:"bloqueado",rot:"Trancado",tipo:"check",dica:"Trancado, ninguém move nem edita, nem você, até destrancar."});
+  formulario("Editar · desenho",campos,{rotulo:d.rotulo||"",cor:d.cor||"ouro",esp:d.esp||3,preench:mpNum(d.preench,0)>0,
+    camada:mpCamadaDe(el),visivel:el.visivel!==false,bloqueado:!!el.bloqueado},{rotRemover:"Remover o desenho",compacto:true,
+    salvar:function(c){
+      if(el.bloqueado&&c.bloqueado){ toast("Está trancado: desmarque “Trancado” para salvar mudanças.","aviso"); return; }
+      mpMudaElemento(el,{visivel:!!c.visivel,camada:c.camada,bloqueado:!!c.bloqueado,
+        dados:{rotulo:c.rotulo||"",cor:c.cor,esp:Math.min(12,Math.max(1,Number(c.esp)||3)),preench:c.preench?(mpNum(d.preench,0)||0.25):0}},"não consegui salvar o desenho")
+        .catch(function(){ /* aviso em mpGrava */ });
+    },
+    remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
+}
+
 /* ---------- historico ---------- */
 function mpTextoHistorico(h){
-  var quem=h.meu?"Você":h.quem, nome=h.nome||vmin("token"), mapa="o "+vmin("mapa");
+  var quem=h.meu?"Você":h.quem, nome=h.nome||(h.tipo==="DESENHO"?"um desenho":vmin("token")), mapa="o "+vmin("mapa");
   if(h.operacao==="criar"){ return quem+" pôs "+nome+" no "+vmin("mapa"); }
   if(h.operacao==="mudar"){ return h.casas==null?quem+" alterou "+nome:quem+" moveu "+nome+" · "+mpDistTexto(h.casas); }
   if(h.operacao==="remover"){ return quem+" removeu "+nome; }
@@ -283,12 +428,40 @@ function mpAbreHistorico(){
 function mpTeclado(){ return mpNaTela()&&!mapaBloqueado()&&!!MP.mapa; }
 atalho({tecla:"r",quando:mpTeclado,faz:function(){ mpFerramenta(MP.ferramenta==="regua"?"mover":"regua"); }});
 atalho({tecla:"v",quando:mpTeclado,faz:function(){ mpFerramenta("mover"); }});
-atalho({tecla:"Escape",quando:function(){ return mpTeclado()&&!!MP.regua; },faz:function(){ MP.regua=null; mpDesenha(); }});
+/* Enter, Delete e as teclas das ferramentas nao valem com o foco num botao: la elas ja tem o sentido de sempre. */
+function mpFocoLivre(e){ return !e.target?.closest?.("button,a,select,input,textarea,[role=button]"); }
+function mpMestre(){ return mpTeclado()&&GM; }
+atalho({tecla:"s",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="selecionar"?"mover":"selecionar"); }});
+[["l","linha"],["o","circulo"],["b","retangulo"],["p","poligono"],["m","marca"]].forEach(function(t){
+  atalho({tecla:t[0],quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta===t[1]?"mover":t[1]); }});
+});
+atalho({tecla:"i",quando:mpTeclado,faz:function(){ mpFerramenta(MP.ferramenta==="ping"?"mover":"ping"); }});
+atalho({tecla:"]",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("frente"); }});
+atalho({tecla:"[",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("tras"); }});
+atalho({tecla:"a",quando:mpTeclado,faz:function(){ mpFerramenta(MP.ferramenta.indexOf("a-")===0?"mover":(MP.areaTipo||"a-cone")); }});
+atalho({tecla:"Escape",quando:function(){ return mpTeclado()&&!!(MP.flyDes||MP.regua||MP.area||MP.rascunho||mpSelecao().length); },faz:function(){
+  if(MP.flyDes){ mpGavetaDesenho(false); return; }
+  if(MP.regua||MP.area||MP.rascunho){ MP.regua=null; MP.area=null; MP.rascunho=null; } else { mpSelecionaIds([]); }
+  mpDesenha(); mpPintaPainel();
+}});
+atalho({tecla:"Enter",quando:function(e){ return mpTeclado()&&mpFocoLivre(e)&&!!MP.regua?.pts&&!MP.regua.fim; },faz:function(){ mpTerminaTrajeto(false); }});
+atalho({tecla:"Enter",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&(!!MP.area||MP.rascunho?.forma==="poligono"); },faz:function(){
+  if(MP.rascunho){ mpFechaPoligono(false); } else { mpFixaArea(); }
+}});
+atalho({tecla:"Backspace",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&MP.rascunho?.forma==="poligono"; },faz:function(){
+  MP.rascunho.pts.pop(); if(!MP.rascunho.pts.length){ MP.rascunho=null; } mpDesenha();
+}});
+["Delete","Backspace"].forEach(function(t){
+  atalho({tecla:t,quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&!MP.rascunho&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("remover"); }});
+});
+atalho({tecla:"a",ctrl:true,quando:function(e){ return mpMestre()&&!emCampoDeTexto(e); },faz:function(){
+  mpSelecionaIds(mpOrdenados().map(function(el){ return el.id; })); mpDesenha(); mpPintaPainel();
+}});
 atalho({tecla:"0",quando:mpTeclado,faz:function(){ mpEnquadra(); }});
 atalho({tecla:"+",quando:mpTeclado,faz:function(){ mpZoom(1.25,MPC.w/2,MPC.h/2); }});
 atalho({tecla:"=",quando:mpTeclado,faz:function(){ mpZoom(1.25,MPC.w/2,MPC.h/2); }});
 atalho({tecla:"-",quando:mpTeclado,faz:function(){ mpZoom(0.8,MPC.w/2,MPC.h/2); }});
 atalho({tecla:"z",ctrl:true,quando:function(e){ return mpTeclado()&&!emCampoDeTexto(e); },faz:function(){ mpDesfaz(); }});
 [["ArrowLeft",-1,0],["ArrowRight",1,0],["ArrowUp",0,-1],["ArrowDown",0,1]].forEach(function(t){
-  atalho({tecla:t[0],quando:function(){ return mpTeclado()&&!!mpEl(MP.sel)?.podeMover; },faz:function(e){ mpAnda(t[1],t[2],e.shiftKey); }});
+  atalho({tecla:t[0],quando:function(){ return mpTeclado()&&mpSelecionados().some(mpMovivel); },faz:function(e){ mpAnda(t[1],t[2],e.shiftKey); }});
 });

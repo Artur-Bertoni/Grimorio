@@ -3,7 +3,12 @@ package br.com.grimorio.service;
 import br.com.grimorio.model.Mapa;
 import tools.jackson.databind.node.ObjectNode;
 
+import tools.jackson.databind.node.ArrayNode;
+
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,7 +23,21 @@ final class MapaRegras {
     static final Set<String> DIAGONAIS = Set.of("1", "121", "eu");
     static final Set<String> QUEM_MOVE = Set.of("dono", "todos");
     static final Set<String> LIMITES = Set.of("aviso", "bloqueio");
+    private static final int MAX_TRAJETO = 60;
+    /** Da de baixo para a de cima: e a ordem em que a tela desenha. */
+    static final List<String> CAMADAS = List.of("cenario", "objetos", "personagens", "npcs", "decoracao");
+    static final Set<String> FORMAS = Set.of("linha", "circulo", "retangulo", "poligono", "marca");
+    /** Nomes de cor, nao cores: a tela traduz cada um para um token do tema (ouro, sangue, texto, ok, aviso). */
+    static final Set<String> CORES = Set.of("ouro", "sangue", "neutro", "ok", "aviso");
+    private static final int MAX_MARCAS = 12;
+    private static final int MAX_PONTOS = 100;
     private static final String K_TIPO = "tipo";
+    private static final String K_COR = "cor";
+    private static final String K_VIDA = "vida";
+    private static final String K_VIDA_MAX = "vidaMax";
+    private static final String K_MARCAS = "marcas";
+    private static final String K_PTS = "pts";
+    private static final String K_FORMA = "forma";
     private static final String K_UNIDADE = "unidade";
     private static final String K_DIAGONAL = "diagonal";
     private static final String K_LIVRE = "livre";
@@ -51,7 +70,39 @@ final class MapaRegras {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("quem", escolha(in, "quem", QUEM_MOVE, "dono"));
         r.put("limite", escolha(in, "limite", LIMITES, "aviso"));
+        /* encaixar na grade: o mestre escolhe e vale para todos (token, regua, moldes e desenhos) */
+        r.put("encaixe", in == null || !in.containsKey("encaixe") || bool(in, "encaixe"));
+        r.put("trancadas", trancadas(in));
         return r;
+    }
+
+    /** Pontos do caminho que o jogador andou (ate 60, presos a margem do mapa); lista vazia se vier torta. */
+    static List<double[]> trajeto(List<List<Double>> in, Mapa m) {
+        List<double[]> out = new ArrayList<>();
+        if (in == null || in.size() > MAX_TRAJETO) return out;
+        double w = Math.max(1, m.getLargura());
+        double h = Math.max(1, m.getAltura());
+        for (List<Double> p : in) {
+            if (p == null || p.size() < 2 || p.get(0) == null || p.get(1) == null) return new ArrayList<>();
+            out.add(new double[]{Math.clamp(p.get(0), -w, w * 2), Math.clamp(p.get(1), -h, h * 2)});
+        }
+        return out;
+    }
+
+    /** Camadas trancadas do mapa: ninguem mexe no que esta nelas (nem o mestre) ate destrancar. */
+    static List<String> trancadas(Map<String, Object> in) {
+        List<String> out = new ArrayList<>();
+        if (in != null && in.get("trancadas") instanceof Collection<?> c) {
+            for (Object o : c) {
+                String s = String.valueOf(o);
+                if (CAMADAS.contains(s) && !out.contains(s)) out.add(s);
+            }
+        }
+        return out;
+    }
+
+    static String camada(String pedida, String padrao) {
+        return pedida != null && CAMADAS.contains(pedida.trim()) ? pedida.trim() : padrao;
     }
 
     /**
@@ -73,7 +124,87 @@ final class MapaRegras {
         /* deslocamento por turno, na unidade do mapa; 0 e sem limite. O gasto (usado) so o servidor escreve. */
         if (x.containsKey("desl")) d.put("desl", Math.round(num(x, "desl", 0, 0, 100000) * 100) / 100.0);
         vinculo(d, x, novo);
+        marcadores(d, x);
         return d;
+    }
+
+    /**
+     * Vida (valor proprio do token; vidaMax 0 tira a barra), se os jogadores a veem, de qual campo da
+     * ficha ela veio e as marcas (condicao, efeito, status) com o nome de uma cor.
+     */
+    private static void marcadores(ObjectNode d, Map<String, Object> x) {
+        if (x.containsKey(K_VIDA_MAX)) {
+            double max = Math.round(num(x, K_VIDA_MAX, 0, 0, 99999));
+            if (max <= 0) { d.remove(K_VIDA_MAX); d.remove(K_VIDA); } else d.put(K_VIDA_MAX, max);
+        }
+        if (x.containsKey(K_VIDA) && d.has(K_VIDA_MAX)) d.put(K_VIDA, Math.round(num(x, K_VIDA, 0, 0, 99999)));
+        if (x.containsKey("vidaPublica")) d.put("vidaPublica", bool(x, "vidaPublica"));
+        if (x.containsKey("vidaCampo")) d.put("vidaCampo", corta(texto(x, "vidaCampo", "").trim(), 80));
+        marcas(d, x);
+    }
+
+    /** O que o dono do token muda sozinho: a vida atual (ate o maximo) e as marcas. */
+    static void vidaEMarcas(ObjectNode d, Map<String, Object> x) {
+        if (x.containsKey(K_VIDA) && d.has(K_VIDA_MAX)) d.put(K_VIDA, Math.round(num(x, K_VIDA, 0, 0, d.path(K_VIDA_MAX).asDouble(0))));
+        marcas(d, x);
+    }
+
+    private static void marcas(ObjectNode d, Map<String, Object> x) {
+        if (!x.containsKey(K_MARCAS)) return;
+        ArrayNode a = d.putArray(K_MARCAS);
+        if (x.get(K_MARCAS) instanceof Collection<?> c) {
+            for (Object o : c) {
+                if (a.size() >= MAX_MARCAS) break;
+                Map<?, ?> m = o instanceof Map<?, ?> mm ? mm : null;
+                String t = corta(String.valueOf(m == null ? o : m.get("t")).trim(), 30);
+                if (t.isEmpty() || "null".equals(t)) continue;
+                String cor = m != null && CORES.contains(String.valueOf(m.get("c"))) ? String.valueOf(m.get("c")) : "aviso";
+                a.addObject().put("t", t).put("c", cor);
+            }
+        }
+        if (a.isEmpty()) d.remove(K_MARCAS);
+    }
+
+    /**
+     * Dados de um desenho: a forma (so se define ao nascer), os pontos, a cor (um nome da paleta), a
+     * espessura, o quanto preenche e o rotulo. Mesma regra do token: o que nao e conhecido cai.
+     */
+    static ObjectNode dadosDesenho(ObjectNode d, Map<String, Object> in, Mapa m) {
+        boolean novo = d.isEmpty();
+        Map<String, Object> x = in == null ? Map.of() : in;
+        if (novo) {
+            String f = escolha(x, K_FORMA, FORMAS, "");
+            if (f.isEmpty()) throw new IllegalArgumentException("forma de desenho inválida");
+            d.put(K_FORMA, f);
+        }
+        if (novo || x.containsKey(K_PTS)) d.set(K_PTS, pontos(d, x.get(K_PTS), d.path(K_FORMA).asString(""), m));
+        if (novo || x.containsKey(K_COR)) d.put(K_COR, escolha(x, K_COR, CORES, "ouro"));
+        if (novo || x.containsKey("esp")) d.put("esp", Math.round(num(x, "esp", 3, 1, 12)));
+        if (novo || x.containsKey("preench")) d.put("preench", Math.round(num(x, "preench", 0, 0, 0.8) * 100) / 100.0);
+        if (novo || x.containsKey("rotulo")) d.put("rotulo", corta(texto(x, "rotulo", "").trim(), 80));
+        return d;
+    }
+
+    /** Pontos [x, y] presos a uma margem em volta do mapa; a forma diz quantos precisa (e o excesso cai). */
+    private static ArrayNode pontos(ObjectNode d, Object v, String forma, Mapa m) {
+        double w = Math.max(1, m.getLargura());
+        double h = Math.max(1, m.getAltura());
+        int minimo = switch (forma) { case "poligono" -> 3; case "marca" -> 1; default -> 2; };
+        int maximo = switch (forma) { case "poligono" -> MAX_PONTOS; case "marca" -> 1; default -> 2; };
+        ArrayNode out = d.arrayNode();
+        if (v instanceof Collection<?> c) {
+            for (Object o : c) {
+                if (out.size() >= maximo) break;
+                if (!(o instanceof List<?> p) || p.size() < 2 || !(p.get(0) instanceof Number a) || !(p.get(1) instanceof Number b)) {
+                    throw new IllegalArgumentException("ponto inválido");
+                }
+                ArrayNode pt = out.addArray();
+                pt.add(Math.round(Math.clamp(a.doubleValue(), -w, w * 2) * 10) / 10.0);
+                pt.add(Math.round(Math.clamp(b.doubleValue(), -h, h * 2) * 10) / 10.0);
+            }
+        }
+        if (out.size() < minimo) throw new IllegalArgumentException("faltam pontos no desenho");
+        return out;
     }
 
     /** tamanho, rotacao, nome e imagem: no token novo vem o padrao do que nao veio */

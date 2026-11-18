@@ -43,6 +43,48 @@ grande aviso "WIP" no lugar do mapa para **todo mundo, menos quem é administrad
 8. **O mapa vai no pacote exportado**, e **fica de fora dos modelos de campanha**
    (o repositório e os modelos não carregam arte).
 
+## Regra de trabalho: decisões são do dono
+
+**Desvio do plano, interpretação de item ambíguo ou escolha que muda o comportamento: pergunte ao
+Artur e registre a resposta aqui. Não decida sozinho** (nem "a opção mais simples"). Só o que é
+detalhe de implementação sem efeito visível pode ser decidido na hora.
+
+## Decisões do dono tomadas depois da Fase 3 (18/11/2026), aplicadas
+
+Estas respostas revisaram os desvios das Fases 1 a 3. Estão aplicadas (ver "Aplicadas" abaixo), menos o trajeto com paredes, que é da Fase 4.
+
+9. **Jogador edita a própria vida e marcas, e faz marcação (ping).** Revoga o desvio da Fase 3 ("só o mestre").
+   Exige: o jogador alterar `vida` e `marcas` só do token dele no servidor (e no desfazer), e uma marcação
+   simples visível a todos. Revisar o corte mestre/jogador (nada de desenho livre para jogador).
+10. **Cena ligada ao mapa: só um atalho na cena** (botão "Abrir mapa" na cena da sessão). Não ativa o mapa
+    sozinha.
+11. **Vida ↔ ficha nos dois sentidos** enquanto o vínculo estiver ligado (hoje só token → ficha).
+12. **Mapa no celular do mestre: continua no menu "Mais"** do topo (desvio da Fase 1 confirmado).
+13. **Custo do movimento: oferecer as duas medidas, "reta" e "trajeto"**, escolhidas por mapa (hoje só a reta).
+    O trajeto contorna paredes e entra na Fase 4 (servidor calcula a rota).
+14. **Novo turno disparado pelo navegador do mestre: aceito como está** (o botão "Novo turno" cobre).
+15. **Iniciativa ↔ token por id do combatente**, em vez do nome. A ficha da iniciativa passa a apontar para o
+    token (mexe na iniciativa e no `MapaTurnos`; migrar o vínculo por nome que existe hoje).
+16. **Trazer para frente / enviar para trás** dentro da camada (hoje vale a ordem da lista).
+17. O passo de tour do mapa **continua na Fase 5** (não foi pedido adiantar).
+
+### Aplicadas (18/11/2026) e como ficaram
+
+API 284/0. A tela só foi checada com `node --check` (o dono testa); o teste de tela não foi rodado depois destas mudanças.
+
+- **9.** Dono do token muda a própria `vida` (até o máximo) e as `marcas` (`exigeDoJogador`: vale a qualquer hora, não depende da vez; a posição continua dependendo de regra e vez). Não muda `vidaMax`, nome nem o resto; desfazer do jogador também devolve vida e marcas. Tela: duplo clique no próprio token ou lápis na lista abre `mpEditaMeuToken`. **Marcação (ping)**: ferramenta "Apontar" (tecla I, todos), `POST /mapas/{id}/ping`, evento SSE `ping`, anel de 3,5 s com o nome de quem apontou, nada gravado, no máximo 1 a cada 0,4 s por pessoa; com movimento reduzido o anel não anima.
+- **10.** Botão (ícone de mapa) nas ferramentas da cena: abre o mapa cujo `cenaId` é a cena, sem ativá-lo; avisa se nenhum mapa está ligado.
+- **11.** Token → ficha e ficha → token no **servidor** (`MapaService.vidaParaFicha` / `vidaDaFicha`, chamada pelo `FichaController` ao gravar). Só com `vinculo` ligado e `vidaCampo` guardado. O caminho antigo do navegador foi removido.
+- **13.** (revisada em 18/11/2026) Não há configuração de medida no mapa. **A régua tem as duas opções na hora de medir**: "Reta" (arrasta de um ponto a outro) e "Trajeto" (um clique por ponto, Enter ou duplo clique termina), botões ao lado da régua. O deslocamento do turno é cobrado pelo caminho que o jogador arrastou (o navegador manda os pontos em `trajeto`, até 60), **nunca menos que a reta**; sem os pontos, a reta. **Aviso:** até as paredes (Fase 4) isso é honesto-por-navegador (um cliente adulterado paga a reta); a rota que contorna paredes, calculada no servidor, segue na Fase 4 e deve trocar este cálculo.
+- **15.** A entrada da iniciativa guarda `tokenId` e o servidor usa o **id do token** (`MapaService.elencoDe` devolve o id; `MapaTurnos` compara ids de token). Formulário da iniciativa ganhou "Token no mapa"; o "Ligado ao elenco" saiu dos formulários do token; "Puxar do mapa" entra todo token. Migração: entrada antiga só com `elencoId` acha o token do mapa com o mesmo `elencoId` (na sincronização e ao puxar do mapa, onde ela ganha o `tokenId`). **Limite:** desfazer a remoção de um token recria com id novo, e a entrada fica sem token até ser religada.
+- **16.** "Para a frente" / "Para trás" no painel da seleção e teclas `]` / `[`: `ItemLote.ordem`, o servidor põe o elemento acima/abaixo de tudo (`ordem`), publica o evento `ordem` e os clientes releem a lista; o desfazer devolve a ordem.
+- **Encaixar na grade é do mestre e vale para todos**: `regras.encaixe` do mapa (padrão ligado, preservado quando só outras regras são editadas); o botão muda para todo mundo e o Alt, só do mestre, inverte naquele arraste. Antes era preferência por navegador (`grim_mapa_encaixe`, removida).
+- **Medição de explosão removida** (o círculo faz o mesmo).
+- **12, 14, 17:** nada a mudar.
+
+Ainda sem pergunta (perguntar quando surgir): o desfazer do jogador descartar o movimento se outro token foi
+movido depois; "mapa" e "ativar" não serem desfazíveis; o aviso "fog só visual" aparecer só com o fog.
+
 ## Arquitetura
 
 **Dados.** Fora do guia e da mesa. Tabelas novas (toda coluna NOT NULL com DEFAULT explícito,
@@ -97,7 +139,7 @@ teclado das ferramentas e do movimento.
 **Fase 3: Organização.** Camadas (cenário, objetos, personagens, NPCs, decoração), seleção
 múltipla (mover e organizar em grupo), bloqueio de elemento e de camada, marcadores (vida,
 condições, efeitos, status), ferramentas de desenho (linha, círculo, retângulo, polígono,
-marcação) e medição de área (cone, círculo, linha, explosão).
+marcação) e medição de área (cone, círculo, linha).
 
 **Fase 4: Visão.** Paredes e obstáculos (colisão e cálculo de movimento), linha de visão entre
 tokens, fog of war manual e por visão, visão por jogador, tiles servidos só nas partes reveladas.
@@ -275,7 +317,32 @@ Para a 4b, "a parte do servidor da Fase 4: tiles só nas partes reveladas e vis�
   - `MP.ferramenta` ("mover"|"regua") e `mpFerramenta(f)` são o ponto de entrada para as ferramentas de desenho; `mpComecaArraste` já ramifica por ferramenta (`arr.m`: `t` token, `p` fundo, `r` régua).
   - Passo de tour (régua, deslocamento, histórico) ainda não existe (fase 5). Não testado: Postgres (coluna `mapa_historico.desfeito` tem default, mas só rodou em H2), leitor de tela, aparelho real.
   - Sonar: `getDiagnostics` do VS Code está limpo nos arquivos tocados; avisos de regra do Sonar só aparecem em arquivo aberto, então não pude varrer o `MapaService` (cresceu ~200 linhas; se o Sonar reclamar de tamanho, o desfazer/histórico pode ir para um `MapaDesfazer`).
-- Fase 3: pendente
+- **Fase 3: pronta (18/11/2026).** Teste de API 271/0 e teste de tela verde (seções novas "mapa: organizacao…" em cada um). `MAPA_WIP` continua ligado.
+
+  *Pronto.*
+  - **Camadas** (`MapaRegras.CAMADAS`, de baixo para cima: cenario, objetos, personagens, npcs, decoracao). Coluna `camada` já existia; token nasce em personagens (NPC em npcs, desenho em decoracao), id desconhecido cai para o padrão. O canvas desenha camada por camada (`mpOrdenados`). Esconder camada é só da tela de quem esconde (`MP.ocultas`); **trancar camada** é do mapa (`regras.trancadas`, editar só "quem move" não destranca) e vale para todos.
+  - **Trava**: `bloqueado` do elemento ou camada trancada = nem o mestre mexe (409 "Está trancado", inclusive remover); o único pedido que passa num elemento trancado é `bloqueado:false`. Jogador não move token trancado (`podeMoverPelasRegras`). Cadeado desenhado só para o mestre.
+  - **Seleção múltipla (só mestre)**: Shift/Ctrl soma, caixa de seleção (ferramenta Selecionar, tecla S, ou Shift+arrastar no vazio), Ctrl+A, Esc limpa. Arrastar um item da selecionada leva todos juntos; setas movem o grupo. Painel "Seleção": trancar/destrancar, mostrar/esconder, mudar de camada, remover.
+  - **Operação em grupo**: `PUT /mapas/{id}/elementos` com `{itens:[{id, dados?, visivel?, bloqueado?, camada?, remover?}]}` (só mestre, até 300, tudo ou nada). Todas as linhas do histórico levam **o mesmo `seq`**: o desfazer (`desfazGrupo`) desfaz o grupo inteiro de uma vez e devolve `{…primeiro, outros:[{id, el}]}`. Sem coluna nova.
+  - **Desenhos** (`tipo DESENHO`, só mestre cria/edita): linha, círculo, retângulo, polígono (clique por vértice; Enter, duplo clique ou clicar no primeiro fecha; Backspace tira o último) e marcação com texto. Dados: `forma`, `pts [[x,y]]` (até 100), `cor` (nome da paleta ouro/sangue/neutro/ok/aviso, o canvas traduz para token), `esp`, `preench` (0–0,8), `rotulo`. Encaixam nos **cantos** da grade (`mpEncaixaPonto`), Alt inverte como no token. Painel "Desenho" guarda cor/espessura/preencher/visível dos próximos; lista "Desenhos" no painel (caminho sem mouse); duplo clique ou lápis edita.
+  - **Medição de área** (para todos, só na tela de quem mede, como a régua): cone, círculo, linha (1 casa de largura), explosão (raio em casas inteiras). Tecla A (menu no botão) e Enter, ou o botão do painel, **fixa o molde no mapa** como desenho (círculo, ou polígono).
+  - **Marcadores no token**: `vida`/`vidaMax` (barra + número no rótulo e chip no painel), `vidaPublica`, `vidaCampo`, `marcas [{t,c}]` (até 12; condição/efeito/status com texto e faixa de cor). Jogador recebe as marcas sempre; a vida só o dono ou com `vidaPublica`. Token nascido de ficha pega a primeira barra com máximo (de preferência "vida/pv/hp") como vida inicial; com o vínculo ligado, o que o mestre muda na vida do token volta para a ficha (cliente, `mpVidaParaFicha`).
+  - Atalhos novos (só mestre, exceto A): S, L, O (círculo), B (retângulo), P, M, Ctrl+A, Delete, Enter, Backspace, Esc em camadas (régua/área/rascunho primeiro, depois seleção).
+  - Arquivos: novo `js/mapa-formas.js` (camadas, seleção, geometria, desenho, áreas); motor reescrito nas partes de pintura e ponteiro.
+
+  *Desvios.*
+  - Jogador **não desenha nem seleciona em grupo** e não edita a própria vida (a "marcação" de jogador ficou de fora: exigiria revisar o corte do servidor). Vida e marcas só o mestre altera.
+  - A vida não sincroniza da ficha para o token depois de criado (só o caminho token → ficha, e só ao salvar o formulário do token).
+  - Mover grupo de tokens não cobra deslocamento (mestre nunca é cobrado). Ordem (z) dentro da camada é a da lista; sem "trazer para frente".
+  - Sem passo de tour (fica para a Fase 5, como no plano).
+
+  *Avisos para a próxima fase.*
+  - Toda mudança em lote passa por `mudaUm`/`removeUm` (têm `sobeSeq` falso nos itens do grupo). Parede e fog (`tipo()` ainda recusa) devem passar pelos mesmos pontos, e `trancado()`/`exigeSolto()` já valem para qualquer tipo.
+  - `elJson` só filtra `dados` para TOKEN; desenho vai inteiro ao jogador (se um dia houver desenho secreto, usar `visivel=false`). Parede/fog precisam do próprio filtro lá.
+  - `desfazRemover` recria com o `tipo` salvo; incluir o tipo novo em `tipoSalvo`.
+  - A tela calcula "trancado" localmente a partir de `MP.mapa.regras.trancadas` + `bloqueado` (o servidor tem a palavra final).
+  - Painel do mapa cresceu (camadas, seleção, desenho, desenhos, tokens): olhar no celular com o mestre. Não testado: Postgres (colunas não mudaram, só JSON), aparelho real, leitor de tela. `MapaService` passou de 900 linhas: se o Sonar reclamar, mover lote/desfazer para `MapaDesfazer`.
+
 - Fase 4a (cliente): pendente
 - Fase 4b (servidor): pendente
 - Fase 5: pendente

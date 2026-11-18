@@ -463,9 +463,9 @@ console.log("\n=== mapa: movimento (deslocamento, desfazer, historico) ===");
   await mestre.put(`${M}/${mid}`, { grid: { tipo: "quadrado", tam: 70, escala: 1, unidade: "m", diagonal: "1" }, regras: { quem: "dono", limite: "aviso" } });
   await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 35, y: 35, desl: 10 } });
   await mestre.post(`${M}/turno`, {});
-  await mestre.put(`${M}/${mid}/elementos/${t}`, { dados: { elencoId: "p-corredora" } });
-  await mestre.put(`${M}/${mid}/elementos/${(await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.dados.nome === "Guarda").id}`, { dados: { elencoId: "n-guarda" } });
-  const ordem = (rodada, vez) => ({ ativo: true, rodada, vez: vez === "Guarda" ? "n-guarda" : "p-corredora", ids: ["p-corredora", "n-guarda"], ini: { rodada, vez: vez === "Guarda" ? 0 : 1, lista: [{ nome: "Guarda", v: 15 }, { nome: "Corredora", v: 10 }] } });
+  /* o elo da iniciativa e o id do token: a entrada da ordem aponta para ele */
+  const idGuarda = String((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.dados.nome === "Guarda").id), idCorr = String(t);
+  const ordem = (rodada, vez) => ({ ativo: true, rodada, vez: vez === "Guarda" ? idGuarda : idCorr, ids: [idCorr, idGuarda], ini: { rodada, vez: vez === "Guarda" ? 0 : 1, lista: [{ nome: "Guarda", v: 15 }, { nome: "Corredora", v: 10 }] } });
   r = await jogador.put(`${M}/turno`, ordem(1, "Guarda"));
   ok(r.s === 403, "jogador nao informa a iniciativa", r.s);
   r = await mestre.put(`${M}/turno`, ordem(1, "Guarda"));
@@ -505,6 +505,166 @@ console.log("\n=== mapa: movimento (deslocamento, desfazer, historico) ===");
   ok(r.s === 404, "e o desfazer tambem", r.s);
   r = await mestre.del(`${M}/${mid}`);
   ok(r.s === 204, "apagar o mapa leva o historico junto", r.s);
+}
+
+console.log("\n=== mapa: organizacao (camadas, desenho, grupo, trava, vida e marcas) ===");
+{
+  const M = `/api/c/${cid}/mapas`;
+  let r = await mestre.post(M, { nome: "Organizado" });
+  const mid = r.d.id;
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: true });
+  const eu = (await jogador.get("/api/sessao")).d;
+  r = await mestre.post(`${M}/${mid}/elementos`, { dono: eu.id, dados: { nome: "Heroina", x: 35, y: 35, vidaMax: 20, vida: 12, vidaPublica: false, marcas: [{ t: "Envenenado", c: "sangue" }, { t: "x", c: "invalida" }] } });
+  const tH = r.d.id;
+  ok(r.d.camada === "personagens" && r.d.dados.vidaMax === 20 && r.d.dados.vida === 12 && r.d.dados.marcas.length === 2 && r.d.dados.marcas[1].c === "aviso", "token nasce na camada Personagens, com vida e marcas (cor invalida cai para a padrao)", r.d);
+  r = await mestre.post(`${M}/${mid}/elementos`, { visivel: false, camada: "npcs", dados: { nome: "Chefe", npcId: "n1", x: 105, y: 35, vidaMax: 50, vida: 50 } });
+  const tC = r.d.id;
+  ok(r.d.camada === "npcs", "token de NPC vai para a camada NPCs", r.d);
+  r = await mestre.post(`${M}/${mid}/elementos`, { camada: "inventada", dados: { nome: "Aleatorio" } });
+  ok(r.s === 200 && r.d.camada === "personagens", "camada desconhecida cai para a padrao", r.d);
+
+  /* desenhos: so o mestre cria; forma, pontos e cor sao validados */
+  const des = (forma, pts, extra) => ({ tipo: "DESENHO", dados: { forma, pts, cor: "sangue", esp: 4, ...extra } });
+  r = await jogador.post(`${M}/${mid}/elementos`, des("linha", [[0, 0], [70, 70]]));
+  ok(r.s === 403, "jogador nao desenha", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, des("estrela", [[0, 0], [70, 70]]));
+  ok(r.s === 400, "forma desconhecida e recusada", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, des("poligono", [[0, 0], [70, 70]]));
+  ok(r.s === 400, "poligono com menos de tres pontos e recusado", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, des("linha", [[0, 0], ["a", 70]]));
+  ok(r.s === 400, "ponto invalido e recusado", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, des("linha", [[0, 0], [70.04, 70.06]], { cor: "rosa-choque", rotulo: "Muro" }));
+  ok(r.s === 200 && r.d.tipo === "DESENHO" && r.d.camada === "decoracao" && r.d.dados.cor === "ouro" && r.d.dados.pts[1][0] === 70 && r.d.dados.rotulo === "Muro", "desenho: camada Decoracao, cor fora da paleta cai para ouro, pontos arredondados", r.d);
+  const dL = r.d.id;
+  r = await mestre.post(`${M}/${mid}/elementos`, { ...des("circulo", [[400, 400], [470, 400]]), visivel: false });
+  const dOculto = r.d.id;
+  r = await mestre.post(`${M}/${mid}/elementos`, des("retangulo", [[700, 700], [840, 770]], { preench: 0.5 }));
+  const dR = r.d.id;
+  r = await jogador.get(`${M}/${mid}`);
+  const ids = r.d.elementos.map(e => e.id);
+  ok(ids.includes(dL) && ids.includes(dR) && !ids.includes(dOculto) && !ids.includes(tC), "o jogador ve o desenho visivel e nunca o oculto nem o NPC escondido", ids);
+  const meuT = r.d.elementos.find(e => e.id === tH), dJ = r.d.elementos.find(e => e.id === dL);
+  ok(meuT.dados.vidaMax === 20 && meuT.dados.vida === 12 && meuT.dados.marcas.length === 2, "o dono do token ve a vida e as marcas", meuT.dados);
+  ok(dJ.podeMover === false && !("bloqueado" in dJ), "desenho nunca e movivel para o jogador e o bloqueio nao sai", dJ);
+  r = await jogador.put(`${M}/${mid}/elementos/${dL}`, { dados: { pts: [[1, 1], [2, 2]] } });
+  ok(r.s === 403, "jogador nao mexe no desenho", r.s);
+
+  /* vida de quem nao e dono: so aparece quando o mestre a torna publica */
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Guarda", x: 175, y: 35, vidaMax: 10, vida: 10, marcas: [{ t: "Atordoado", c: "aviso" }] } });
+  const tG = r.d.id;
+  r = await jogador.get(`${M}/${mid}`);
+  let g = r.d.elementos.find(e => e.id === tG).dados;
+  ok(!("vida" in g) && !("vidaMax" in g) && g.marcas?.[0]?.t === "Atordoado", "vida de token alheio nao sai para o jogador, as marcas saem", g);
+  await mestre.put(`${M}/${mid}/elementos/${tG}`, { dados: { vidaPublica: true } });
+  r = await jogador.get(`${M}/${mid}`);
+  g = r.d.elementos.find(e => e.id === tG).dados;
+  ok(g.vida === 10 && g.vidaMax === 10 && !("vidaPublica" in g), "com a vida publica o jogador a ve", g);
+  await mestre.put(`${M}/${mid}/elementos/${tG}`, { dados: { vidaMax: 0 } });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(!("vidaMax" in r.d.elementos.find(e => e.id === tG).dados) && !("vida" in r.d.elementos.find(e => e.id === tG).dados), "vida maxima 0 tira a barra", r.d);
+
+  /* grupo: uma operacao so, tudo ou nada, e um desfazer so */
+  const pos = async id => (await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === id);
+  r = await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: tG, dados: { x: 245, y: 105 } }, { id: dL, dados: { pts: [[70, 70], [140, 140]] } }, { id: dR, camada: "objetos" }] });
+  ok(r.s === 200 && r.d.itens.length === 3 && r.d.seq > 0, "mover e organizar em grupo numa chamada", r.d);
+  ok((await pos(tG)).dados.x === 245 && (await pos(dL)).dados.pts[0][0] === 70 && (await pos(dR)).camada === "objetos", "o grupo moveu o token, o desenho e trocou a camada");
+  const hist = (await mestre.get(`${M}/${mid}/historico?limite=10`)).d.filter(h => h.seq === r.d.seq);
+  ok(hist.length === 3, "as tres linhas do grupo levam o mesmo seq no historico", hist.length);
+  r = await mestre.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 200 && Array.isArray(r.d.outros) && r.d.outros.length === 2, "um desfazer devolve o grupo inteiro", r.d);
+  ok((await pos(tG)).dados.x === 175 && (await pos(dL)).dados.pts[0][0] === 0 && (await pos(dR)).camada === "decoracao", "o grupo voltou ao que era");
+  r = await jogador.put(`${M}/${mid}/elementos`, { itens: [{ id: tH, dados: { x: 1, y: 1 } }] });
+  ok(r.s === 403, "jogador nao usa a operacao em grupo", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos`, { itens: [] });
+  ok(r.s === 400, "grupo vazio e recusado", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: tG, dados: { x: 999, y: 999 } }, { id: 999999, dados: { x: 1, y: 1 } }] });
+  ok(r.s === 404 && (await pos(tG)).dados.x === 175, "um item que nao existe derruba o grupo todo e nada muda", r.s);
+
+  /* remover em grupo e desfazer recria desenho como desenho */
+  r = await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: dL, remover: true }, { id: dR, remover: true }] });
+  ok(r.s === 200 && r.d.itens.every(i => i.removido), "remover em grupo", r.d);
+  r = await mestre.post(`${M}/${mid}/desfazer`, { seq: r.d.seq });
+  ok(r.s === 200 && r.d.outros?.length === 1, "desfazer a remocao em grupo recria todos", r.d);
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.filter(e => e.tipo === "DESENHO").length === 3 && r.d.elementos.filter(e => e.tipo === "DESENHO").every(e => e.dados.pts?.length >= 2), "o que foi recriado e desenho, com os pontos de antes", r.d.elementos.map(e => e.tipo));
+
+  /* trava: do elemento e da camada, valendo tambem para o mestre */
+  const dL2 = r.d.elementos.find(e => e.tipo === "DESENHO" && e.dados.forma === "linha").id;
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { bloqueado: true });
+  ok(r.s === 200 && r.d.bloqueado === true && r.d.trancado === true && r.d.podeMover === false, "o mestre tranca um elemento", r.d);
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { dados: { pts: [[5, 5], [9, 9]] } });
+  ok(r.s === 409, "trancado, nem o mestre mexe", r.s);
+  r = await mestre.del(`${M}/${mid}/elementos/${dL2}`);
+  ok(r.s === 409, "trancado, nem o mestre remove", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: tG, dados: { x: 300, y: 300 } }, { id: dL2, dados: { pts: [[5, 5], [9, 9]] } }] });
+  ok(r.s === 409 && (await pos(tG)).dados.x === 175, "grupo com um item trancado nao muda nada", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { bloqueado: false });
+  ok(r.s === 200 && r.d.bloqueado === false, "destrancar e o unico pedido que passa", r.d);
+  r = await mestre.put(`${M}/${mid}`, { regras: { trancadas: ["decoracao", "inventada", "decoracao"] } });
+  ok(r.s === 200 && JSON.stringify(r.d.regras.trancadas) === '["decoracao"]' && r.d.regras.quem === "dono", "camada trancada fica no mapa, sem repetir nem aceitar nome inventado", r.d.regras);
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { dados: { pts: [[5, 5], [9, 9]] } });
+  ok(r.s === 409, "elemento de camada trancada nao se mexe", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { bloqueado: false, camada: "objetos" });
+  ok(r.s === 409, "a camada trancada nao se destranca pelo elemento", r.s);
+  r = await mestre.put(`${M}/${mid}`, { grid: { tipo: "quadrado", tam: 70 }, regras: { quem: "todos", limite: "aviso" } });
+  ok(JSON.stringify(r.d.regras.trancadas) === '["decoracao"]' && r.d.regras.quem === "todos", "editar so quem move nao destranca as camadas", r.d.regras);
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", trancadas: [] } });
+  r = await mestre.put(`${M}/${mid}/elementos/${dL2}`, { dados: { pts: [[5, 5], [9, 9]] }, camada: "objetos" });
+  ok(r.s === 200 && r.d.camada === "objetos" && r.d.dados.pts[0][0] === 5, "destrancada a camada, o elemento volta a mexer e trocar de camada", r.d);
+  r = await mestre.put(`${M}/${mid}/elementos/${tH}`, { bloqueado: true });
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { x: 70, y: 70 } });
+  ok(r.s === 403, "token trancado nao anda nem para o dono", r.s);
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tH).podeMover === false, "e a tela do jogador ja chega dizendo que nao pode mover", r.d);
+  r = await mestre.put(`${M}/${mid}/elementos/${tH}`, { bloqueado: false });
+
+  /* o dono muda a propria vida e marcas; o resto do token continua do mestre */
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { vida: 5, marcas: [{ t: "Cansada", c: "aviso" }] } });
+  ok(r.s === 200 && r.d.dados.vida === 5 && r.d.dados.marcas[0].t === "Cansada", "o dono muda a propria vida e as marcas", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { vida: 500 } });
+  ok(r.s === 200 && r.d.dados.vida === 20, "a vida do jogador nunca passa do maximo", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { vidaMax: 999, nome: "Outra", vida: 4 } });
+  ok(r.s === 200 && r.d.dados.vidaMax === 20 && r.d.dados.nome === "Heroina" && r.d.dados.vida === 4, "o jogador nao muda vida maxima nem o nome", r.d);
+  r = await jogador.put(`${M}/${mid}/elementos/${tG}`, { dados: { vida: 1 } });
+  ok(r.s === 403, "jogador nao mexe na vida de token que nao e dele", r.s);
+  /* ping: qualquer um aponta, nada fica gravado */
+  r = await jogador.post(`${M}/${mid}/ping`, { x: 100, y: 100 });
+  ok(r.s === 204, "jogador aponta um ponto do mapa", r.s);
+  /* ordem de empilhar */
+  const ordemDe = async id => (await mestre.get(`${M}/${mid}`)).d.elementos.findIndex(e => e.id === id);
+  await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: tH, ordem: "frente" }] });
+  const total = (await mestre.get(`${M}/${mid}`)).d.elementos.length;
+  ok(await ordemDe(tH) === total - 1, "para a frente poe o elemento por ultimo na lista");
+  await mestre.put(`${M}/${mid}/elementos`, { itens: [{ id: tH, ordem: "tras" }] });
+  ok(await ordemDe(tH) === 0, "para tras poe o elemento por primeiro");
+  /* o deslocamento e cobrado pelo caminho que o jogador mandou, nunca menos que a reta */
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso" }, grid: { tipo: "quadrado", tam: 70, escala: 1, unidade: "m", diagonal: "1" } });
+  await mestre.put(`${M}/${mid}/elementos/${tH}`, { dados: { x: 35, y: 35, desl: 20 } });
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { x: 245, y: 35 }, trajeto: [[35, 245], [245, 245]] });
+  ok(r.s === 200 && r.d.dados.usado === 9, "o desvio custa: 3 casas para baixo, 3 de lado e 3 de volta", r.d?.dados);
+  await mestre.post(`${M}/turno`, {});
+  r = await jogador.put(`${M}/${mid}/elementos/${tH}`, { dados: { x: 35, y: 35 }, trajeto: [[175, 35]] });
+  ok(r.s === 200 && r.d.dados.usado === 3, "um caminho que nao desvia custa a reta", r.d?.dados);
+  /* ficha <-> token: a barra da ficha e a vida do token andam juntas */
+  const jsonFicha = (val, max) => JSON.stringify({ campos: [{ sec: "R", rot: "Vida", tipo: "barra", val, max }] });
+  r = await jogador.post(`/api/c/${cid}/fichas`, { nome: "Vinculada", json: jsonFicha("8", "10") });
+  const fV = r.d.id;
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Ligada", fichaId: fV, vinculo: true, vidaMax: 10, vida: 8, vidaCampo: "Vida", x: 35, y: 245 } });
+  const tV = r.d.id;
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonFicha("3", "12") });
+  r = await mestre.get(`${M}/${mid}`);
+  const lig = r.d.elementos.find(e => e.id === tV).dados;
+  ok(lig.vida === 3 && lig.vidaMax === 12, "mudar a barra na ficha muda a vida do token vinculado", lig);
+  await mestre.put(`${M}/${mid}/elementos/${tV}`, { dados: { vida: 7 } });
+  const fl = (await mestre.get(`/api/c/${cid}/fichas`)).d.find(f => f.id === fV);
+  ok(JSON.parse(fl.json).campos[0].val === "7", "mudar a vida do token muda a barra da ficha", fl);
+  await mestre.put(`${M}/${mid}/elementos/${tV}`, { dados: { vinculo: false } });
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonFicha("1", "12") });
+  ok((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tV).dados.vida === 7, "sem o vinculo, a ficha nao mexe mais no token");
+
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
+  r = await mestre.del(`${M}/${mid}`);
+  ok(r.s === 204, "apagar o mapa leva tudo junto", r.s);
 }
 
 console.log("\n=== notas e mural ===");

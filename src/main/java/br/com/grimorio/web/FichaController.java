@@ -27,8 +27,11 @@ public class FichaController {
     private final CampanhaService camp;
     private final IaService ia;
     private final Atual atual;
+    private final br.com.grimorio.service.MapaService mapas;
 
-    public FichaController(FichaRepo fichas, UsuarioRepo usuarios, CampanhaService camp, IaService ia, Atual atual) {
+    public FichaController(FichaRepo fichas, UsuarioRepo usuarios, CampanhaService camp, IaService ia, Atual atual,
+                           br.com.grimorio.service.MapaService mapas) {
+        this.mapas = mapas;
         this.fichas = fichas;
         this.usuarios = usuarios;
         this.camp = camp;
@@ -75,6 +78,8 @@ public class FichaController {
         if (f == null) return ResponseEntity.notFound().build();
         aplica(f, c);
         fichas.save(f);
+        /* a vida do token vinculado a esta ficha acompanha a barra dela */
+        mapas.vidaDaFicha(cid, f.getId(), f.getConteudo());
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
