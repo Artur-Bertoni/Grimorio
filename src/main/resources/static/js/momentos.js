@@ -147,7 +147,7 @@ function iniNomeDoElenco(id){
 /* Quem tem token ligado ao elenco no mapa ativo entra na ordem (token escondido entra escondido). */
 /* os tokens do mapa que a iniciativa pode apontar: o mapa aberto na tela do mestre ou, sem ele, o que os jogadores veem */
 function iniTokensDoMapa(){
-  var fim=function(els){ return (els||[]).filter(function(e){ return e.tipo!=="DESENHO"; }).map(function(e){ return [String(e.id),e.dados?.nome||V("token")]; }); };
+  var fim=function(els){ return (els||[]).filter(function(e){ return e.tipo==="TOKEN"; }).map(function(e){ return [String(e.id),e.dados?.nome||V("token")]; }); };
   if(MP.id&&MP.els.length&&String(MP.cid)===String(CID)){ return Promise.resolve(fim(MP.els)); }
   return api(cAPI("/mapas")).then(function(l){
     var m=(l||[]).find(function(x){ return x.ativo; });
@@ -164,7 +164,7 @@ function iniPuxaDoMapa(s){
     var ja={}; ini.lista.forEach(function(x){ if(x.tokenId)ja["t"+x.tokenId]=1; if(x.elencoId)ja["e"+x.elencoId]=1; });
     var n=0, com=0;
     (r.elementos||[]).forEach(function(e){
-      if(e.tipo==="DESENHO")return;
+      if(e.tipo!=="TOKEN")return;
       com++;
       var eid=e.dados?.elencoId?String(e.dados.elencoId):"";
       /* entrada antiga, que so sabia do elenco, passa a apontar para o token */

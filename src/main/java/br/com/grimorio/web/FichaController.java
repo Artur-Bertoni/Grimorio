@@ -80,6 +80,8 @@ public class FichaController {
         fichas.save(f);
         /* a vida do token vinculado a esta ficha acompanha a barra dela */
         mapas.vidaDaFicha(cid, f.getId(), f.getConteudo());
+        /* e o alcance da visao dela, na nevoa do mapa */
+        mapas.visaoDaFicha(cid, f.getId(), f.getConteudo());
         return ResponseEntity.ok(Map.of("ok", true));
     }
 

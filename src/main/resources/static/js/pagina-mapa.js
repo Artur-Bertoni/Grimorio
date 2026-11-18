@@ -13,7 +13,7 @@ function viewMapa(){
   if(mapaBloqueado()){ return htmlDe("t-mapa-wip",{}); }
   var m=MP.mapa, si=mpSessaoIni();
   return htmlDe("t-mapa",{ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,
-    painel:mpPainelAberto(),encaixa:mpEncaixando(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),nTokens:MP.els.filter(function(e){ return e.tipo!=="DESENHO"; }).length});
+    painel:mpPainelAberto(),encaixa:mpEncaixando(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),nTokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"; }).length});
 }
 function hydrateMapa(v){
   if(mapaBloqueado()){ return; }
@@ -62,22 +62,33 @@ function mpItemToken(e){
     marcas:(Array.isArray(d.marcas)?d.marcas:[]).map(function(m){ return m.t; }),
     resta:desl>0?mpFmt(Math.max(0,desl-mpNum(d.usado,0)))+"/"+mpFmt(desl)+" "+mpUnidade():""};
 }
+function mpItemParede(e,i){
+  var d=e.dados||{}, k=d.kind||"parede", rot=(MP_PAREDES.find(function(o){ return o[0]===k; })||MP_PAREDES[0])[1];
+  return {id:e.id,nome:rot+" "+(i+1),sel:mpEhSel(e.id),trancado:mpTrancado(e),porta:k==="porta",aberta:!!d.aberta};
+}
+function mpItemArea(e,i){
+  var d=e.dados||{}, f=d.forma==="traco"?"Pincel":(MP_FORMAS_FOG.find(function(o){ return o[0]===d.forma; })||MP_FORMAS_FOG[0])[1];
+  return {id:e.id,nome:(d.revela?"Revela":"Cobre")+" · "+f.toLowerCase()+" "+(i+1),sel:mpEhSel(e.id),trancado:mpTrancado(e)};
+}
 var MP_NOME_FORMA={linha:"Linha",circulo:"Círculo",retangulo:"Retângulo",poligono:"Polígono",marca:"Marcação"};
 function mpItemDesenho(e){
   var d=e.dados||{};
   return {id:e.id,nome:(MP_NOME_FORMA[d.forma]||"Desenho")+(d.rotulo?" · "+d.rotulo:""),sel:mpEhSel(e.id),trancado:mpTrancado(e),oculto:e.visivel===false};
 }
 function mpDadosDoPainel(){
-  var sels=mpSelecionados(), tem=function(e){ return e.tipo==="DESENHO"; };
+  var sels=mpSelecionados(), tem=function(e){ return e.tipo==="DESENHO"; }, daCamada=function(e){ return e.tipo==="TOKEN"||e.tipo==="DESENHO"; };
+  var paredes=MP.els.filter(function(e){ return e.tipo==="PAREDE"; }), areas=mpFogDoMapa();
   return {gm:GM,polling:mpModoTempoReal()==="polling",
     mapas:GM?MP.lista.map(function(m){ return {id:m.id,nome:m.nome,ativo:!!m.ativo,aberto:String(m.id)===String(MP.id)}; }):[],
     camadas:MP_CAMADAS.map(function(c){
-      return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
+      return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return daCamada(e)&&mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
     nSel:sels.length,todosTrancados:sels.length>0&&sels.every(function(e){ return e.bloqueado; }),
     todosVisiveis:sels.every(function(e){ return e.visivel!==false; }),
     abre:mpSecoes(),cores:MP_CORES,estilo:MP.estilo,temArea:!!MP.area&&!!mpAreaForma(MP.area),
     desenhos:MP.els.filter(tem).map(mpItemDesenho),
-    tokens:MP.els.filter(function(e){ return !tem(e); }).map(mpItemToken)};
+    fog:mpFogModo(),fogMemoria:!!MP.mapa?.regras?.fogMemoria,visaoPadrao:mpVisaoPadraoDoMapa(),fogModos:MP_FOG_MODOS,pincel:mpPincel(),pontas:MP_PONTAS,fogFormas:MP_FORMAS_FOG,fogForma:MP.fogForma,fogRevela:MP.fogRevela!==false,comoJogador:MP.comoJogador,
+    paredeKinds:MP_PAREDES,paredeKind:MP.paredeKind,paredes:paredes.map(mpItemParede),areas:areas.map(mpItemArea),
+    tokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"&&!mpOculto(e); }).map(mpItemToken)};
 }
 /* O painel se refaz a cada token que muda (de qualquer pessoa): o foco de quem estava num
    botao dele volta para o mesmo botao. */
@@ -102,12 +113,14 @@ function mpPintaPainel(){
   $$("[data-mp-ed]",p).forEach(function(b){ b.onclick=function(){
     var el=mpEl(b.dataset.mpEd);
     if(!el){ return; }
-    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else if(GM){ mpEditaToken(el); } else { mpEditaMeuToken(el); } }; });
+    if(el.tipo==="DESENHO"){ mpEditaDesenho(el); } else if(el.tipo==="PAREDE"){ mpEditaParede(el); } else if(el.tipo==="FOG"){ mpEditaFog(el); }
+    else if(GM){ mpEditaToken(el); } else { mpEditaMeuToken(el); } }; });
+  $$("[data-mp-porta]",p).forEach(function(b){ b.onclick=function(){ var el=mpEl(b.dataset.mpPorta); if(el){ mpAlternaPorta(el); } }; });
   $$("details[data-mp-sec]",p).forEach(function(d){ d.ontoggle=function(){ mpGuardaSecao(d.dataset.mpSec,d.open); }; });
   mpLigaPainelFormas(p);
 }
 /* Secoes do painel: quais estao abertas fica guardado neste navegador (por pessoa, nao por mapa). */
-var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,desenhos:false,tokens:true,acoes:true};
+var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,visao:false,paredes:false,areas:false,desenhos:false,tokens:true,acoes:true};
 function mpSecoes(){
   var o={...MP_SECOES_PADRAO};
   try{ Object.assign(o,JSON.parse(localStorage.getItem("grim_mapa_secoes")||"{}")); }catch(error_){ /* sem armazenamento vale o padrao */ }
@@ -137,6 +150,27 @@ function mpLigaPainelFormas(p){
   var esp=$("#mpDesEsp",p); if(esp){ esp.onchange=function(){ MP.estilo.esp=Math.min(12,Math.max(1,Math.round(Number(esp.value)||3))); esp.value=MP.estilo.esp; }; }
   var pre=$("#mpDesPre",p); if(pre){ pre.onchange=function(){ MP.estilo.preench=pre.checked?0.25:0; }; }
   var vis=$("#mpDesVis",p); if(vis){ vis.onchange=function(){ MP.estilo.vis=vis.checked; }; }
+  mpLigaPainelVisao(p);
+}
+/* paredes e nevoa: o modo da nevoa vale para todos (fica no mapa); o resto e preferencia de quem desenha */
+function mpLigaPainelVisao(p){
+  var fm=$("#mpFogModo",p); if(fm){ fm.onchange=function(){ mpSalvaFog(fm.value); }; }
+  var fme=$("#mpFogMemoria",p); if(fme){ fme.onchange=function(){ mpSalvaFog(null,{fogMemoria:fme.checked}); }; }
+  var fes=$("#mpFogEsquece",p); if(fes){ fes.onclick=function(){
+    confirmar("Todo mundo volta a ver só o que está no campo de visão, e o que já foi explorado some.",{titulo:"Esquecer o que foi explorado?",sim:"Esquecer"}).then(function(sim){
+      if(sim){ mpSalvaFog(null,{fogMemoria:true,fogVer:(MP.mapa?.regras?.fogVer||0)+1}).then(function(){ toast("Explorado esquecido","ok"); }); } }); }; }
+  var fvp=$("#mpVisaoPadrao",p); if(fvp){ fvp.onchange=function(){
+    var n=Math.min(100,Math.max(1,Number(fvp.value)||MP_VISAO_PADRAO)); fvp.value=n; mpSalvaFog(null,{visaoPadrao:n}); }; }
+  var fc=$("#mpFogComo",p); if(fc){ fc.onchange=function(){ MP.comoJogador=fc.checked; mpDesenha(); mpPintaPainel(); }; }
+  var br=$("#mpFogRevela",p); if(br){ br.onclick=function(){ mpRevelaTudo(); }; }
+  var bc=$("#mpFogCobre",p); if(bc){ bc.onclick=function(){ mpCobreTudo(); }; }
+  var fa=$("#mpFogAcao",p); if(fa){ fa.onchange=function(){ MP.fogRevela=fa.value==="revela"; }; }
+  var ff=$("#mpFogForma",p); if(ff){ ff.onchange=function(){ MP.fogForma=ff.value; }; }
+  var pc=$("#mpPincelCasas",p); if(pc){ pc.onchange=function(){
+    var n=Math.min(30,Math.max(0.25,Number(pc.value)||2)); pc.value=n; mpPincel().casas=n; mpDesenha(); }; }
+  var pp=$("#mpPincelPonta",p); if(pp){ pp.onchange=function(){ mpPincel().ponta=pp.value; mpDesenha(); }; }
+  var ps=$("#mpPincelBorda",p); if(ps){ ps.onchange=function(){ mpPincel().suave=ps.value==="macia"; }; }
+  var pk=$("#mpParedeKind",p); if(pk){ pk.onchange=function(){ MP.paredeKind=pk.value; }; }
 }
 /* Trancar a camada vale para todos e fica no mapa: ninguem mexe no que esta nela ate destrancar. */
 function mpTrancaCamada(id){
@@ -270,13 +304,18 @@ function mpVidaDaFicha(f){
   var c=bs.find(function(x){ return /vida|pv|hp/i.test(x.rot); })||bs[0];
   return c?{vidaMax:mpNumFicha(c.max),vida:mpNumFicha(c.val),vidaCampo:c.rot}:{};
 }
+/* o alcance escrito na ficha vai junto para o token; depois o servidor o atualiza quando a ficha muda */
+function mpVisaoDaFicha(f){
+  var v=fichaDados(f).visao;
+  return v==null||v===""?{}:{visaoFicha:Math.max(0,mpNumFicha(v))};
+}
 function mpTokenDeFicha(){
   carregaFichas().then(function(fs){
     return mpEscolhe("Escolher a "+vmin("ficha"),fs.map(function(f){ return {id:f.id,nome:f.nome,sub:f.dono||"",img:""}; }),
       "Nenhuma "+vmin("ficha")+" nesta "+vmin("campanha")+" ainda.").then(function(id){
       var f=fs.find(function(x){ return String(x.id)===String(id); });
       if(!f){ return null; }
-      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,fichaId:f.id,vinculo:true,...mpVidaDaFicha(f)}});
+      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,fichaId:f.id,vinculo:true,...mpVidaDaFicha(f),...mpVisaoDaFicha(f)}});
     });
   }).catch(function(e){ if(e){ toast(e.message||"não consegui ler as "+vmin("fichas"),"erro"); } });
 }
@@ -311,6 +350,7 @@ function mpEditaToken(el){
       {k:"rot",rot:"Rotação (graus)",tipo:"num",linha:"geo"},
       {k:"desl",rot:"Deslocamento por turno ("+(mpUnidade()||"unidades do mapa")+")",tipo:"num",linha:"geo",
         dica:"Rotação: para onde o "+vmin("token")+" está virado (0 é para cima). Deslocamento: quanto anda por turno, na unidade do "+vmin("mapa")+" (0 é sem limite)."},
+      {k:"visao",rot:"Alcance da visão (casas)",tipo:"num",dica:"Quanto este personagem enxerga com a névoa pela visão ligada (só vale para quem tem dono). Vazio usa o da "+vmin("ficha")+" e, sem ele, o padrão do "+vmin("mapa")+" ("+mpVisaoPadraoDoMapa()+"). 0 é cego."},
       {k:"dono",rot:"Quem controla",tipo:"sel",ops:donos,dica:"Com a iniciativa em andamento, o jogador só move o token na vez da entrada que aponta para ele (na iniciativa)."},
       {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
       {k:"livre",rot:"Qualquer "+vmin("jogador")+" pode mover",tipo:"check"},
@@ -324,19 +364,59 @@ function mpEditaToken(el){
         campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]}];
     if(d.fichaId!=null){ campos.push({k:"vinculo",rot:"Ligado à "+vmin("ficha")+" de origem",tipo:"check"}); }
     var tam=MP_TAMANHOS.some(function(o){ return Number(o[0])===Number(d.tam); })?String(Number(d.tam)):"1";
-    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,dono:String(el.dono||0),
+    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,visao:d.visao==null?null:d.visao,dono:String(el.dono||0),
       visivel:el.visivel!==false,livre:!!d.livre,vinculo:d.vinculo!==false,camada:mpCamadaDe(el),bloqueado:!!el.bloqueado,
       vidaMax:d.vidaMax||0,vida:d.vida||0,vidaPublica:!!d.vidaPublica,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{rotRemover:"Remover do "+vmin("mapa"),wide:true,compacto:true,
       salvar:function(c){
         if(el.bloqueado&&c.bloqueado){ toast("Está trancado: desmarque “Trancado” para salvar mudanças.","aviso"); return; }
         var max=Math.max(0,Number(c.vidaMax)||0), vida=Math.max(0,Number(c.vida)||0);
         mpMudaElemento(el,{dono:Number(c.dono)||0,visivel:!!c.visivel,camada:c.camada,bloqueado:!!c.bloqueado,
-          dados:{nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,rot:c.rot??0,desl:Math.max(0,Number(c.desl)||0),livre:!!c.livre,vinculo:!!c.vinculo,
+          dados:{nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,rot:c.rot??0,desl:Math.max(0,Number(c.desl)||0),visao:c.visao==null||c.visao===""?null:Math.max(0,Number(c.visao)||0),livre:!!c.livre,vinculo:!!c.vinculo,
             vidaMax:max,vida:vida,vidaPublica:!!c.vidaPublica,marcas:(c.marcas||[]).filter(function(m){ return String(m.t||"").trim(); })}})
           .catch(function(){ /* aviso em mpGrava */ });
       },
       remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
   });
+}
+
+/* ---------- parede e nevoa ---------- */
+function mpEditaParede(el){
+  if(!GM){ return; }
+  var d=el.dados||{};
+  formulario("Editar · parede",[
+    {k:"kind",rot:"Tipo",tipo:"sel",ops:MP_PAREDES,dica:"Parede barra o movimento e a visão; janela só o movimento; porta fechada barra os dois."},
+    {k:"aberta",rot:"Porta aberta (só vale para porta)",tipo:"check"},
+    {k:"bloqueado",rot:"Trancada",tipo:"check",dica:"Trancada, ninguém move nem edita, nem você, até destrancar."}
+  ],{kind:d.kind||"parede",aberta:!!d.aberta,bloqueado:!!el.bloqueado},{rotRemover:"Remover a parede",compacto:true,
+    salvar:function(c){
+      if(el.bloqueado&&c.bloqueado){ toast("Está trancada: desmarque “Trancada” para salvar mudanças.","aviso"); return; }
+      mpMudaElemento(el,{bloqueado:!!c.bloqueado,dados:{kind:c.kind,aberta:!!c.aberta}},"não consegui salvar a parede").catch(function(){ /* aviso em mpGrava */ });
+    },
+    remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
+}
+function mpEditaFog(el){
+  if(!GM){ return; }
+  var d=el.dados||{};
+  var traco=d.forma==="traco", T=mpLado();
+  var campos=[
+    {k:"revela",rot:"Revela (desmarcado, cobre de novo)",tipo:"check",dica:"As áreas valem na ordem em que foram feitas: a mais nova manda sobre as mais antigas."},
+    {k:"bloqueado",rot:"Trancada",tipo:"check"}
+  ];
+  if(traco){
+    campos.splice(1,0,
+      {k:"casas",rot:"Diâmetro do pincel (casas)",tipo:"num",linha:"pin"},
+      {k:"ponta",rot:"Formato",tipo:"sel",ops:MP_PONTAS,linha:"pin"},
+      {k:"borda",rot:"Borda",tipo:"sel",ops:[["macia","Macia"],["firme","Firme"]],linha:"pin"});
+  }
+  formulario("Editar · "+(traco?"pincel de névoa":"área de névoa"),campos,
+    {revela:d.revela!==false,bloqueado:!!el.bloqueado,casas:Math.round(mpNum(d.larg,70)/T*100)/100,ponta:d.ponta||"redondo",borda:d.suave===false?"firme":"macia"},{rotRemover:"Remover a área",compacto:true,
+    salvar:function(c){
+      if(el.bloqueado&&c.bloqueado){ toast("Está trancada: desmarque “Trancada” para salvar mudanças.","aviso"); return; }
+      var dados={revela:!!c.revela};
+      if(traco){ dados.larg=Math.max(4,Math.round((Number(c.casas)||1)*T)); dados.ponta=c.ponta; dados.suave=c.borda!=="firme"; }
+      mpMudaElemento(el,{bloqueado:!!c.bloqueado,dados:dados},"não consegui salvar a área").catch(function(){ /* aviso em mpGrava */ });
+    },
+    remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
 }
 
 /* O jogador muda, no token que e dele, a vida atual (ate o maximo que o mestre pos) e as marcas. */
@@ -394,6 +474,7 @@ function mpEditaDesenho(el){
 /* ---------- historico ---------- */
 function mpTextoHistorico(h){
   var quem=h.meu?"Você":h.quem, nome=h.nome||(h.tipo==="DESENHO"?"um desenho":vmin("token")), mapa="o "+vmin("mapa");
+  if(h.tipo==="PAREDE"||h.tipo==="FOG"){ nome=h.tipo==="PAREDE"?"uma parede":"uma área de névoa"; }
   if(h.operacao==="criar"){ return quem+" pôs "+nome+" no "+vmin("mapa"); }
   if(h.operacao==="mudar"){ return h.casas==null?quem+" alterou "+nome:quem+" moveu "+nome+" · "+mpDistTexto(h.casas); }
   if(h.operacao==="remover"){ return quem+" removeu "+nome; }
@@ -435,27 +516,30 @@ atalho({tecla:"s",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="
 [["l","linha"],["o","circulo"],["b","retangulo"],["p","poligono"],["m","marca"]].forEach(function(t){
   atalho({tecla:t[0],quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta===t[1]?"mover":t[1]); }});
 });
+atalho({tecla:"w",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="parede"?"mover":"parede"); }});
+atalho({tecla:"n",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="fog"?"mover":"fog"); }});
+atalho({tecla:"f",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="pincel"?"mover":"pincel"); }});
 atalho({tecla:"i",quando:mpTeclado,faz:function(){ mpFerramenta(MP.ferramenta==="ping"?"mover":"ping"); }});
 atalho({tecla:"]",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("frente"); }});
 atalho({tecla:"[",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("tras"); }});
 atalho({tecla:"a",quando:mpTeclado,faz:function(){ mpFerramenta(MP.ferramenta.indexOf("a-")===0?"mover":(MP.areaTipo||"a-cone")); }});
-atalho({tecla:"Escape",quando:function(){ return mpTeclado()&&!!(MP.flyDes||MP.regua||MP.area||MP.rascunho||mpSelecao().length); },faz:function(){
+atalho({tecla:"Escape",quando:function(){ return mpTeclado()&&!!(MP.flyDes||MP.regua||MP.area||MP.rascunho||mpSelecao().length||MP.ferramenta==="parede"||MP.ferramenta==="fog"||MP.ferramenta==="pincel"); },faz:function(){
   if(MP.flyDes){ mpGavetaDesenho(false); return; }
-  if(MP.regua||MP.area||MP.rascunho){ MP.regua=null; MP.area=null; MP.rascunho=null; } else { mpSelecionaIds([]); }
+  if(MP.regua||MP.area||MP.rascunho){ MP.regua=null; MP.area=null; MP.rascunho=null; } else if(MP.ferramenta==="parede"||MP.ferramenta==="fog"||MP.ferramenta==="pincel"){ mpFerramenta("mover"); } else { mpSelecionaIds([]); }
   mpDesenha(); mpPintaPainel();
 }});
 atalho({tecla:"Enter",quando:function(e){ return mpTeclado()&&mpFocoLivre(e)&&!!MP.regua?.pts&&!MP.regua.fim; },faz:function(){ mpTerminaTrajeto(false); }});
-atalho({tecla:"Enter",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&(!!MP.area||MP.rascunho?.forma==="poligono"); },faz:function(){
+atalho({tecla:"Enter",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&(!!MP.area||mpEhPoli(MP.rascunho)); },faz:function(){
   if(MP.rascunho){ mpFechaPoligono(false); } else { mpFixaArea(); }
 }});
-atalho({tecla:"Backspace",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&MP.rascunho?.forma==="poligono"; },faz:function(){
+atalho({tecla:"Backspace",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&mpEhPoli(MP.rascunho); },faz:function(){
   MP.rascunho.pts.pop(); if(!MP.rascunho.pts.length){ MP.rascunho=null; } mpDesenha();
 }});
 ["Delete","Backspace"].forEach(function(t){
   atalho({tecla:t,quando:function(e){ return mpMestre()&&mpFocoLivre(e)&&!MP.rascunho&&mpSelecao().length>0; },faz:function(){ mpAcaoSelecao("remover"); }});
 });
 atalho({tecla:"a",ctrl:true,quando:function(e){ return mpMestre()&&!emCampoDeTexto(e); },faz:function(){
-  mpSelecionaIds(mpOrdenados().map(function(el){ return el.id; })); mpDesenha(); mpPintaPainel();
+  mpSelecionaIds(mpOrdenados().filter(function(el){ return !mpPincelada(el); }).map(function(el){ return el.id; })); mpDesenha(); mpPintaPainel();
 }});
 atalho({tecla:"0",quando:mpTeclado,faz:function(){ mpEnquadra(); }});
 atalho({tecla:"+",quando:mpTeclado,faz:function(){ mpZoom(1.25,MPC.w/2,MPC.h/2); }});

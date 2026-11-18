@@ -59,7 +59,7 @@ function mpPodaSel(){
 /* ---------- geometria dos elementos ---------- */
 function mpBBox(e){
   var d=e.dados||{};
-  if(e.tipo!=="DESENHO"){
+  if(e.tipo==="TOKEN"){
     var R=mpRaio(e), x=mpNum(d.x,0), y=mpNum(d.y,0);
     return {x0:x-R,y0:y-R,x1:x+R,y1:y+R};
   }
@@ -72,6 +72,7 @@ function mpBBox(e){
   var b={x0:Infinity,y0:Infinity,x1:-Infinity,y1:-Infinity};
   p.forEach(function(q){ b.x0=Math.min(b.x0,q[0]); b.y0=Math.min(b.y0,q[1]); b.x1=Math.max(b.x1,q[0]); b.y1=Math.max(b.y1,q[1]); });
   if(d.forma==="marca"){ b.x0-=8; b.y0-=8; b.x1+=8; b.y1+=8; }
+  if(d.forma==="traco"){ var rt=mpNum(d.larg,70)/2; b.x0-=rt; b.y0-=rt; b.x1+=rt; b.y1+=rt; }
   return b;
 }
 function mpDistSeg(px,py,a,b){
@@ -159,6 +160,7 @@ function mpPintaDesenho(ctx,e,z,cor){
 function mpPintaFerramentas(ctx,z,cor){
   mpPintaPings(ctx,z,cor);
   mpPintaRascunho(ctx,z,cor);
+  mpPintaPincel(ctx,z,cor);
   mpPintaArea(ctx,z,cor);
   var c=MP.caixa;
   if(c){
@@ -189,13 +191,15 @@ function mpPintaPings(ctx,z,cor){
 }
 function mpPintaRascunho(ctx,z,cor){
   var r=MP.rascunho;
-  if(!r){ return; }
+  if(!r||r.forma==="traco"){ return; }
   var pts=r.pts.slice(), e=MP.estilo, c=mpCorDe(e.cor,cor);
-  if(r.forma==="poligono"&&r.cursor){ pts.push([r.cursor.x,r.cursor.y]); }
-  if(pts.length<2&&r.forma!=="poligono"){ return; }
+  /* parede e nevoa tem a cor propria do que fazem, e nao a do estilo de desenho */
+  if(MP.ferramenta==="parede"){ c=cor.perigo; } else if(MP.ferramenta==="fog"){ c=MP.fogRevela===false?cor.perigo:cor.ok; }
+  if(mpEhPoli(r)&&r.cursor){ pts.push([r.cursor.x,r.cursor.y]); }
+  if(pts.length<2&&!mpEhPoli(r)){ return; }
   ctx.save();
   ctx.strokeStyle=c; ctx.fillStyle=c; ctx.lineWidth=Math.max(e.esp,1/z); ctx.lineJoin="round"; ctx.lineCap="round"; ctx.setLineDash([8/z,5/z]);
-  if(r.forma==="poligono"){
+  if(mpEhPoli(r)){
     ctx.beginPath();
     pts.forEach(function(q,i){ if(i){ ctx.lineTo(q[0],q[1]); } else { ctx.moveTo(q[0],q[1]); } });
     ctx.stroke(); ctx.setLineDash([]);

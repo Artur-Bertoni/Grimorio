@@ -658,6 +658,21 @@ console.log("\n=== mapa: organizacao (camadas, desenho, grupo, trava, vida e mar
   await mestre.put(`${M}/${mid}/elementos/${tV}`, { dados: { vida: 7 } });
   const fl = (await mestre.get(`/api/c/${cid}/fichas`)).d.find(f => f.id === fV);
   ok(JSON.parse(fl.json).campos[0].val === "7", "mudar a vida do token muda a barra da ficha", fl);
+  /* o alcance da visao da ficha vai para o token ligado a ela */
+  const jsonVisao = v => JSON.stringify({ campos: [{ sec: "R", rot: "Vida", tipo: "barra", val: "7", max: "12" }], ...(v === undefined ? {} : { visao: v }) });
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonVisao(12) });
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tV).dados.visaoFicha === 12, "o alcance escrito na ficha vai para o token ligado a ela (e o dono o recebe)", r.d.elementos.find(e => e.id === tV)?.dados);
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonVisao("") });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(!("visaoFicha" in r.d.elementos.find(e => e.id === tV).dados), "campo vazio na ficha tira o alcance do token", r.d.elementos.find(e => e.id === tV)?.dados);
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonVisao(500) });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tV).dados.visaoFicha === 100, "o alcance da ficha tambem fica preso a 100 casas", r.d.elementos.find(e => e.id === tV)?.dados);
+  await jogador.put(`${M}/${mid}/elementos/${tV}`, { dados: { visaoFicha: 1, visao: 1 } });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tV).dados.visaoFicha === 100 && !("visao" in r.d.elementos.find(e => e.id === tV).dados), "jogador nao escreve o alcance no token", r.d.elementos.find(e => e.id === tV)?.dados);
+  await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonFicha("7", "12") });
   await mestre.put(`${M}/${mid}/elementos/${tV}`, { dados: { vinculo: false } });
   await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonFicha("1", "12") });
   ok((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tV).dados.vida === 7, "sem o vinculo, a ficha nao mexe mais no token");
@@ -665,6 +680,121 @@ console.log("\n=== mapa: organizacao (camadas, desenho, grupo, trava, vida e mar
   await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
   r = await mestre.del(`${M}/${mid}`);
   ok(r.s === 204, "apagar o mapa leva tudo junto", r.s);
+}
+
+console.log("\n=== mapa: paredes, rota, visao e nevoa ===");
+{
+  const M = `/api/c/${cid}/mapas`;
+  let r = await mestre.post(M, { nome: "Paredes" });
+  const mid = r.d.id;
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: true });
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso" }, grid: { tipo: "quadrado", tam: 70, escala: 1, unidade: "m", diagonal: "1" } });
+  const eu = (await jogador.get("/api/sessao")).d;
+  r = await mestre.post(`${M}/${mid}/elementos`, { dono: eu.id, dados: { nome: "Corredora", x: 105, y: 525, desl: 100 } });
+  const tC = r.d.id;
+  /* parede: so o mestre cria, sempre visivel (ate o corte da nevoa no servidor), ponto a ponto */
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "PAREDE", visivel: false, dados: { kind: "lixo", pts: [[350, 210], [350, 840]] } });
+  const wP = r.d.id;
+  ok(r.s === 200 && r.d.tipo === "PAREDE" && r.d.camada === "cenario" && r.d.visivel === true && r.d.dados.kind === "parede" && r.d.dados.aberta === false, "parede nasce visivel (mesmo pedindo oculta), na camada Cenario, e tipo desconhecido cai para parede", r.d);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "PAREDE", dados: { pts: [[0, 0]] } });
+  ok(r.s === 400, "parede com um ponto so e recusada", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "linha", pts: [[0, 0], [10, 10]] } });
+  ok(r.s === 400, "area de nevoa so aceita retangulo, circulo ou poligono", r.s);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "traco", pts: [[100, 100], [300, 120], [500, 100]], larg: 2, ponta: "triangulo", suave: false, revela: true } });
+  ok(r.s === 200 && r.d.dados.forma === "traco" && r.d.dados.larg === 4 && r.d.dados.ponta === "redondo" && r.d.dados.suave === false && r.d.dados.pts.length === 3, "o pincel pinta um traco de nevoa: largura presa a 4 px no minimo, ponta desconhecida vira redonda", r.d?.dados);
+  const fT = r.d.id;
+  r = await mestre.put(`${M}/${mid}/elementos/${fT}`, { dados: { larg: 5000, ponta: "losango" } });
+  ok(r.s === 200 && r.d.dados.larg === 1000 && r.d.dados.ponta === "losango" && r.d.dados.suave === false && r.d.dados.pts.length === 3, "mudar so a largura e a ponta do traco mantem o resto", r.d?.dados);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "traco", pts: [[200, 200]], revela: false } });
+  ok(r.s === 200 && r.d.dados.pts.length === 1 && r.d.dados.larg === 70 && r.d.dados.suave === true && r.d.dados.revela === false, "um clique do pincel e um traco de um ponto, com 70 px e borda macia de saida", r.d?.dados);
+  await mestre.del(`${M}/${mid}/elementos/${r.d.id}`);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "traco", pts: Array.from({ length: 130 }, (_, i) => [i * 5, 50]) } });
+  ok(r.s === 200 && r.d.dados.pts.length === 100, "o traco guarda no maximo 100 pontos", r.d?.dados?.pts?.length);
+  await mestre.del(`${M}/${mid}/elementos/${r.d.id}`);
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "retangulo", larg: 99, pts: [[0, 0], [700, 700]], revela: true } });
+  ok(r.s === 200 && !("larg" in r.d.dados), "so o traco carrega largura, ponta e borda", r.d?.dados);
+  const fA = r.d.id;
+  await mestre.del(`${M}/${mid}/elementos/${fT}`);
+  ok(r.s === 200 && r.d.tipo === "FOG" && r.d.dados.revela === true, "area de nevoa que revela", r.d);
+  r = await jogador.post(`${M}/${mid}/elementos`, { tipo: "PAREDE", dados: { pts: [[0, 0], [10, 10]] } });
+  ok(r.s === 403, "jogador nao cria parede", r.s);
+  r = await jogador.put(`${M}/${mid}/elementos/${wP}`, { dados: { pts: [[0, 0], [10, 10]] } });
+  ok(r.s === 403, "jogador nao mexe na parede", r.s);
+  r = await jogador.del(`${M}/${mid}/elementos/${fA}`);
+  ok(r.s === 403, "jogador nao remove area de nevoa", r.s);
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.some(e => e.id === wP && e.tipo === "PAREDE" && e.podeMover === false && !("bloqueado" in e)) && r.d.elementos.some(e => e.id === fA), "ate a fase do servidor, parede e nevoa chegam ao jogador (a tela dele calcula a visao)", r.d.elementos.map(e => e.tipo));
+  /* nevoa e alcance da visao */
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "visao" } });
+  ok(r.s === 200 && r.d.regras.fog === "visao", "o mapa guarda o modo da nevoa", r.d?.regras);
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "todos", limite: "aviso" } });
+  ok(r.d.regras.fog === "visao" && r.d.regras.quem === "todos", "editar so as outras regras nao desliga a nevoa", r.d?.regras);
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "xyz" } });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.mapa.regras.fog === "nenhum", "modo de nevoa desconhecido cai para nenhum", r.d.mapa.regras);
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "visao" } });
+  r = await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { visao: 500 } });
+  ok(r.d.dados.visao === 100, "alcance da visao fica preso a 100 casas", r.d?.dados);
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { visao: 8 } });
+  r = await jogador.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tC).dados.visao === 8, "o dono do token recebe o alcance da visao dele", r.d.elementos.find(e => e.id === tC).dados);
+  r = await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { visao: null } });
+  ok(r.s === 200 && !("visao" in r.d.dados), "alcance vazio tira o alcance do token: vale o da ficha ou o padrao do mapa", r.d?.dados);
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { visao: 8 } });
+  /* memoria do explorado e alcance padrao: regras do mapa, que as outras edicoes nao apagam */
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.mapa.regras.fogMemoria === false && r.d.mapa.regras.fogVer === 0 && r.d.mapa.regras.visaoPadrao === 6, "o mapa nasce sem memoria do explorado, na versao 0 e com alcance padrao de 6 casas", r.d.mapa.regras);
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "visao", fogMemoria: true, fogVer: 2, visaoPadrao: 9 } });
+  ok(r.d.regras.fogMemoria === true && r.d.regras.fogVer === 2 && r.d.regras.visaoPadrao === 9, "o mapa guarda a memoria, a versao dela e o alcance padrao", r.d?.regras);
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "todos", limite: "aviso" } });
+  ok(r.d.regras.fogMemoria === true && r.d.regras.fogVer === 2 && r.d.regras.visaoPadrao === 9 && r.d.regras.fog === "visao", "editar so as outras regras nao apaga a memoria, a versao nem o alcance padrao", r.d?.regras);
+  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", visaoPadrao: 999 } });
+  ok(r.d.regras.visaoPadrao === 100, "o alcance padrao fica preso a 100 casas", r.d?.regras);
+  r = await jogador.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fogMemoria: false } });
+  ok(r.s === 403, "jogador nao muda as regras da nevoa", r.s);
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "visao", fogMemoria: false, fogVer: 0, visaoPadrao: 6 } });
+  /* movimento: a reta cruza a parede, vale a rota que a contorna (por uma das pontas) */
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 595, y: 525 } });
+  const usado = r.d?.dados?.usado;
+  ok(r.s === 200 && r.d.dados.x === 595 && usado > 7 && usado < 20, "a parede no meio: o movimento custa a rota que a contorna, nao a reta (7)", r.d?.dados);
+  await mestre.post(`${M}/turno`, {});
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 105, y: 525 } });
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 595, y: 525 }, trajeto: [[350, 525]] });
+  ok(r.s === 200 && r.d.dados.usado === usado, "um ponto de passagem em cima da parede nao deixa atravessa-la: paga a mesma rota", r.d?.dados);
+  await mestre.post(`${M}/turno`, {});
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 105, y: 525 } });
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 595, y: 525 }, trajeto: [[350, 105], [595, 105]] });
+  ok(r.s === 200 && r.d.dados.usado >= 7, "o trajeto que passa pelo lado de fora da parede vale", r.d?.dados);
+  /* caixa fechada por parede e porta: sem rota, o servidor recusa; o mestre nunca e barrado */
+  await mestre.post(`${M}/turno`, {});
+  await mestre.post(`${M}/${mid}/elementos`, { tipo: "PAREDE", dados: { kind: "parede", pts: [[1400, 1000], [1700, 1000], [1700, 1300], [1400, 1300]] } });
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "PAREDE", dados: { kind: "porta", aberta: false, pts: [[1400, 1300], [1400, 1000]] } });
+  const wPorta = r.d.id;
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1550, y: 1150 } });
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1100, y: 1150 } });
+  ok(r.s === 409 && r.d?.codigo === "parede", "sem rota (caixa fechada, porta fechada), o movimento e recusado com o codigo parede", r.d);
+  ok((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tC).dados.x === 1550, "e o token continua onde estava");
+  r = await mestre.put(`${M}/${mid}/elementos/${wPorta}`, { dados: { aberta: true } });
+  ok(r.d.dados.aberta === true, "o mestre abre a porta", r.d?.dados);
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1100, y: 1150 } });
+  ok(r.s === 200, "porta aberta nao barra", r.s);
+  await mestre.put(`${M}/${mid}/elementos/${wPorta}`, { dados: { kind: "janela" } });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === wPorta).dados.aberta === false && r.d.elementos.find(e => e.id === wPorta).dados.kind === "janela", "janela nao tem 'aberta': so porta abre e fecha");
+  await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1550, y: 1150 } });
+  r = await jogador.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1100, y: 1150 } });
+  ok(r.s === 409, "janela barra o movimento, mesmo sem limite de deslocamento no token", r.s);
+  r = await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1100, y: 1150 } });
+  ok(r.s === 200, "o mestre nunca e barrado pelas paredes", r.s);
+  /* desfazer e historico entendem parede */
+  r = await mestre.del(`${M}/${mid}/elementos/${wP}`);
+  r = await mestre.post(`${M}/${mid}/desfazer`, {});
+  ok(r.s === 200 && r.d.el?.tipo === "PAREDE" && r.d.el.dados.pts.length === 2, "desfazer a remocao recria a parede como parede", r.d);
+  r = await mestre.get(`${M}/${mid}/historico?limite=200`);
+  ok(r.d.some(h => h.tipo === "PAREDE" && h.operacao === "criar"), "o historico do mestre leva a criacao da parede", r.d.slice(0, 3));
+  await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
+  r = await mestre.del(`${M}/${mid}`);
+  ok(r.s === 204, "apagar o mapa leva paredes e nevoa junto", r.s);
 }
 
 console.log("\n=== notas e mural ===");

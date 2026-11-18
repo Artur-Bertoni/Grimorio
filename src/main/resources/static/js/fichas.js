@@ -57,8 +57,11 @@ function fichaGrupo(comValor){
 }
 function editarFicha(f,depois){
   var c=fichaDados(f);
-  formulario("Editar · ficha",[{k:"nome",rot:"Nome do personagem",obrig:true},fichaGrupo(true)],{nome:f.nome,campos:c.campos},{
+  formulario("Editar · ficha",[{k:"nome",rot:"Nome do personagem",obrig:true},
+    {k:"visao",rot:"Alcance da visão (casas)",tipo:"num",dica:"Quanto este personagem enxerga na névoa do mapa. Vazio usa o alcance padrão do mapa; 0 é cego."},
+    fichaGrupo(true)],{nome:f.nome,visao:c.visao==null||c.visao===""?null:c.visao,campos:c.campos},{
     salvar:function(w){ f.nome=String(w.nome).trim()||"Sem nome";
+      if(w.visao==null||w.visao===""){ delete c.visao; } else { c.visao=Math.min(100,Math.max(0,Number(w.visao)||0)); }
       c.campos=(w.campos||[]).map(fichaCampoLimpo).filter(function(x){ return x.rot||x.val; });
       gravaFicha(f,true); pintaFichas(); if(depois)depois(); },
     remover:function(){ confirmar("A ficha sai do servidor e não dá para desfazer.",{titulo:"Apagar esta ficha?",sim:"Apagar a ficha"}).then(function(sim){
