@@ -134,7 +134,7 @@ public class ModeloService {
         Path tmp = Files.createTempFile(pasta(), CAMPANHA, PARCIAL);
         try {
             try (OutputStream out = Files.newOutputStream(tmp)) {
-                pacote.exportar(campanhaId, true, out);
+                pacote.exportar(campanhaId, true, false, out);
             }
             return registrar(tmp);
         } finally {

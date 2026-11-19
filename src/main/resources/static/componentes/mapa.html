@@ -11,3 +11,9 @@
   <ol v-if="linhas.length" class="mplista"><li v-for="h in linhas" :class="'mpitem mphlin' + (h.desfeito ? ' desfeito' : '')"><span class="cresce">{{ h.texto }}<span class="muted sm"> · {{ h.quando }}</span></span><span v-if="h.desfeito" class="chip">Desfeito</span><button v-if="h.pode" type="button" class="btn sec m" :data-mp-desfaz="h.seq">Desfazer</button></li></ol>
   <p v-else class="empty">{{ vazio }}</p>
 </template>
+
+<!-- atalhos e gestos do mapa: grupos [{titulo, itens:[{teclas:[...], faz}]}] -->
+<template id="t-mapa-atalhos">
+  <div class="mpatalhos"><section v-for="g in grupos" class="mpatgrupo"><h3>{{ g.titulo }}</h3>
+    <dl><div v-for="x in g.itens" class="mpatlin"><dt><kbd v-for="k in x.teclas">{{ k }}</kbd></dt><dd>{{ x.faz }}</dd></div></dl></section></div>
+</template>

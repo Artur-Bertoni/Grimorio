@@ -118,6 +118,8 @@ const arrastaToken = async (id, casas) => {
   return p;
 };
 /* as secoes do painel do mapa comecam fechadas: abre a que o teste vai usar */
+/* o que se usa menos no mapa mora no menu "Mais" da barra do topo */
+const abreMais = async v => { await pg.locator('#mpMais').click(); await espera(250); await pg.locator('.menu [data-v="' + v + '"]').click(); };
 const abreSecao = async id => { await pg.evaluate(i => { const d = document.querySelector('details[data-mp-sec="' + i + '"]'); if (d && !d.open) d.open = true; }, id); await espera(150); };
 const estadoMapa = async (cid, mid) => (await ctx.request.get(B + '/api/c/' + cid + '/mapas/' + mid)).json();
 
@@ -259,11 +261,11 @@ await pg.locator('[data-mp-sel="' + t2 + '"]').click(); await espera(300);
 await pg.keyboard.press('ArrowRight'); await espera(700);
 em = await estadoMapa(1, mid);
 ok(em.elementos.find(e => e.id === t2).dados.x === pr.dx + 70, 'seta do teclado move o token selecionado uma casa');
-await pg.locator('[data-mp-hist]').click(); await espera(700);
+await abreMais('hist'); await espera(700);
 const hist = await pg.locator('.ov .mphist').innerText();
 ok(/moveu/.test(hist) && /1 casa/.test(hist) && /Desfeito/i.test(hist) && /desfez/.test(hist), 'o historico lista o que foi feito, o que foi desfeito e a distancia: ' + hist.replace(/\s+/g, ' ').slice(0, 120));
 await pg.keyboard.press('Escape'); await espera(300);
-await pg.locator('[data-mp-turno]').click(); await espera(500);
+await abreMais('turno'); await espera(500);
 ok(/novo turno começou/i.test(await pg.locator('.toast').last().innerText()), 'o botao Novo turno avisa na tela que um turno novo comecou');
 
 titulo('mapa: camadas, desenho, selecao em grupo, marcadores e areas (mestre)');
@@ -294,6 +296,8 @@ const pl = await tela(850, 630);
 await pg.mouse.click(pl.x, pl.y); await espera(250);
 ok(await pg.evaluate(() => mpSelecao().length) === 1 && String(await pg.evaluate(() => MP.sel)) === String(idLinha), 'clicar no traco do desenho o seleciona');
 /* seleção em grupo: caixa com a ferramenta Selecionar, mover tudo junto, um Ctrl+Z desfaz o grupo */
+/* o teste mede em coordenadas do mapa: com ele inteiro a vista, a caixa cabe na tela */
+await pg.evaluate(() => { mpVista().modo = 'inteiro'; mpEnquadra(); }); await espera(150);
 await pg.keyboard.press('s'); await espera(100);
 await arrastaMundo([560, 180], [1480, 1060]);
 const nSel = await pg.evaluate(() => mpSelecao().length);
@@ -361,6 +365,52 @@ ok((await estadoMapa(1, mid)).elementos.length === 0 && /removidos/.test(await p
 await pg.keyboard.press('Control+z'); await espera(900);
 ok((await estadoMapa(1, mid)).elementos.length >= 7, 'Ctrl+Z traz de volta tudo o que foi removido junto');
 
+/* o tour completo do mestre, agora com mapa: os passos do mapa ficam no fim e acham os botoes */
+await pg.evaluate(() => iniciarTour("mestre", null, true));
+const tmm = await andaTour();
+ok(tmm.faltas.length === 0 && tmm.n >= 29, "o tour do mestre fala do mapa: " + tmm.n + " passos, todos acham o elemento" + (tmm.faltas.length ? ": " + tmm.faltas.join(" | ") : ""));
+await pg.evaluate(() => { S.view = "mapa"; render(); });
+await espera(600);
+
+/* barra do topo enxuta: Historico e Novo turno no menu "Mais", o Desfazer so nas ferramentas do canvas */
+const ordemBarra = await pg.locator('.mpbar .bbacoes > button').evaluateAll(l => l.map(b => b.id || b.dataset.mpUndo || ''));
+ok((await pg.locator('.mpbar [data-mp-undo], .mpbar [data-mp-hist], .mpbar [data-mp-turno], #mpEncaixe').count()) === 0 && ordemBarra.slice(-2).join() === 'mpEd,mpMais', 'a barra do mapa leva o que se usa menos para o menu Mais, que fica no fim com os ajustes', ordemBarra);
+const encAntes = await pg.evaluate(() => mpEncaixando());
+await abreMais('encaixe'); await espera(500);
+ok(await pg.evaluate(a => mpEncaixando() !== a, encAntes), 'Encaixar na grade mora no menu Mais e troca para todos');
+await abreMais('encaixe'); await espera(500);
+/* atalhos: o botao e a tecla ? abrem a mesma janela, e as dicas de rodape sairam */
+await pg.locator('#mpAtalhos').click(); await espera(300);
+ok(await pg.locator('.ov .mpatalhos').isVisible() && (await pg.locator('.ov .mpatalhos kbd').count()) > 10, 'o botao de atalhos abre a lista de teclas e gestos');
+await pg.keyboard.press('Escape'); await espera(200);
+await pg.locator('#mpCanvas').click({ position: { x: 5, y: 5 } }); await pg.keyboard.press('?'); await espera(300);
+ok(await pg.locator('.ov .mpatalhos').isVisible() && (await pg.locator('.mphint').count()) === 0, 'a tecla ? abre os atalhos, e o rodape de dicas nao existe mais');
+await pg.keyboard.press('Escape'); await espera(200);
+/* enquadrar: o padrao preenche a area; o 0 alterna para o mapa inteiro */
+const cabe = () => pg.evaluate(() => { const v = mpVista(), m = MP.mapa, w = MPC.w - mpLarguraDoPainel(); return { cobre: m.largura * v.z >= w - 1 && m.altura * v.z >= MPC.h - 1, dentro: m.largura * v.z <= w + 1 && m.altura * v.z <= MPC.h + 1, modo: v.modo || 'preenche' }; });
+await pg.evaluate(() => { mpVista().modo = 'preenche'; mpEnquadra(); });
+const c1 = await cabe();
+await pg.keyboard.press('0'); await espera(200);
+const c2 = await cabe();
+ok(c1.cobre && c2.modo === 'inteiro' && c2.dentro, 'o mapa preenche a area e o 0 mostra ele inteiro', { c1, c2 });
+await pg.keyboard.press('0'); await espera(150);
+
+/* atalho do mestre para a cena ligada: abre a janela da cena sem sair do mapa e devolve a sessao de antes */
+const ligada = await pg.evaluate(() => { const si = D.sessoes.findIndex(x => (x.cenas || []).length), c = D.sessoes[si].cenas[0]; return { cid: CID, mid: MP.id, cena: c.id, si, antes: S.sessao }; });
+await ctx.request.put(B + "/api/c/" + ligada.cid + "/mapas/" + ligada.mid, { data: { cenaId: ligada.cena } });
+await pg.evaluate(() => mpAbrir(MP.id));
+await espera(700);
+ok(await pg.locator("#mpCena").isVisible(), "mapa ligado a uma cena mostra o atalho para ela");
+await pg.locator("#mpCena").click();
+await espera(500);
+ok(await pg.locator(".ov .cenasheet").isVisible() && await pg.evaluate(() => S.view === "mapa"), "o atalho abre a janela da cena por cima do mapa");
+await pg.keyboard.press("Escape");
+await espera(400);
+ok((await pg.locator(".ov .cenasheet").count()) === 0 && await pg.evaluate(a => S.sessao === a, ligada.antes), "fechar a cena devolve a sessao que estava aberta");
+await ctx.request.put(B + "/api/c/" + ligada.cid + "/mapas/" + ligada.mid, { data: { cenaId: "" } });
+await pg.evaluate(() => mpAbrir(MP.id));
+await espera(500);
+
 titulo('mapa: paredes, visao e nevoa (mestre)');
 await pg.evaluate(() => mpCriaMapa({ nome: 'Paredes' })); await espera(1500);
 const mw = await pg.evaluate(() => MP.id);
@@ -389,10 +439,10 @@ ok(await pg.evaluate(() => !!MP.regua) && await pg.evaluate(() => mpTemParedeDeV
 await pg.keyboard.press('v'); await pg.keyboard.press('Escape'); await pg.evaluate(() => { MP.regua = null; });
 /* nevoa: modo pela visao, no painel */
 await abreSecao('visao');
-ok(/névoa deixa ver/i.test(await pg.locator('#mpPainel').innerText()) === false, 'com a nevoa desligada o painel nao fala do corte');
+ok(/não saem do servidor/i.test(await pg.locator('#mpPainel').innerText()) === false, 'com a nevoa desligada o painel nao fala do corte');
 await pg.locator('#mpFogModo').selectOption('visao'); await espera(900);
 em = await estadoMapa(1, mw);
-ok(em.mapa.regras.fog === 'visao' && /só o que a névoa deixa ver/i.test(await pg.locator('#mpPainel').innerText()) && !/s[oó] visual/i.test(await pg.locator('#mpPainel').innerText()), 'ligar a nevoa pela visao fica no mapa e o painel diz que os jogadores so recebem o que ela deixa ver');
+ok(em.mapa.regras.fog === 'visao' && /não saem do servidor/i.test(await pg.locator('#mpPainel').innerText()) && !/s[oó] visual/i.test(await pg.locator('#mpPainel').innerText()), 'ligar a nevoa pela visao fica no mapa e o painel diz que os jogadores so recebem o que ela deixa ver');
 ok(await pg.evaluate(() => mpRevelado(630, 525) && !mpRevelado(770, 525) && !mpRevelado(1500, 100)), 'a visao do heroi alcanca ate a parede e nao passa dela, nem alem do alcance');
 ok(await pg.evaluate(() => { var t = MP.els.find(e => e.dados.nome === 'Heroi'); return !mpOculto(t); }), 'com a nevoa o mestre ainda ve tudo (translucida)');
 await pg.locator('#mpFogComo').check(); await espera(300);
@@ -441,6 +491,7 @@ await pg.evaluate(() => { document.documentElement.dataset.fx = 'off'; });
 await espera(300); await pg.evaluate(() => { window.__nf = 0; }); await espera(600);
 ok(await pg.evaluate(() => !mpFumacaViva() && window.__nf <= 1), 'com as animacoes desligadas (Configuracoes > Aparencia) a fumaca para: ' + await pg.evaluate(() => window.__nf));
 await pg.evaluate(() => { document.documentElement.dataset.fx = 'on'; mpPintaFumaca = window.__of; mpDesenha(); }); await espera(300);
+await abreSecao('pincel');
 /* pincel: B liga, arrastar pinta uma area que revela (ou cobre), com diametro, formato e borda do painel */
 ok((await pg.locator('#mpPincelCasas').inputValue()) === '2' && (await pg.locator('#mpPincelPonta').inputValue()) === 'redondo' && (await pg.locator('#mpPincelBorda').inputValue()) === 'macia', 'o painel tem o pincel: 2 casas, redondo, borda macia');
 await pg.locator('#mpPincelPonta').selectOption('quadrado'); await pg.locator('#mpPincelBorda').selectOption('firme');
@@ -478,6 +529,8 @@ await pg.keyboard.press('f'); await espera(100);
 }
 await pg.keyboard.press('Escape'); await espera(100);
 /* a pincelada nao se seleciona por area nem por clique: so pela lista do painel */
+/* o teste mede em coordenadas do mapa: com ele inteiro a vista, a caixa cabe na tela */
+await pg.evaluate(() => { mpVista().modo = 'inteiro'; mpEnquadra(); }); await espera(150);
 await pg.keyboard.press('s'); await espera(100);
 await arrastaMundo([1250, 950], [1850, 1150]); await espera(300);
 ok(await pg.evaluate(() => mpSelecionados().length === 0), 'selecionar uma area nao seleciona a pintura do pincel');
@@ -1459,7 +1512,11 @@ await foto('14-mapa-jogador');
 titulo('mapa: deslocamento do turno e desfazer (jogador)');
 await ctx.request.post(B + '/__mapa-desl/3/aviso');
 await pg.reload(); await espera(1800);
-ok(await pg.locator('#mpDesfaz').isVisible() && await pg.locator('#mpRegua').isVisible() && (await pg.locator('[data-mp-turno]').count()) === 0, 'jogador tem regua e desfazer, mas nao o Novo turno');
+await pg.locator('#mpMais').click(); await espera(250);
+const itensJ = await pg.locator('.menu [data-v]').evaluateAll(l => l.map(b => b.dataset.v));
+await pg.keyboard.press('Escape'); await espera(150);
+ok(await pg.locator('#mpDesfaz').isVisible() && await pg.locator('#mpRegua').isVisible() && itensJ.includes('hist') && !itensJ.includes('turno'), 'jogador tem regua, desfazer e historico, mas nao o Novo turno', itensJ);
+ok((await pg.locator('[data-mp-sec="camadas"]').count()) === 0, 'o painel do jogador nao tem a secao de camadas');
 ok((await pg.locator('.mpitem .chip', { hasText: /3\/3 m/ }).count()) === 1, 'o jogador ve o deslocamento do proprio token (3/3 m)');
 const x301 = (await estadoMapa(3, 31)).elementos.find(e => e.id === 301).dados.x;
 await arrastaToken(301, 1);
@@ -1471,7 +1528,7 @@ await arrastaToken(301, 3);
 ok(/passou do deslocamento/i.test(await pg.locator('.toast').last().innerText()), 'no modo aviso, passar do deslocamento move e avisa');
 ej = await estadoMapa(3, 31);
 ok(ej.elementos.find(e => e.id === 301).dados.x === x301 + 210, 'e o token fica onde foi solto');
-await pg.locator('[data-mp-hist]').click(); await espera(700);
+await abreMais('hist'); await espera(700);
 ok(/Você moveu/.test(await pg.locator('.ov .mphist').innerText()), 'o historico do jogador mostra o que ele fez');
 await pg.keyboard.press('Escape'); await espera(300);
 await ctx.request.post(B + '/__mapa-desl/3/bloqueio');

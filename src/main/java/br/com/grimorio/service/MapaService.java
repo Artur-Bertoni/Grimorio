@@ -110,9 +110,11 @@ public class MapaService {
     }
 
     /** o elemento e o mapa como ficaram ao fim da operacao, ja fora da transacao, e se o
-     *  jogador via o elemento antes dela (so quem via recebe o aviso de que ele sumiu) */
-    private record Feito(MapaElemento e, Mapa m, boolean eraVisivel, boolean passou, boolean ordem) {
-        Feito(MapaElemento e, Mapa m, boolean eraVisivel) { this(e, m, eraVisivel, false, false); }
+     *  jogador via o elemento antes dela (so quem via recebe o aviso de que ele sumiu). {@code trilha} sao os
+     *  pontos por onde o token passou entre a origem e o destino (vazia: em linha reta); so enfeita a animacao. */
+    private record Feito(MapaElemento e, Mapa m, boolean eraVisivel, boolean passou, boolean ordem, List<double[]> trilha) {
+        Feito(MapaElemento e, Mapa m, boolean eraVisivel, boolean passou, boolean ordem) { this(e, m, eraVisivel, passou, ordem, List.of()); }
+        Feito(MapaElemento e, Mapa m, boolean eraVisivel) { this(e, m, eraVisivel, false, false, List.of()); }
     }
 
     /** o que o desfazer fez: o elemento como ficou e se ele saiu do mapa */
@@ -457,7 +459,20 @@ public class MapaService {
         vidaParaFicha(m.getCampanhaId(), d0, ler(x.getDados()));
         if (sobeSeq) { m.setSeq(m.getSeq() + 1); mapas.save(m); }
         registra(m, uid, K_MUDAR, x.getId(), om.writeValueAsString(elCru(x)), antes);
-        return new Feito(x, m, via, passou, ordem0 != x.getOrdem());
+        return new Feito(x, m, via, passou, ordem0 != x.getOrdem(), caminhoAndado(m, c, x0, y0, x, mestre));
+    }
+
+    /**
+     * Os pontos entre a origem e o destino por onde o token anda na tela dos outros: a rota que contorna as paredes,
+     * se houve, ou o caminho que quem moveu desenhou ao arrastar. So enfeite: o que vale (custo, parede) ja foi decidido.
+     */
+    private List<double[]> caminhoAndado(Mapa m, CorpoElemento c, double x0, double y0, MapaElemento x, boolean mestre) {
+        if (c == null || x.getTipo() != MapaElemento.Tipo.TOKEN) return List.of();
+        ObjectNode d = ler(x.getDados());
+        double[] o = {x0, y0, d.path("x").asDouble(0), d.path("y").asDouble(0)};
+        if (o[0] == o[2] && o[1] == o[3]) return List.of();
+        List<double[]> rota = mestre ? List.of() : rotaPelasParedes(m, o, c);
+        return rota.isEmpty() ? MapaRegras.trajeto(c.trajeto, m) : rota.subList(1, rota.size() - 1);
     }
 
     /**
@@ -1308,6 +1323,7 @@ public class MapaService {
             Map<String, Object> ev = evento("elemento", f.m().getSeq());
             ev.put("mapa", f.m().getId());
             ev.put("el", elJson(f.e(), f.m(), mestre, u));
+            if (!f.trilha().isEmpty()) ev.put("via", f.trilha().stream().map(q -> List.of(q[0], q[1])).toList());
             return ev;
         });
     }

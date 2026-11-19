@@ -37,8 +37,11 @@ function mpImagem(url){
 function mpCores(){
   var s=getComputedStyle(document.documentElement);
   function c(n){ return s.getPropertyValue(n).trim(); }
-  return {fundo:c("--bg"),area:c("--bg2"),ficha:c("--bg3"),grade:c("--fg"),linha:c("--line2"),
-    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),perigo:c("--blood"),ok:c("--ok"),aviso:c("--warn"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif"};
+  /* o estilo do tema tambem chega ao canvas: a letra dos titulos no nome do token e o canto dos botoes no marcador */
+  var rb=c("--rb"), canto=Number.parseFloat(rb)*(/rem/.test(rb)?16:1);
+  return {fundo:c("--bg"),area:c("--bg2"),ficha:c("--bg3"),ficha2:c("--bg4"),grade:c("--fg"),linha:c("--line2"),borda:c("--line2"),
+    texto:c("--fg"),texto2:c("--fg2"),ouro:c("--gold"),perigo:c("--blood"),ok:c("--ok"),aviso:c("--warn"),rotulo:c("--bg"),fonte:c("--ui")||"sans-serif",
+    titulo:c("--disp")||c("--ui")||"serif",canto:Number.isFinite(canto)?canto:4};
 }
 
 /* ---------- desenho ---------- */
@@ -62,6 +65,7 @@ function mpPinta(){
     var im=m.imagem?mpImagem(IMG(m.imagem,"mapa")):null;
     if(im){ ctx.drawImage(im,0,0,W,H); }
   } else { mpPintaTiles(ctx,tela,W,H,v.z); }
+  mpPintaVinheta(ctx,W,H,cor);
   mpPintaGrid(ctx,tela,v.z,cor,W,H);
   ctx.strokeStyle=cor.linha; ctx.lineWidth=1/v.z; ctx.strokeRect(0,0,W,H);
   /* camada por camada, de baixo para cima; dentro de cada uma, na ordem da lista */
@@ -74,6 +78,79 @@ function mpPinta(){
   mpPintaFog(ctx,v.z,cor);
   mpPintaFerramentas(ctx,v.z,cor);
   mpPintaMedidas(ctx,v.z,cor);
+  mpAgendaAnimacao();
+}
+/* Imersao: as bordas do mapa escurecem na cor de fundo do tema, como uma mesa iluminada no meio */
+function mpPintaVinheta(ctx,W,H,cor){
+  var R=Math.hypot(W,H)/2, g=ctx.createRadialGradient(W/2,H/2,R*0.55,W/2,H/2,R);
+  g.addColorStop(0,"transparent"); g.addColorStop(1,cor.fundo);
+  ctx.save(); ctx.globalAlpha=0.45; ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.restore();
+}
+/* ---------- movimento na tela ---------- */
+/* O token movido por outra pessoa desliza ate o lugar novo em vez de saltar. So o desenho anda: a posicao
+   gravada (dados.x/y) ja e a nova, entao clique, visao e medidas usam o lugar certo desde o primeiro quadro. */
+/* O trajeto vem do servidor (`via`: o que quem moveu desenhou, ou a volta pela parede); sem ele, a linha reta.
+   A duracao cresce com o caminho (cerca de 600 px do mapa por segundo), de 260 ms a 1,8 s. */
+var MP_DESLIZA_MIN=260, MP_DESLIZA_MAX=1800, MP_DESLIZA_VEL=0.6;
+var MPD={};
+function mpDesliza(id,x0,y0,x1,y1,via){
+  if(mpMovimentoReduzido()||(x0===x1&&y0===y1)||!Number.isFinite(x0)||!Number.isFinite(y0)){ delete MPD[id]; return; }
+  var atual=mpPosNaTela({id:id,dados:{x:x0,y:y0}});
+  var pts=[atual];
+  (Array.isArray(via)?via:[]).forEach(function(p){ if(Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1])){ pts.push([p[0],p[1]]); } });
+  pts.push([x1,y1]);
+  var len=0, ac=[0];
+  for(var i=1;i<pts.length;i++){ len+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]); ac.push(len); }
+  MPD[id]={pts:pts,ac:ac,len:len,dur:Math.min(MP_DESLIZA_MAX,Math.max(MP_DESLIZA_MIN,len/MP_DESLIZA_VEL)),t0:performance.now()};
+}
+/* onde o token aparece agora: ao longo do caminho enquanto desliza */
+function mpPosNaTela(el){
+  var d=el.dados||{}, x=mpNum(d.x,0), y=mpNum(d.y,0), a=MPD[el.id];
+  if(!a){ return [x,y]; }
+  var k=(performance.now()-a.t0)/a.dur;
+  if(k>=1||a.len<=0){ delete MPD[el.id]; return [x,y]; }
+  /* entra e sai devagar, no meio anda a velocidade constante */
+  var e=k*k*(3-2*k), alvo=e*a.len, i=1;
+  while(i<a.ac.length-1&&a.ac[i]<alvo){ i++; }
+  var seg=a.ac[i]-a.ac[i-1], t=seg>0?(alvo-a.ac[i-1])/seg:1, p=a.pts[i-1], q=a.pts[i];
+  return [p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t];
+}
+/* Compara a lista antiga com a nova e faz deslizar os tokens que mudaram de lugar (menos o que esta na mao) */
+function mpDeslizaMudados(antigos,novos,via){
+  var pos={};
+  (antigos||[]).forEach(function(e){ if(e.tipo==="TOKEN"){ pos[e.id]=[mpNum(e.dados?.x,NaN),mpNum(e.dados?.y,NaN)]; } });
+  (novos||[]).forEach(function(e){
+    var p=pos[e.id];
+    if(e.tipo!=="TOKEN"||!p||MP.arrastando?.includes(String(e.id))){ return; }
+    mpDesliza(e.id,p[0],p[1],mpNum(e.dados?.x,0),mpNum(e.dados?.y,0),via);
+  });
+}
+/* Deslize e halo da vez pedem mais quadros; o halo pulsa a 15 quadros por segundo, o deslize a 60 */
+function mpAgendaAnimacao(){
+  if(!MPC){ return; }
+  if(Object.keys(MPD).length){ mpDesenha(); return; }
+  if(MPC.haloT||mpMovimentoReduzido()||document.hidden||!MP.els.some(function(e){ return e.daVez&&e.tipo==="TOKEN"; })){ return; }
+  MPC.haloT=setTimeout(function(){ MPC.haloT=0; mpDesenha(); },66);
+}
+/* Seguir a vez: quando a vez passa para outro token, a tela vai ate ele (se a pessoa ligou) */
+function mpSegueAVez(){
+  if(!mpSegueVez()||!mpNaTela()){ return; }
+  var el=MP.els.find(function(e){ return e.daVez&&e.tipo==="TOKEN"; });
+  if(!el||String(el.id)===MP.vezVista){ return; }
+  MP.vezVista=String(el.id);
+  mpCentralizaSuave(el);
+}
+function mpCentralizaSuave(el){
+  if(!MPC||!el){ return; }
+  var v=mpVista(), b=mpBBox(el);
+  var x1=(MPC.w-mpLarguraDoPainel())/2-(b.x0+b.x1)/2*v.z, y1=MPC.h/2-(b.y0+b.y1)/2*v.z;
+  if(mpMovimentoReduzido()){ v.x=x1; v.y=y1; mpDesenha(); return; }
+  var x0=v.x, y0=v.y, t0=performance.now(), dur=450;
+  (function passo(){
+    var k=Math.min(1,(performance.now()-t0)/dur), e=1-Math.pow(1-k,3);
+    v.x=x0+(x1-x0)*e; v.y=y0+(y1-y0)*e; mpDesenha();
+    if(k<1){ requestAnimationFrame(passo); }
+  })();
 }
 /* O jogador nao recebe a imagem do mapa, so os pedacos de 512px que a nevoa deixa ver, ja cortados pelo servidor
    (o que esta coberto vem preto). Cada pedaco tem uma versao: mudou, pede de novo e mostra o antigo ate chegar. */
@@ -151,11 +228,12 @@ function mpIniciais(n){
 }
 function mpRaio(el){ return Math.max(4,mpNum(el.dados?.tam,1)*mpLado()/2); }
 function mpPintaToken(ctx,el,z,cor,tela){
-  var d=el.dados||{}, R=mpRaio(el), x=mpNum(d.x,0), y=mpNum(d.y,0);
+  var d=el.dados||{}, R=mpRaio(el), p=mpPosNaTela(el), x=p[0], y=p[1];
   if(x+R<tela.x0||x-R>tela.x1||y+R<tela.y0||y-R>tela.y1){ return; }
   var sel=mpEhSel(el.id);
   ctx.save();
   ctx.translate(x,y);
+  if(el.daVez){ mpPintaHalo(ctx,R,z,cor); }
   if(el.visivel===false){ ctx.globalAlpha=0.5; }
   /* a imagem original, inteira, ajustada ao quadrado do tamanho escolhido; sem recorte nem moldura */
   var im=d.img?mpImagem(IMG(d.img)):null;
@@ -171,6 +249,27 @@ function mpPintaToken(ctx,el,z,cor,tela){
   if(R*z>=8){ mpPintaVida(ctx,d,R,z,cor); }
   if(R*z>=12||sel){ mpPintaRotulo(ctx,mpRotuloDoToken(d),R,z,cor); mpPintaMarcas(ctx,d,R,z,cor); }
   if(GM&&mpTrancado(el)){ mpPintaCadeado(ctx,-R,-R,z,cor); }
+  if(GM&&el.visivel===false){ ctx.globalAlpha=1; mpPintaOlhoFechado(ctx,R-14/z,-R,z,cor); }
+  ctx.restore();
+}
+/* A vez da iniciativa: um brilho dourado em volta do token, que respira devagar (parado com o movimento reduzido) */
+function mpPintaHalo(ctx,R,z,cor){
+  var k=mpMovimentoReduzido()?0.5:(Math.sin(performance.now()/420)+1)/2;
+  var r0=R*0.9, r1=R+(10+6*k)/z, g=ctx.createRadialGradient(0,0,r0,0,0,r1);
+  g.addColorStop(0,cor.ouro); g.addColorStop(1,"transparent");
+  ctx.save(); ctx.globalAlpha=0.35+0.25*k; ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(0,0,r1,0,Math.PI*2); ctx.fill(); ctx.restore();
+}
+/* Oculto para os jogadores: so o mestre ve o token, meio apagado e com um olho cortado no canto */
+function mpPintaOlhoFechado(ctx,x,y,z,cor){
+  var u=1/z;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle=cor.rotulo; ctx.fillRect(0,0,14*u,14*u);
+  ctx.strokeStyle=cor.texto; ctx.lineWidth=1.3*u; ctx.lineCap="round";
+  ctx.beginPath(); ctx.ellipse(7*u,7*u,5*u,3*u,0,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(7*u,7*u,1.3*u,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2.5*u,11.5*u); ctx.lineTo(11.5*u,2.5*u); ctx.stroke();
   ctx.restore();
 }
 /* o nome e, com vida, quanto ela vale: a barra sozinha seria so cor */
@@ -185,23 +284,30 @@ function mpPintaImagem(ctx,im,R){
 }
 /* token sem imagem: um quadrado liso, para ainda ter onde pegar */
 function mpPintaMarcador(ctx,R,cor){
-  ctx.fillStyle=cor.ficha; ctx.fillRect(-R,-R,2*R,2*R);
+  var g=ctx.createLinearGradient(0,-R,0,R), k=Math.min(cor.canto,R*0.5);
+  g.addColorStop(0,cor.ficha2); g.addColorStop(1,cor.ficha);
+  ctx.fillStyle=g; ctx.strokeStyle=cor.borda; ctx.lineWidth=Math.max(1,R*0.06);
+  ctx.beginPath();
+  if(ctx.roundRect){ ctx.roundRect(-R,-R,2*R,2*R,k); } else { ctx.rect(-R,-R,2*R,2*R); }
+  ctx.fill(); ctx.stroke();
 }
 function mpPintaIniciais(ctx,d,R,cor){
   ctx.fillStyle=cor.texto; ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.font="600 "+Math.max(6,R*0.7)+"px "+cor.fonte;
-  ctx.fillText(mpIniciais(d.nome),0,0);
+  ctx.font="700 "+Math.max(6,R*0.8)+"px "+cor.titulo;
+  ctx.fillText(mpIniciais(d.nome),0,R*0.04);
 }
 /* nome embaixo do token, sempre com 12px na tela, seja qual for o zoom */
 function mpPintaRotulo(ctx,nome,R,z,cor){
   var t=String(nome||"");
   if(!t){ return; }
-  var fs=12/z, pad=4/z;
-  ctx.font="600 "+fs+"px "+cor.fonte;
+  var fs=13/z, pad=4/z;
+  ctx.font="700 "+fs+"px "+cor.titulo;
   var w=ctx.measureText(t).width;
   ctx.globalAlpha=Math.min(ctx.globalAlpha,0.88);
-  ctx.fillStyle=cor.rotulo;
-  ctx.fillRect(-w/2-pad,R+pad,w+pad*2,fs+pad*2);
+  ctx.fillStyle=cor.rotulo; ctx.strokeStyle=cor.linha; ctx.lineWidth=1/z;
+  ctx.beginPath();
+  if(ctx.roundRect){ ctx.roundRect(-w/2-pad,R+pad,w+pad*2,fs+pad*2,Math.min(cor.canto,6)/z); } else { ctx.rect(-w/2-pad,R+pad,w+pad*2,fs+pad*2); }
+  ctx.fill(); ctx.stroke();
   ctx.globalAlpha=1;
   ctx.fillStyle=cor.texto; ctx.textAlign="center"; ctx.textBaseline="top";
   ctx.fillText(t,0,R+pad*2);
@@ -401,16 +507,26 @@ function mpDistCasas(x0,y0,x1,y1){
 function mpAxial(h){ return {q:h.i-(h.j-((h.j%2+2)%2))/2,r:h.j}; }
 
 /* ---------- vista ---------- */
+/* Dois enquadramentos: "preenche" (o padrao) ocupa a area toda e corta o que sobra de um lado; "inteiro" mostra
+   o mapa todo com uma margem. O 0 e o botao alternam entre os dois. */
 function mpEnquadra(semDesenhar){
   var m=MP.mapa;
   if(!MPC||!m||!MPC.w){ return; }
-  var v=mpVista(), pad=24, w=MPC.w-mpLarguraDoPainel();
-  v.z=Math.min(MP_ZOOM_MAX,Math.max(MP_ZOOM_MIN,Math.min((w-pad*2)/m.largura,(MPC.h-pad*2)/m.altura)));
+  var v=mpVista(), inteiro=v.modo==="inteiro", pad=inteiro?24:0, w=MPC.w-mpLarguraDoPainel();
+  var kx=(w-pad*2)/m.largura, ky=(MPC.h-pad*2)/m.altura;
+  v.z=Math.min(MP_ZOOM_MAX,Math.max(MP_ZOOM_MIN,inteiro?Math.min(kx,ky):Math.max(kx,ky)));
   v.x=(w-m.largura*v.z)/2; v.y=(MPC.h-m.altura*v.z)/2;
   if(!semDesenhar){ mpDesenha(); }
 }
 /* na tela larga o painel aberto cobre a direita do mapa: enquadrar usa so o que sobra. No
    celular ele e uma gaveta que a pessoa abre e fecha, entao nao conta. */
+function mpAlternaEnquadre(){
+  var v=mpVista();
+  v.modo=v.modo==="inteiro"?"preenche":"inteiro";
+  mpEnquadra();
+  var b=$('[data-mpz="0"]');
+  if(b){ var t=v.modo==="inteiro"?"Preencher a tela com o "+vmin("mapa"):"Ver o "+vmin("mapa")+" inteiro"; b.title=t+" (0)"; b.setAttribute("aria-label",t); }
+}
 function mpLarguraDoPainel(){
   var p=$("#mpPainel");
   if(!p||p.hidden||window.innerWidth<900){ return 0; }
