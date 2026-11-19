@@ -1205,9 +1205,10 @@ console.log("\n=== miniatura, textos publicos, 404, uso e recuperacao de senha =
   ok(r.s === 200 && r.d?.email === "jogador@exemplo.com", "pessoa grava o e-mail de recuperacao", r.d);
   r = await mestre.put("/api/perfil", { email: "JOGADOR@exemplo.com" });
   ok(r.s === 400, "o mesmo e-mail nao vale em duas contas", r.s);
-  await jogador.put("/api/perfil", { tourVisto: "jogador" });
+  await jogador.put("/api/perfil", { tourVisto: "guia-j-fichas" });
+  await jogador.put("/api/perfil", { tourVisto: "qualquer-coisa" });
   r = await jogador.get("/api/sessao");
-  ok((r.d?.toursVistos || []).includes("jogador"), "tour visto fica na conta", r.d?.toursVistos);
+  ok((r.d?.toursVistos || []).includes("guia-j-fichas") && !(r.d?.toursVistos || []).includes("qualquer-coisa"), "guia visto fica na conta, e nome desconhecido nao entra", r.d?.toursVistos);
   await anonimo.ping();
   r = await anonimo.post("/api/publico/senha/esqueci", { conta: "jogador" });
   ok(r.s === 200 && r.d?.porEmail === false, "esqueci a senha responde igual e diz que nao ha e-mail configurado", r.d);

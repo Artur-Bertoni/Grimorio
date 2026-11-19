@@ -66,7 +66,7 @@ function htmlDe(id,dados){
    vocabulario em minuscula, sem escapar: no template o {{ }} ja escapa. */
 function vmin(k){ return V(k).toLowerCase(); }
 /* Cabecalho de pagina. botao: {id, texto}, opcional. */
-function cabecaPagina(eyebrow,titulo,botao){ return htmlDe("t-cabeca",{eyebrow:eyebrow,titulo:titulo,botao:botao||null}); }
+function cabecaPagina(eyebrow,titulo,botao){ return htmlDe("t-cabeca",{eyebrow:eyebrow,titulo:titulo,botao:botao||null,guia:botaoGuia()}); }
 /* v-attr:nome="expr" grava o atributo de verdade: null, undefined ou false tiram, true deixa
    vazio. O :nome do petite-vue escreve na propriedade quando ela existe, e isso nao serve
    aqui: propriedade nao aparece no innerHTML (value, checked e selected sumiriam) e null

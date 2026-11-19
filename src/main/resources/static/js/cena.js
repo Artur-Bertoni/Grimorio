@@ -133,8 +133,8 @@ function viewSessao(){
     acoes:htmlDe("t-sessao-acoes",{ini:!!(S.ini||iniDe(s).lista.length)}),
     modos:htmlDe("t-sessao-modos",{modo:S.vmode})};
   if(S.vmode==="canvas")
-    return htmlDe("t-sessao-quadro",{s:s,p:p,painel:!!S.rail,ini:iniHtml(s),quadro:canvasHtml(s)});
-  return htmlDe("t-sessao-roteiro",{s:s,p:p,ini:iniHtml(s),painel:railHtml(s),
+    return htmlDe("t-sessao-quadro",{s:s,p:p,guia:botaoGuia(),painel:!!S.rail,ini:iniHtml(s),quadro:canvasHtml(s)});
+  return htmlDe("t-sessao-roteiro",{s:s,p:p,guia:botaoGuia(),ini:iniHtml(s),painel:railHtml(s),
     cenas:s.cenas.map(function(c){return scnHtml(s,c);}).join("")});
 }
 function canvasHtml(s){

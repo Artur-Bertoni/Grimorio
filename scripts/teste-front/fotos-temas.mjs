@@ -32,7 +32,9 @@ pg.on('pageerror', e => console.log('ERRO DE PAGINA: ' + e.message));
 const foto = n => pg.screenshot({ path: join(FOTOS, n + '.png') });
 for (const t of temas) {
   await pg.goto(B + '/paginas/login.html');
-  await pg.evaluate(x => { localStorage.setItem('grim_tema', x); localStorage.setItem('grim_tour_mestre_1', '1'); localStorage.setItem('grim_tour_jogador_1', '1'); }, t);
+  await pg.evaluate(x => { localStorage.setItem('grim_tema', x); /* login.html nao carrega o js dos guias: a lista vai escrita (js/tour.js) */
+    ['inicio-m', 'inicio-j', 'm-campanha', 'm-sessoes', 'm-elenco', 'm-biblioteca', 'm-mesa', 'm-mapa', 'm-topo',
+      'j-resumos', 'j-ev', 'j-quem', 'j-regras', 'j-fichas', 'j-notas', 'j-mural', 'j-mapa', 'j-topo'].forEach(g => localStorage.setItem('grim_tour_guia-' + g + '_1', '1')); }, t);
   await pg.goto(B + '/#/c/1/campanha');
   await pg.waitForTimeout(1500);
   await foto(t + '-1-campanha');

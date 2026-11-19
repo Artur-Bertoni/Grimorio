@@ -1,15 +1,32 @@
-<!-- Tour guiado (js/tour.js) -->
+<!-- Guias: o cartao, o botao ? das abas e a lista de Configuracoes (js/tour.js) -->
 
 <template id="t-tour">
   <div class="tourfoco"></div>
   <div class="tourcard">
     <div class="tourlogo" v-html="logo"></div>
-    <div class="tourtop"><span class="tourn" aria-live="polite"></span><button type="button" class="tbtn" data-t="pula">Pular o tour</button></div>
-    <h2 class="tourtit" id="tourTit">Tour guiado</h2><p id="tourTx"></p><div class="tourdots" aria-hidden="true"></div>
-    <div class="tourft"><button type="button" class="btn sec m" data-t="volta">‹ Voltar</button><button type="button" class="btn fant m" data-t="tudo" hidden>Ver o tour completo</button><button type="button" class="btn m" data-t="vai">Próximo ›</button></div>
+    <div class="tourtop"><span class="tourn" aria-live="polite"></span><span class="tourtopd"><button type="button" class="ibtn ico tourmus" data-t="musica" aria-pressed="true" title="Música de fundo" aria-label="Música de fundo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12.5V3.2l7-1.4v9"/><circle cx="4.2" cy="12.6" r="1.9"/><circle cx="11.2" cy="10.9" r="1.9"/></svg></button><button type="button" class="tbtn" data-t="pula">Pular o guia</button></span></div>
+    <h2 class="tourtit" id="tourTit">{{ nome }}</h2><p id="tourTx"></p><div class="tourdots" aria-hidden="true"></div>
+    <div class="tourft"><button type="button" class="btn sec m" data-t="volta">‹ Voltar</button><button type="button" class="btn m" data-t="vai">Próximo ›</button></div>
   </div>
 </template>
 
 <template id="t-tour-pontos">
   <i v-for="k in total" :class="k - 1 === atual ? 'on' : (k - 1 < atual ? 'ja' : null)"></i>
+</template>
+
+<!-- o botao ? ao lado do titulo de cada aba: id e nome do guia da tela -->
+<template id="t-guia-botao">
+  <button type="button" class="ibtn ico guiab" :data-guia="id" :title="'Guia: ' + nome" :aria-label="'Abrir o guia: ' + nome">?</button>
+</template>
+
+<!-- grupos: [{titulo, abas (o grupo dos guias de aba do papel, para onde o guia inicial aponta), itens:[{id, nome, desc, visto}]}]; inicial: o id do guia inicial do papel; musica: a musica de fundo ligada; som: o som da pagina ligado -->
+<template id="t-aj-guias">
+  <h2 class="sec mb-3">Guias</h2>
+  <p class="lead">O guia inicial passa rápido por todas as abas. Os outros explicam uma aba de cada vez, com tudo o que ela faz. Cada um abre sozinho na primeira vez que você entra na aba, e também pelo botão ? ao lado do título.</p>
+  <div class="addrow"><button type="button" class="btn" :data-guia="inicial">Rever o guia inicial</button></div>
+  <section v-for="g in grupos" :class="'fld mt-4' + (g.abas ? ' guiasabas' : '')" :aria-label="g.titulo"><h3 class="flb">{{ g.titulo }}</h3>
+    <ul class="guialista"><li v-for="x in g.itens" class="guiait"><div class="cresce"><b>{{ x.nome }}</b><p class="sm muted m0">{{ x.desc }}</p></div><span v-if="x.visto" class="chip">Visto</span><button type="button" class="btn sec m" :data-guia="x.id" :aria-label="'Ver o guia: ' + x.nome">Ver</button></li></ul></section>
+  <div class="fld mt-4"><span class="flb">Música</span>
+    <label class="ck"><input type="checkbox" id="guiaMus" v-attr:checked="musica" v-attr:disabled="!som"> Música medieval de fundo durante os guias</label>
+    <p class="sm muted m0">Composta para o Grimório e tocada pelo próprio navegador, sem arquivo. {{ som ? 'Segue o volume dos sons, em Aparência.' : 'Os sons estão desligados em Aparência: ligue-os para ouvir a música.' }}</p></div>
 </template>

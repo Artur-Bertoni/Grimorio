@@ -35,7 +35,7 @@ function sincLib(tp,x){ if(jaLib(tp,x)){ liberar(tp,x); salvarMesa(); } }
 function viewMesa(){
   /* o jogador navega pelas abas do topo (ou da barra de baixo): a pagina so tem o titulo da secao */
   var sec=(MSECS().find(function(x){ return x[0]===S.msec; })||[])[1]||Vm("mesa");
-  return htmlDe("t-mesa",{titulo:tituloApp(),mestre:GM,cabeca:GM?Vm("mesa"):sec,ini:iniPubHtml(),
+  return htmlDe("t-mesa",{titulo:tituloApp(),guia:botaoGuia(),mestre:GM,cabeca:GM?Vm("mesa"):sec,ini:iniPubHtml(),
     abas:GM?subnav(MSECS(),S.msec,"data-msec"):"",corpo:mesaSec()});
 }
 function vazio(t){ return htmlDe("t-vazio",{texto:t}); }

@@ -196,4 +196,6 @@ function render(){
   devolveFoco(v,mesma,focoSel);
   if(PRONTO)ULTFOCO=true;
   sincronizaRota(!mesma);
+  /* primeira vez nesta aba: o guia dela abre sozinho (js/tour.js) */
+  if(!mesma)guiaNaTela();
 }

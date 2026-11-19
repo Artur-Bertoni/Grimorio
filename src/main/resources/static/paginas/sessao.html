@@ -73,13 +73,13 @@
 
 <!-- p: as pecas acima, cada uma ja preenchida (volta, prog, enc, acoes, modos) -->
 <template id="t-sessao-quadro">
-  <div class="boardbar"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span class="esp"></span><div class="bbacoes"><button type="button" :class="'ibtn' + (painel ? ' on' : '')" id="railBtn" :aria-pressed="String(!!painel)">Painel</button><span data-solta v-html="p.modos"></span><span data-solta v-html="p.acoes"></span></div></div>
+  <div class="boardbar"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span data-solta v-html="guia"></span><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span class="esp"></span><div class="bbacoes"><button type="button" :class="'ibtn' + (painel ? ' on' : '')" id="railBtn" :aria-pressed="String(!!painel)">Painel</button><span data-solta v-html="p.modos"></span><span data-solta v-html="p.acoes"></span></div></div>
   <span data-solta v-html="ini"></span>
   <span data-solta v-html="quadro"></span>
 </template>
 
 <template id="t-sessao-roteiro">
-  <div class="sesshead"><div><span data-solta v-html="p.volta"></span><p class="eyebrow mt-3">{{ Vm('sessao') }} {{ s.numero }}</p><h1 class="page">{{ s.titulo }}</h1><p v-if="s.resumo" class="lead sm sectxt mt-1">{{ s.resumo }}</p></div>
+  <div class="sesshead"><div><span data-solta v-html="p.volta"></span><p class="eyebrow mt-3">{{ Vm('sessao') }} {{ s.numero }}</p><div class="titlinha"><h1 class="page">{{ s.titulo }}</h1><span data-solta v-html="guia"></span></div><p v-if="s.resumo" class="lead sm sectxt mt-1">{{ s.resumo }}</p></div>
     <div class="sesslado"><span data-solta v-html="p.prog"></span>
       <div class="bbacoes"><span data-solta v-html="p.enc + p.modos + p.acoes"></span></div></div></div>
   <span data-solta v-html="ini"></span>
