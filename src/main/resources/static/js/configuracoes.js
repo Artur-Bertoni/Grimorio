@@ -6,7 +6,7 @@ function secoesAjustes(){
   var l=[];
   if(GM&&CID)l.push(["campanha",Vm("campanha")],["mesa","Mesa e convites"],["vocab","Vocabulário"],["ref",Vm("referencia")],["busca","Busca"]);
   l.push(["aparencia","Aparência"],["privacidade","Privacidade e acessibilidade"]);
-  if(CID)l.push(["tour","Tour guiado"]);
+  if(CID)l.push(["guias","Guias"]);
   l.push(["conta","Conta"],["suporte","Suporte"]);
   if(ADMIN)l.push(["admin","Administração"],["textos","Textos legais"],["uso","Uso"]);
   return l;
@@ -74,11 +74,7 @@ function hydrateAjustes(v){
   else if(k==="busca")ajustesBusca(alvo);
   else if(k==="admin")abrirAdmin(null,mk);
   else if(k==="suporte")abrirSuporte(null,mk);
-  else if(k==="tour"){
-    alvo.innerHTML=htmlDe("t-aj-tour",{mestre:GM});
-    var tmb=$("#tourMestre",alvo); if(tmb)tmb.onclick=function(){ iniciarTour("mestre"); };
-    $("#tourJog",alvo).onclick=function(){ iniciarTour("jogador"); };
-  }
+  else if(k==="guias")ajusteGuias(alvo);
   else if(k==="campanha"){
     abrirCampanha(null,mk);
   }

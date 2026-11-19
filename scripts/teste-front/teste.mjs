@@ -135,33 +135,58 @@ if (DOM) await pg.addInitScript(() => {
 titulo('campanha de teste abre');
 await pg.goto(B + '/#/c/1/campanha', { waitUntil: 'networkidle' });
 await espera(1300);
-ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do mestre abre o tour');
-ok(/^1 de \d+$/i.test((await pg.locator('.tourn').innerText()).trim()), 'tour comeca no passo 1');
+ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do mestre abre o guia inicial');
+ok(/guia inicial.* 1 de \d+$/i.test((await pg.locator('.tourn').innerText()).trim()), 'o guia inicial comeca no passo 1, com o nome do guia');
 ok(await pg.locator('.tour .tourlogo svg').isVisible(), 'boas-vindas mostram a logo');
 await pg.locator('.tour [data-t="vai"]').click();
 await espera(700);
 await pg.locator('.tour [data-t="vai"]').click();
 await espera(900);
-ok(/^3 de/i.test(await pg.locator('.tourn').innerText()) && await pg.locator('.tourfoco').evaluate(f => f.offsetWidth > 20), 'o tour destaca o elemento de cada passo');
+ok(/ 3 de/i.test(await pg.locator('.tourn').innerText()) && await pg.locator('.tourfoco').evaluate(f => f.offsetWidth > 20), 'o tour destaca o elemento de cada passo');
 await foto('00-tour');
 await pg.keyboard.press('ArrowLeft');
 await espera(700);
-ok(/^2 de/i.test(await pg.locator('.tourn').innerText()), 'seta para a esquerda volta um passo');
+ok(/ 2 de/i.test(await pg.locator('.tourn').innerText()), 'seta para a esquerda volta um passo');
 await pg.keyboard.press('/');
 await espera(300);
 ok((await pg.locator('#bq').count()) === 0, 'atalho da pagina nao passa por baixo do tour');
 await pg.locator('.tour [data-t="pula"]').click();
 await espera(600);
-ok((await pg.locator('.tour').count()) === 0 && await pg.evaluate(() => localStorage.getItem('grim_tour_mestre_1')) === '1', 'pular fecha o tour e marca como visto');
+ok((await pg.locator('.tour').count()) === 0 && await pg.evaluate(() => localStorage.getItem('grim_tour_guia-inicio-m_1')) === '1', 'pular fecha o guia e marca como visto');
 await pg.click('#btnAjustes');
 await espera(400);
-await pg.locator('[data-aj="tour"]').click();
+await pg.locator('[data-aj="guias"]').click();
 await espera(300);
-if (DOM) await foto('r001-aj-tour');
-await pg.locator('#tourMestre').click();
+if (DOM) await foto('r001-aj-guias');
+ok((await pg.locator('[data-guia="m-elenco"]').count()) === 1 && (await pg.locator('[data-guia="j-fichas"]').count()) === 1 && (await pg.locator('[data-guia="m-mapa"]').count()) === 1,
+  'Configuracoes › Guias lista os guias das abas do mestre e do jogador');
+ok(/visto/i.test(await pg.locator('.guiait', { has: pg.locator('[data-guia="inicio-m"]') }).innerText()), 'o guia inicial aparece como visto');
+await pg.locator('[data-guia="inicio-m"]').first().click();
 const tm = await andaTour();
-ok(tm.faltas.length === 0 && tm.n >= 20, 'tour do mestre revisto pelos ajustes acha todos os ' + tm.n + ' passos' + (tm.faltas.length ? ': ' + tm.faltas.join(' | ') : ''));
-ok((await pg.locator('.tour').count()) === 0 && await pg.locator('h1.page').first().isVisible(), 'concluir volta para a pagina da campanha');
+ok(tm.faltas.length === 0 && tm.n >= 10 && tm.n <= 12, 'o guia inicial do mestre e curto: ' + tm.n + ' passos, todos acham o elemento' + (tm.faltas.length ? ': ' + tm.faltas.join(' | ') : ''));
+ok((await pg.locator('.tour').count()) === 0 && await pg.locator('.guialista').first().isVisible(), 'concluir volta para Configuracoes › Guias, de onde saiu');
+/* primeira visita a uma aba depois do guia inicial: o guia dela abre sozinho e devolve a pessoa ali */
+await aba('Elenco');
+await espera(900);
+ok(await pg.locator('.tour').isVisible() && /elenco/i.test(await pg.locator('.tourn').innerText()), 'a primeira visita ao Elenco abre o guia do Elenco');
+ok(await pg.locator('.tour [data-t="musica"]').getAttribute('aria-pressed') === 'true', 'a musica de fundo nasce ligada');
+await pg.locator('.tour [data-t="musica"]').click();
+ok(await pg.locator('.tour [data-t="musica"]').getAttribute('aria-pressed') === 'false' && await pg.evaluate(() => localStorage.getItem('grim_guia_musica') === '0' && !MUSICA.no), 'o botao da musica cala e guarda a escolha');
+await pg.locator('.tour [data-t="musica"]').click();
+const te = await andaTour();
+ok(te.faltas.length === 0 && te.n >= 6, 'o guia do Elenco tem ' + te.n + ' passos que acham o elemento' + (te.faltas.length ? ': ' + te.faltas.join(' | ') : ''));
+ok(await pg.locator('#elNovo').isVisible() && await pg.evaluate(() => !MUSICA.no), 'o guia termina na aba onde a pessoa estava, e a musica para');
+await pg.click('#btnAjustes'); await espera(400); await aba('Elenco');
+await espera(900);
+ok((await pg.locator('.tour').count()) === 0, 'guia visto nao abre de novo sozinho');
+await pg.locator('#view .guiab').click();
+await espera(700);
+ok(await pg.locator('.tour').isVisible() && /elenco/i.test(await pg.locator('.tourn').innerText()), 'o botao ? ao lado do titulo reabre o guia da aba');
+await pg.locator('.tour [data-t="pula"]').click();
+await espera(500);
+/* o resto do roteiro nao para em guia: todos vistos, menos o inicial do jogador, que o teste ve la na frente */
+await pg.evaluate(() => GUIAS_MESTRE.concat(GUIAS_JOGADOR).forEach(id => marcaTourVisto('guia-' + id)));
+await aba('Campanha');
 ok(await pg.locator('h1.page').first().isVisible(), 'titulo aparece');
 const abas = await pg.locator('#tabs .tab').allInnerTexts();
 ok(abas.length === 6 && /elenco/i.test(abas.join(' ')) && /biblioteca/i.test(abas.join(' ')) && /mapa/i.test(abas.join(' ')), 'seis abas, com o Mapa: ' + abas.join(' | '));
@@ -365,10 +390,13 @@ ok((await estadoMapa(1, mid)).elementos.length === 0 && /removidos/.test(await p
 await pg.keyboard.press('Control+z'); await espera(900);
 ok((await estadoMapa(1, mid)).elementos.length >= 7, 'Ctrl+Z traz de volta tudo o que foi removido junto');
 
-/* o tour completo do mestre, agora com mapa: os passos do mapa ficam no fim e acham os botoes */
-await pg.evaluate(() => iniciarTour("mestre", null, true));
-const tmm = await andaTour();
-ok(tmm.faltas.length === 0 && tmm.n >= 29, "o tour do mestre fala do mapa: " + tmm.n + " passos, todos acham o elemento" + (tmm.faltas.length ? ": " + tmm.faltas.join(" | ") : ""));
+/* cada guia de aba do mestre, agora com mapa: todo passo acha o elemento que aponta */
+for (const id of await pg.evaluate(() => GUIAS_MESTRE)) {
+  await pg.evaluate(i => abrirGuia(i), id);
+  await espera(500);
+  const r = await andaTour();
+  ok(r.faltas.length === 0 && r.n >= 3, "guia " + id + ": " + r.n + " passos, todos acham o elemento" + (r.faltas.length ? ": " + r.faltas.join(" | ") : ""));
+}
 await pg.evaluate(() => { S.view = "mapa"; render(); });
 await espera(600);
 
@@ -1487,9 +1515,15 @@ await espera(600);
 await pg.locator('[data-entrar="3"]').click();
 await espera(1100);
 ok((await pg.locator('#tabs .tab:not(.tabmais)').count()) === 8 && (await pg.locator('#tabs .tab[data-aba="mapa"]').count()) === 1, 'as secoes da mesa e o Mapa sao as abas do jogador');
-ok(await pg.locator('.tour').isVisible(), 'primeiro acesso do jogador abre o tour do jogador');
+ok(await pg.locator('.tour').isVisible() && /guia inicial/i.test(await pg.locator('.tourn').innerText()), 'primeiro acesso do jogador abre o guia inicial do jogador');
 const tj = await andaTour();
-ok(tj.faltas.length === 0 && tj.n >= 7 && tj.n <= 9, 'o primeiro tour do jogador e o curto, com ' + tj.n + ' passos que acham o elemento' + (tj.faltas.length ? ': ' + tj.faltas.join(' | ') : ''));
+ok(tj.faltas.length === 0 && tj.n >= 12 && tj.n <= 13, 'o guia inicial do jogador passa por cada aba: ' + tj.n + ' passos que acham o elemento' + (tj.faltas.length ? ': ' + tj.faltas.join(' | ') : ''));
+for (const id of await pg.evaluate(() => GUIAS_JOGADOR)) {
+  await pg.evaluate(i => abrirGuia(i), id);
+  await espera(500);
+  const r = await andaTour();
+  ok(r.faltas.length === 0 && r.n >= 1, 'guia ' + id + ' do jogador: ' + r.n + ' passos, todos acham o elemento' + (r.faltas.length ? ': ' + r.faltas.join(' | ') : ''));
+}
 await espera(600);
 
 titulo('mapa do jogador');
@@ -1609,7 +1643,7 @@ await espera(300);
 if (DOM) await foto('r039-msec-resumos');
 await pg.click('#btnAjustes');
 await espera(400);
-ok((await pg.locator('[data-aj]').count()) === 8 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, privacidade, tour, conta, suporte e as tres da administracao');
+ok((await pg.locator('[data-aj]').count()) === 8 && (await pg.locator('#mSaiCamp').count()) === 0, 'ajustes do jogador: aparencia, privacidade, guias, conta, suporte e as tres da administracao');
 
 titulo('cadastro: regras de senha');
 await pg.goto(B + '/paginas/login.html');

@@ -3,7 +3,7 @@
 <!-- cabeca: o titulo da pagina (Mesa para o mestre, a secao para o jogador); ini: barra publica
      da iniciativa; abas: sub-abas (so o mestre, o jogador usa as abas do topo); corpo: a secao aberta -->
 <template id="t-mesa">
-  <div class="mesahd"><div><span class="eyebrow">Área dos {{ vmin('jogadores') }}</span><h1 class="page">{{ cabeca }}</h1></div></div>
+  <div class="mesahd"><div><span class="eyebrow">Área dos {{ vmin('jogadores') }}</span><div class="titlinha"><h1 class="page">{{ cabeca }}</h1><span data-solta v-html="guia"></span></div></div></div>
   <div v-if="mestre" class="gmstrip"><b>Visão do {{ vmin('mestre') }}.</b> Isto é exatamente o que os {{ vmin('jogadores') }} veem. Use <button type="button" class="btn sec m" id="mLib">Liberar conteúdo</button> para escolher o que aparece aqui.</div>
   <div id="mIni" v-html="ini"></div>
   <span data-solta v-html="abas"></span>

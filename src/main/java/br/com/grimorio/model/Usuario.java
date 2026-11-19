@@ -53,7 +53,7 @@ public class Usuario {
     @Column(name = "reset_ate")
     private Instant resetAte;
 
-    /* orientacao ja vista, separada por virgula: tours ("mestre", "jogador") e primeiros passos
+    /* orientacao ja vista, separada por virgula: guias ("guia-inicio-m", "guia-m-elenco"...) e primeiros passos
        dispensados ("passos-{campanha}"). Fica na conta para nao voltar em outro aparelho. */
     @Column(length = 1000)
     private String tours;

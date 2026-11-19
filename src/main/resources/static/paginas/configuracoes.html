@@ -46,12 +46,6 @@
   </div>
 </template>
 
-<template id="t-aj-tour">
-  <h2 class="sec mb-3">Tour guiado</h2>
-  <p class="lead">Um passeio por todas as partes do Grimório, passo a passo. Dá para pular a qualquer momento.</p>
-  <div class="tourajuste"><span v-if="mestre" data-solta><button class="btn" id="tourMestre">Rever o tour do mestre</button><button class="btn sec" id="tourJog">Ver o tour do jogador</button></span><button v-else class="btn" id="tourJog">Rever o tour</button></div>
-</template>
-
 <template id="t-aj-sair">
   <div class="fld mt-4"><span class="flb">Sair</span><div class="addrow"><button v-if="sairCampanha" class="btn sec" id="mSaiCamp">Sair desta {{ vmin('campanha') }}</button><button class="btn sec" id="mSair">Sair da conta</button></div></div>
 </template>

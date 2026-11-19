@@ -168,10 +168,10 @@ public class UsuarioService implements UserDetailsService {
         }
     }
 
-    /** Marca um tour guiado como visto na conta. So aceita os nomes conhecidos. */
+    /** Marca um guia (ou os primeiros passos de uma campanha) como visto na conta. So aceita os nomes conhecidos. */
     @Transactional
     public void marcarTour(Long id, String tour) {
-        if (tour == null || !tour.matches("mestre|jogador|passos-\\d{1,12}")) return;
+        if (tour == null || !tour.matches("guia-(?:inicio|m|j)-[a-z]{1,12}|passos-\\d{1,12}")) return;
         Usuario u = buscar(id);
         java.util.Set<String> vistos = new java.util.TreeSet<>(toursVistos(u));
         String junto = String.join(",", vistos);

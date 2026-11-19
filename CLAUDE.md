@@ -56,7 +56,7 @@ src/main/resources/
                       controles.css (botão, aba, campo, chip, aviso) antes de pele.css, e de
                       pele.css em diante o tema
   static/js/          o JS que preenche e liga cada página ou componente (nucleo,
-                      componentes, camadas, tema, tour, cena, pagina-*, configuracoes,
+                      componentes, camadas, tema, tour (guias), musica, cena, pagina-*, configuracoes,
                       rotas, render…)
   static/paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
   static/icones/, favicon.ico, manifest.webmanifest, robots.txt   gerados por scripts/teste-front/icones.mjs
@@ -402,11 +402,21 @@ de uma campanha, clicar num tema é só prévia (`TEMA_PREVIA`), que some ao sai
 o clique define o tema da pessoa. A sugestão do mestre só pergunta (`sugereTema`) a quem escolheu
 usar sempre o próprio tema.
 
-**Tour guiado** (`iniciarTour(p)`, `passosTour(p)`): um roteiro para mestre e outro para
-jogador, disparado na primeira entrada com aquele papel (`grim_tour_{papel}_{id}`) e revisto em
-Configurações › Tour guiado. Cada passo é `{a: seletor, ir: troca de tela, t, x}`. Funcionalidade
-nova que aparece na tela ganha um passo, e o teste anda pelos dois tours e falha se algum
-seletor não achar o elemento. Atalho de teclado novo precisa respeitar `TOUR` aberto.
+**Guias** (`js/tour.js`, `abrirGuia(id)`, `passosGuia(id)`): dois níveis. O **guia inicial** de
+cada papel (`inicio-m`, `inicio-j`) é curto, uma parada por aba; a penúltima mostra Configurações ›
+Guias e ele abre sozinho na primeira entrada com aquele papel. Cada aba tem um **guia detalhado**
+(`GUIAS_MESTRE`, `GUIAS_JOGADOR`, mais a "Barra do topo"), que abre sozinho na primeira visita à
+aba depois do inicial (`guiaNaTela()`, chamado pelo `render()` na troca de tela), pelo botão ? ao
+lado do título (`botaoGuia()`, passado como `guia` a cada template de cabeçalho) e pela lista de
+Configurações › Guias. Visto fica na conta como `guia-{id}` (o servidor só aceita esse formato, em
+`UsuarioService.marcarTour`) e no navegador (`grim_tour_guia-{id}_{usuario}`). Fechar devolve a
+pessoa à tela de onde o guia saiu. Cada passo é `{a: seletor, ir: troca de tela, t, x}`; `opc:1`
+marca alvo que pode não existir (lista vazia), e o texto tem de valer sem o destaque. Funcionalidade
+nova que aparece na tela ganha um passo no guia da aba dela, e o teste anda por todos os guias e
+falha se algum seletor sem `opc` não achar o elemento. Atalho de teclado novo precisa respeitar
+`TOUR` aberto. Enquanto um guia está aberto toca uma dança medieval sintetizada (`js/musica.js`,
+WebAudio, sem arquivo), que segue o som ligado (`grim_som`) e se cala no botão ♪ do cartão ou em
+Configurações › Guias (`grim_guia_musica=0`).
 
 **Logo**: `logoSvg(c)` é a única fonte do d20. O mesmo desenho sai na marca do topo, no
 login, na tela de carregamento e no favicon, que `aplicarTema()` refaz com as cores do tema.

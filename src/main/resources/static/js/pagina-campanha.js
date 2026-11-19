@@ -164,7 +164,7 @@ function viewHome(){
   if(!c||BOOTERR)return viewVazio();
   var ps=passosCampanha(), falta=ps.some(function(p){return p.ok===false;});
   var prox=D.sessoes.find(function(s){return s.status!=="encerrada";});
-  return htmlDe("t-home",{c:c,
+  return htmlDe("t-home",{c:c,guia:botaoGuia(),
     passos:falta&&!c.semPassos&&!passosDispensados()?ps:null,
     nSessoes:D.sessoes.length,
     proxima:prox?{id:prox.id,numero:prox.numero,titulo:prox.titulo,resumo:prox.resumo,estado:estadoSessao(prox)}:null,

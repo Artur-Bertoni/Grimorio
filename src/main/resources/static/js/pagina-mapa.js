@@ -12,7 +12,7 @@ function mpSessaoIni(){ return GM?(curSess()||D.sessoes[D.sessoes.length-1]||nul
 function viewMapa(){
   if(mapaBloqueado()){ return htmlDe("t-mapa-wip",{}); }
   var m=MP.mapa, si=mpSessaoIni();
-  return htmlDe("t-mapa",{ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,cena:GM?mpRotuloCena(mpCenaLigada(m)):"",
+  return htmlDe("t-mapa",{guia:botaoGuia(),ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,cena:GM?mpRotuloCena(mpCenaLigada(m)):"",
     painel:mpPainelAberto(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),enquadre:mpVista().modo||"preenche",nTokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"; }).length});
 }
 function hydrateMapa(v){
