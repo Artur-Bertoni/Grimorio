@@ -4,13 +4,17 @@ import br.com.grimorio.service.MapaService;
 import br.com.grimorio.service.MapaService.CorpoElemento;
 import br.com.grimorio.service.MapaService.CorpoLote;
 import br.com.grimorio.service.MapaService.CorpoMapa;
+import br.com.grimorio.service.MapaService.CorpoRota;
 import br.com.grimorio.service.MapaService.CorpoTurno;
+import br.com.grimorio.service.MapaVisao;
+import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +38,10 @@ public class MapaController {
     public static class CorpoAtivo { public boolean ativo = true; }
 
     /** onde o jogador apontou, em coordenadas do mapa */
-    public static class CorpoPing { public double x; public double y; }
+    public static class CorpoPing {
+        public double x;
+        public double y;
+    }
 
     /** seq: a operacao a desfazer; sem ele, a ultima da pessoa */
     public static class CorpoDesfazer { public Long seq; }
@@ -109,7 +116,25 @@ public class MapaController {
         return mapas.historico(cid, atual.id(), mid, limite);
     }
 
-    /** Aponta um ponto do mapa para todo mundo ver por alguns segundos. Nada fica gravado. */
+    /**
+     * Um pedaco de 512px da imagem do mapa. O jogador so recebe o que a nevoa deixa ver; {@code v} e a versao
+     * que o estado informou: igual a de agora, o navegador pode guardar o pedaco, senao nao.
+     */
+    @GetMapping("/{mid}/tile/{tx}/{ty}")
+    public ResponseEntity<Resource> tile(@PathVariable long cid, @PathVariable long mid, @PathVariable int tx, @PathVariable int ty,
+                                         @RequestParam(required = false) String v) {
+        MapaVisao.Pedaco p = mapas.pedaco(cid, atual.id(), mid, tx, ty, v);
+        CacheControl cc = p.guarda() ? CacheControl.maxAge(Duration.ofDays(1)).cachePrivate() : CacheControl.noStore();
+        return ResponseEntity.ok().cacheControl(cc).contentType(MediaType.parseMediaType(p.tipo())).body(p.corpo());
+    }
+
+    /** A rota que contorna as paredes ate onde o token esta sendo arrastado (a tela do jogador nao recebe as paredes). */
+    @PostMapping("/{mid}/rota")
+    public Map<String, Object> rota(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoRota c) {
+        return mapas.rota(cid, atual.id(), mid, c);
+    }
+
+    /** Aponta um ponto do mapa para todos verem por alguns segundos. Nada fica gravado. */
     @PostMapping("/{mid}/ping")
     public ResponseEntity<Void> ping(@PathVariable long cid, @PathVariable long mid, @RequestBody CorpoPing c) {
         mapas.ping(cid, atual.id(), mid, c.x, c.y);

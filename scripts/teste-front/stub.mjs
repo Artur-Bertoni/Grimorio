@@ -161,7 +161,7 @@ function mapasIniciais() {
 }
 mapasIniciais();
 const mestreEm = cid => (CAMPS.find(x => x.id === Number(cid)) || {}).papel !== 'JOGADOR';
-const mapaJson = (m, mestre) => { const { els, ...r } = m; if (!mestre) delete r.cenaId; return r; };
+const mapaJson = (m, mestre) => { const { els, hist, ...r } = m; if (!mestre) { delete r.cenaId; delete r.imagem; } return r; };
 const camadaTrancada = (m, e) => (m.regras.trancadas || []).includes(e.camada);
 const trancado = (m, e) => !!e.bloqueado || camadaTrancada(m, e);
 const podeMover = (m, e, mestre) => mestre ? !trancado(m, e) : (e.tipo === 'TOKEN' && e.visivel && !trancado(m, e) && (e.dono === ST.perfil.id || e.dados.livre || m.regras.quem === 'todos'));
@@ -176,6 +176,30 @@ const elJson = (m, e, mestre) => {
   }
   return r;
 };
+/* Fase 4b: o corte da nevoa e do servidor. Aqui, por alto: parede e area nunca saem para o jogador; token so o
+   dele ou o que um token dele enxerga (alcance em casas, sem parede de visao no meio) ou o que uma area retangular
+   revela; a vista traz uma mascara (aqui, toda aberta) e os pedacos da imagem. */
+const MASCARA = 'data:image/png;base64,' + png(255, 255, 255).toString('base64');
+const barraVisao = w => w.tipo === 'PAREDE' && w.dados.kind !== 'janela' && !(w.dados.kind === 'porta' && w.dados.aberta);
+const cruzaParede = (mp, a, b, filtro) => mp.els.filter(filtro).some(w => w.dados.pts.some((q, i) => i && segCruza(w.dados.pts[i - 1], q, a, b)));
+const fogDe = m => m.regras.fog || 'nenhum';
+const jogadorVe = (mp, x, y) => {
+  if (fogDe(mp) === 'nenhum') return true;
+  let r = false;
+  for (const f of mp.els.filter(e => e.tipo === 'FOG' && e.dados.forma === 'retangulo')) {
+    const [a, b] = f.dados.pts;
+    if (x >= Math.min(a[0], b[0]) && x <= Math.max(a[0], b[0]) && y >= Math.min(a[1], b[1]) && y <= Math.max(a[1], b[1])) r = !!f.dados.revela;
+  }
+  if (r || fogDe(mp) !== 'visao') return r;
+  return mp.els.some(t => t.tipo === 'TOKEN' && t.visivel && t.dono === ST.perfil.id && Math.hypot(t.dados.x - x, t.dados.y - y) <= (t.dados.visao ?? mp.regras.visaoPadrao ?? 6) * mp.grid.tam
+    && !cruzaParede(mp, [t.dados.x, t.dados.y], [x, y], barraVisao));
+};
+const chegaAoJogador = (mp, e) => e.visivel && e.tipo !== 'PAREDE' && e.tipo !== 'FOG' && (e.tipo !== 'TOKEN' || e.dono === ST.perfil.id || jogadorVe(mp, e.dados.x, e.dados.y));
+const vistaDe = mp => {
+  const cols = Math.ceil(mp.largura / 512), lins = Math.ceil(mp.altura / 512);
+  return { modo: fogDe(mp), cel: 10, cols: Math.ceil(mp.largura / 10), lins: Math.ceil(mp.altura / 10), ...(fogDe(mp) === 'nenhum' ? {} : { png: MASCARA }),
+    paredes: mp.els.some(e => e.tipo === 'PAREDE'), ...(mp.imagem ? { tiles: { lado: 512, w: mp.largura, h: mp.altura, cols, lins, v: Array(cols * lins).fill('sf') } } : {}) };
+};
 /* historico e desfazer, no mesmo desenho do servidor: cada operacao guarda o estado de antes */
 const casasEntre = (mp, a, b) => {
   const T = mp.grid.tam, dx = Math.abs(b.x - a.x) / T, dy = Math.abs(b.y - a.y) / T;
@@ -185,7 +209,13 @@ const casasEntre = (mp, a, b) => {
 };
 const registra = (mp, op, e, antes) => { (mp.hist ||= []).push({ seq: mp.seq, usuario: ST.perfil.id, op, id: e.id, antes: antes ? structuredClone(antes) : null, depois: op === 'remover' ? null : structuredClone(e), desfeito: false }); };
 function rotaMapa(M, p, b, req, res) {
-  let m = p.match(/^\/api\/c\/(\d+)\/mapas(?:\/(\w+))?(?:\/(elementos|ativo|desfazer|historico|ping))?(?:\/(\d+))?$/);
+  const tl = p.match(/^\/api\/c\/(\d+)\/mapas\/(\d+)\/tile\/(\d+)\/(\d+)$/);
+  if (tl) {
+    const mp = (MAPAS[tl[1]] || []).find(x => String(x.id) === tl[2]);
+    if (!mp || (!mestreEm(tl[1]) && !mp.ativo)) { envia(res, 404, { erro: 'não encontrado' }); return true; }
+    envia(res, 200, IMGS['pc-2.png'], 'image/png'); return true;
+  }
+  let m = p.match(/^\/api\/c\/(\d+)\/mapas(?:\/(\w+))?(?:\/(elementos|ativo|desfazer|historico|ping|rota))?(?:\/(\d+))?$/);
   if (!m) return false;
   const cid = m[1], lista = (MAPAS[cid] ||= []), mestre = mestreEm(cid);
   const sem = (c = 204) => { res.writeHead(c, { 'Set-Cookie': 'XSRF-TOKEN=t0; Path=/' }); res.end(); return true; };
@@ -223,11 +253,21 @@ function rotaMapa(M, p, b, req, res) {
     if (M === 'GET') {
       const desde = new URL(req.url, 'http://x').searchParams.get('desde');
       if (desde != null && Number(desde) === mp.seq) { envia(res, 200, { seq: mp.seq, igual: true }); return true; }
-      envia(res, 200, { seq: mp.seq, mapa: mapaJson(mp, mestre), elementos: mp.els.filter(e => mestre || e.visivel).map(e => elJson(mp, e, mestre)) }); return true;
+      envia(res, 200, { seq: mp.seq, mapa: mapaJson(mp, mestre), elementos: mp.els.filter(e => mestre || chegaAoJogador(mp, e)).map(e => elJson(mp, e, mestre)), ...(mestre ? {} : { vista: vistaDe(mp) }) }); return true;
     }
     if (!mestre) { envia(res, 403, { erro: 'so o mestre', codigo: 'proibido' }); return true; }
     if (M === 'PUT') { for (const k of ['nome', 'imagem', 'grid', 'regras', 'cenaId']) if (b[k] != null) mp[k] = k === 'regras' ? { ...mp.regras, ...b[k], trancadas: b[k].trancadas || mp.regras.trancadas || [], fog: b[k].fog || mp.regras.fog || 'nenhum' } : b[k]; mp.seq++; envia(res, 200, mapaJson(mp, true)); return true; }
     if (M === 'DELETE') { MAPAS[cid] = lista.filter(x => x !== mp); return sem(); }
+  }
+  /* a rota do servidor: so do token que o jogador move; atravessando parede, um desvio pela ponta de baixo dela */
+  if (m[3] === 'rota' && M === 'POST') {
+    const t = mp.els.find(x => x.id === b.id);
+    if (!t || (!mestre && !podeMover(mp, t, false))) { envia(res, 403, { erro: 'este token não é seu para mover', codigo: 'proibido' }); return true; }
+    const o = [t.dados.x, t.dados.y], d = [b.x, b.y], barra = w => w.tipo === 'PAREDE' && !(w.dados.kind === 'porta' && w.dados.aberta);
+    if (mestre || !cruzaParede(mp, o, d, barra)) { envia(res, 200, { livre: true }); return true; }
+    const w = mp.els.find(x => barra(x) && x.dados.pts.some((q, i) => i && segCruza(x.dados.pts[i - 1], q, o, d)));
+    const ponta = w.dados.pts.reduce((a, q) => (q[1] > a[1] ? q : a));
+    envia(res, 200, { pts: [o, [ponta[0], ponta[1] + 35], d] }); return true;
   }
   if (m[3] === 'ping' && M === 'POST') { sseEnvia(cid, { tipo: 'ping', mapa: mp.id, x: b.x, y: b.y, quem: ST.perfil.nome || 'Alguem', meu: false }); return sem(); }
   if (m[3] === 'historico' && M === 'GET') {
@@ -328,6 +368,8 @@ function rotaMapa(M, p, b, req, res) {
           e.dados.usado = usado + custo;
         }
         e.dados.x = x1; e.dados.y = y1;
+        /* como o servidor: com a nevoa ligada, quem esta olhando recebe so o aviso e pede o que ve agora */
+        if (fogDe(mp) !== 'nenhum') setTimeout(() => sseEnvia(cid, { tipo: 'vista', seq: mp.seq, mapa: mp.id }), 50);
       }
       mp.seq++; registra(mp, 'mudar', e, antes);
       envia(res, 200, { ...elJson(mp, e, mestre), ...(passou ? { passou: true } : {}) }); return true;

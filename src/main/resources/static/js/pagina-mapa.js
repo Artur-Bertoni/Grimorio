@@ -33,6 +33,7 @@ function hydrateMapa(v){
     var liga=!mpEncaixando();
     mpAlternaEncaixe().then(function(){ toast(liga?"Encaixe na grade: ligado para todos":"Posição livre: ligada para todos"); })
       .catch(function(){ /* o aviso ja saiu em mpGrava */ }); }; }
+  mpLigaAcoes(v);
   var be=$("#mpEd",v); if(be){ be.onclick=function(){ mpEditaMapa(); }; }
   var bt=$("#mpToken",v); if(bt){ bt.onclick=function(){ mpNovoToken(bt); }; }
   var ba=$("#mpAtiva",v); if(ba){ ba.onclick=function(){ mpAtiva(MP.id,!MP.mapa?.ativo); }; }
@@ -82,13 +83,24 @@ function mpDadosDoPainel(){
     mapas:GM?MP.lista.map(function(m){ return {id:m.id,nome:m.nome,ativo:!!m.ativo,aberto:String(m.id)===String(MP.id)}; }):[],
     camadas:MP_CAMADAS.map(function(c){
       return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return daCamada(e)&&mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
-    nSel:sels.length,todosTrancados:sels.length>0&&sels.every(function(e){ return e.bloqueado; }),
-    todosVisiveis:sels.every(function(e){ return e.visivel!==false; }),
+    nSel:sels.length,tudoTrancado:sels.length>0&&sels.every(function(e){ return e.bloqueado; }),
+    tudoVisivel:sels.every(function(e){ return e.visivel!==false; }),
     abre:mpSecoes(),cores:MP_CORES,estilo:MP.estilo,temArea:!!MP.area&&!!mpAreaForma(MP.area),
     desenhos:MP.els.filter(tem).map(mpItemDesenho),
     fog:mpFogModo(),fogMemoria:!!MP.mapa?.regras?.fogMemoria,visaoPadrao:mpVisaoPadraoDoMapa(),fogModos:MP_FOG_MODOS,pincel:mpPincel(),pontas:MP_PONTAS,fogFormas:MP_FORMAS_FOG,fogForma:MP.fogForma,fogRevela:MP.fogRevela!==false,comoJogador:MP.comoJogador,
     paredeKinds:MP_PAREDES,paredeKind:MP.paredeKind,paredes:paredes.map(mpItemParede),areas:areas.map(mpItemArea),
     tokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"&&!mpOculto(e); }).map(mpItemToken)};
+}
+/* Desfazer, Historico e Novo turno moram na barra do topo, junto do Encaixar e da Iniciativa. */
+function mpLigaAcoes(v){
+  $$("[data-mp-undo]",v).forEach(function(b){ b.onclick=function(){ mpDesfaz(); }; });
+  $$("[data-mp-hist]",v).forEach(function(b){ b.onclick=function(){ mpAbreHistorico(); }; });
+  $$("[data-mp-turno]",v).forEach(function(b){ b.onclick=function(){
+    /* Com iniciativa em andamento, "novo turno" e avancar a propria iniciativa: o turno sobe, a vez volta
+       ao primeiro e o servidor zera o gasto (o aviso chega pelo evento do mapa, a todos). Sem ela, so zera. */
+    var si=mpSessaoIni(), ini=si?iniDe(si):null;
+    if(ini?.lista.length){ ini.rodada=(ini.rodada||1)+1; ini.vez=iniOrdem(ini)[0].id; som("vez"); iniMudou(si); }
+    else { mpNovoTurno(); } }; });
 }
 /* O painel se refaz a cada token que muda (de qualquer pessoa): o foco de quem estava num
    botao dele volta para o mesmo botao. */
@@ -102,14 +114,6 @@ function mpPintaPainel(){
   $$("[data-mp-novo]",p).forEach(function(b){ b.onclick=function(){ mpNovoMapa(); }; });
   $$("[data-mp-sel]",p).forEach(function(b){ b.onclick=function(){
     var el=mpEl(b.dataset.mpSel); mpSelecionaIds(el?[el.id]:[]); mpCentraliza(el); mpPintaPainel(); }; });
-  $$("[data-mp-undo]",p).forEach(function(b){ b.onclick=function(){ mpDesfaz(); }; });
-  $$("[data-mp-hist]",p).forEach(function(b){ b.onclick=function(){ mpAbreHistorico(); }; });
-  $$("[data-mp-turno]",p).forEach(function(b){ b.onclick=function(){
-    /* Com iniciativa em andamento, "novo turno" e avancar a propria iniciativa: o turno sobe, a vez volta
-       ao primeiro e o servidor zera o gasto (o aviso chega pelo evento do mapa, a todos). Sem ela, so zera. */
-    var si=mpSessaoIni(), ini=si?iniDe(si):null;
-    if(ini?.lista.length){ ini.rodada=(ini.rodada||1)+1; ini.vez=iniOrdem(ini)[0].id; som("vez"); iniMudou(si); }
-    else { mpNovoTurno(); } }; });
   $$("[data-mp-ed]",p).forEach(function(b){ b.onclick=function(){
     var el=mpEl(b.dataset.mpEd);
     if(!el){ return; }
@@ -120,7 +124,7 @@ function mpPintaPainel(){
   mpLigaPainelFormas(p);
 }
 /* Secoes do painel: quais estao abertas fica guardado neste navegador (por pessoa, nao por mapa). */
-var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,visao:false,paredes:false,areas:false,desenhos:false,tokens:true,acoes:true};
+var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,visao:false,paredes:false,areas:false,desenhos:false,tokens:true};
 function mpSecoes(){
   var o={...MP_SECOES_PADRAO};
   try{ Object.assign(o,JSON.parse(localStorage.getItem("grim_mapa_secoes")||"{}")); }catch(error_){ /* sem armazenamento vale o padrao */ }

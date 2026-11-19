@@ -56,10 +56,12 @@ function mpPinta(){
   ctx.translate(v.x,v.y); ctx.scale(v.z,v.z);
   var W=m.largura, H=m.altura;
   ctx.fillStyle=cor.area; ctx.fillRect(0,0,W,H);
-  var im=m.imagem?mpImagem(IMG(m.imagem,"mapa")):null;
-  if(im){ ctx.drawImage(im,0,0,W,H); }
   /* so o que esta na tela: a grade de um mapa enorme nao e desenhada inteira a cada quadro */
   var tela={x0:-v.x/v.z,y0:-v.y/v.z,x1:(c.w-v.x)/v.z,y1:(c.h-v.y)/v.z};
+  if(GM){
+    var im=m.imagem?mpImagem(IMG(m.imagem,"mapa")):null;
+    if(im){ ctx.drawImage(im,0,0,W,H); }
+  } else { mpPintaTiles(ctx,tela,W,H,v.z); }
   mpPintaGrid(ctx,tela,v.z,cor,W,H);
   ctx.strokeStyle=cor.linha; ctx.lineWidth=1/v.z; ctx.strokeRect(0,0,W,H);
   /* camada por camada, de baixo para cima; dentro de cada uma, na ordem da lista */
@@ -72,6 +74,36 @@ function mpPinta(){
   mpPintaFog(ctx,v.z,cor);
   mpPintaFerramentas(ctx,v.z,cor);
   mpPintaMedidas(ctx,v.z,cor);
+}
+/* O jogador nao recebe a imagem do mapa, so os pedacos de 512px que a nevoa deixa ver, ja cortados pelo servidor
+   (o que esta coberto vem preto). Cada pedaco tem uma versao: mudou, pede de novo e mostra o antigo ate chegar. */
+function mpPintaTiles(ctx,tela,W,H,z){
+  var t=MP.vista?.tiles;
+  if(!t){ return; }
+  var L=t.lado*W/Math.max(1,t.w);
+  for(var ty=0;ty<t.lins;ty++){
+    for(var tx=0;tx<t.cols;tx++){ mpPintaTile(ctx,t,tx,ty,{L:L,W:W,H:H,z:z,tela:tela}); }
+  }
+}
+function mpPintaTile(ctx,t,tx,ty,o){
+  var ver=t.v[ty*t.cols+tx], x=tx*o.L, y=ty*o.L, w=Math.min(o.L,o.W-x), h=Math.min(o.L,o.H-y), tela=o.tela;
+  if(!ver||x>tela.x1||y>tela.y1||x+w<tela.x0||y+h<tela.y0){ return; }
+  var im=mpTile(tx,ty,ver);
+  if(!im){ return; }
+  /* um fio a mais em cada pedaco, para a emenda entre dois nao aparecer com o zoom */
+  var folga=0.6/o.z;
+  ctx.drawImage(im,x,y,w+(x+w<o.W?folga:0),h+(y+h<o.H?folga:0));
+}
+function mpTile(tx,ty,ver){
+  var k=MP.id+":"+tx+","+ty, c=MPT[k];
+  if(!c||c.v!==ver){
+    var velho=c?(c.ok?c.img:c.velho):null, novo={v:ver,img:new Image(),ok:false,velho:velho};
+    novo.img.decoding="async";
+    novo.img.onload=function(){ novo.ok=true; novo.velho=null; mpDesenha(); };
+    novo.img.src=mpAPI("/"+MP.id+"/tile/"+tx+"/"+ty+"?v="+encodeURIComponent(ver));
+    MPT[k]=c=novo;
+  }
+  return c.ok?c.img:c.velho;
 }
 function mpPintaGrid(ctx,tela,z,cor,W,H){
   var g=mpGrid(), T=mpLado();
@@ -261,7 +293,8 @@ function mpDistTrilha(t){
   var u=t[t.length-1];
   return Math.max(s,mpDistCasas(t[0][0],t[0][1],u[0],u[1]));
 }
-function mpPintaTraco(ctx,z,cor,a){
+/* o rotulo da medida e se ela passa do limite (deslocamento do turno, visao bloqueada, sem caminho) */
+function mpRotuloMedida(a){
   var casas=a.trilha?mpDistTrilha(a.trilha):mpDistCasas(a.x0,a.y0,a.x1,a.y1), texto=mpDistTexto(casas), passa=false;
   if(a.el&&!GM&&mpNum(a.el.dados?.desl,0)>0){
     var resta=a.el.dados.desl-mpNum(a.el.dados.usado,0), custo=casas*mpEscalaCasa();
@@ -275,6 +308,12 @@ function mpPintaTraco(ctx,z,cor,a){
   }
   /* o jogador que arrasta o token para um lugar sem caminho: a cor sozinha nao diz, entao o rotulo diz */
   if(a.semCaminho){ texto="sem caminho: há parede"; passa=true; }
+  /* o jogador ve que o token vai dar a volta (e paga a volta): a linha segue o contorno e o rotulo diz */
+  else if(a.contorno){ texto+=" · contornando a parede"; }
+  return {texto:texto,passa:passa};
+}
+function mpPintaTraco(ctx,z,cor,a){
+  var rot=mpRotuloMedida(a), texto=rot.texto, passa=rot.passa;
   ctx.save();
   ctx.strokeStyle=passa?cor.perigo:cor.ouro; ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=2/z;
   ctx.setLineDash([8/z,5/z]);
@@ -662,10 +701,9 @@ function mpSegueArraste(arr,e){
     /* o trajeto mostra onde o token vai cair, ja com o encaixe, e quanto custa chegar la */
     var s=mpLivre(e)?{x:d.x,y:d.y}:mpEncaixa(d.x,d.y,mpNum(d.tam,1));
     mpAnotaTrilha(arr,d);
-    var trilha=arr.trilha.concat([[s.x,s.y]]), rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,trilha);
+    var trilha=arr.trilha.concat([[s.x,s.y]]), rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,trilha,arr.el);
     MP.medida={x0:arr.ox,y0:arr.oy,x1:s.x,y1:s.y,el:arr.el,destino:{x:s.x,y:s.y,R:mpRaio(arr.el)},
-      trilha:rota||trilha,semCaminho:rota===false};
-    if(rota===false){ MP.medida.trilha=trilha; }
+      trilha:Array.isArray(rota)?rota:trilha,semCaminho:rota===false,contorno:Array.isArray(rota),rotaChave:mpChaveRota(arr.el,s.x,s.y)};
   } else if(m==="g"){
     mpSegueGrupo(arr,e);
   } else if(m==="p"){
@@ -714,7 +752,7 @@ function mpSoltaToken(arr,livre){
   d.x=arr.ox; d.y=arr.oy;
   MP.arrastando=null;
   /* parede no meio: vale a rota que a contorna (o servidor refaz a conta e e quem decide); sem rota, nem tenta */
-  var rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,arr.trilha.concat([[s.x,s.y]]));
+  var rota=mpRotaDoToken(arr.ox,arr.oy,s.x,s.y,arr.trilha.concat([[s.x,s.y]]),el);
   if(rota===false){ mpDesenha(); toast("Não há por onde passar: tem parede no caminho.","aviso"); return; }
   mpMover(el,mpArred(s.x),mpArred(s.y),rota?rota.slice(1,-1):arr.trilha.slice(1));
 }
