@@ -13,7 +13,6 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 .cvtools button.on{background:var(--bg4);border-color:var(--fg3);color:var(--fg)}
 .cvtools button svg{width:1rem;height:1rem;display:block;margin:0 auto}
 .cvsep{display:block;height:1px;margin:var(--s-1) 0;background:var(--line2)}
-.mphint{left:var(--s-3);right:auto;bottom:var(--s-3);text-align:left;max-width:calc(100% - 20rem)}
 
 .mppainel{position:absolute;top:var(--s-3);right:var(--s-3);bottom:var(--s-3);width:17.5rem;z-index:var(--z-elevado);
   display:flex;flex-direction:column;gap:var(--s-5);overflow:auto;padding:var(--s-3);
@@ -38,12 +37,23 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 .mphlin{padding:var(--s-1) var(--s-2);gap:var(--s-3)}
 .mphlin.desfeito .cresce{color:var(--fg3)}
 
+.mpnovo{align-self:flex-start}
+
+/* janela de atalhos e gestos: grupos em colunas, tecla a esquerda e o que ela faz a direita */
+.mpatalhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:var(--s-5)}
+.mpatgrupo h3{margin:0 0 var(--s-2);font-size:var(--fs-3);font-weight:600;color:var(--fg)}
+.mpatgrupo dl{margin:0;display:flex;flex-direction:column;gap:var(--s-2)}
+.mpatlin{display:grid;grid-template-columns:7.5rem 1fr;gap:var(--s-3);align-items:baseline}
+.mpatlin dt{display:flex;flex-wrap:wrap;gap:var(--s-1)}
+.mpatlin dd{margin:0;font-size:var(--fs-2);color:var(--fg2)}
+.mpatalhos kbd{display:inline-block;min-width:1.5rem;padding:0 var(--s-1);border:1px solid var(--line2);border-bottom-width:2px;border-radius:var(--r-xs);
+  background:var(--bg3);color:var(--fg);font-family:var(--ui);font-size:var(--fs-1);line-height:1.5rem;text-align:center}
+
 .mpvazio{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-6);text-align:center}
 
-/* celular: o painel vira uma gaveta embaixo do mapa, por cima dele, e a dica sai */
+/* celular: o painel vira uma gaveta embaixo do mapa, por cima dele */
 @media (max-width:899px){
   .mppainel{left:var(--s-2);right:var(--s-2);top:auto;bottom:var(--s-2);width:auto;max-height:55%}
-  .mphint{display:none}
 }
 
 /* aviso de obra (MAPA_WIP): ocupa o lugar do mapa para quem nao e administrador */
@@ -91,3 +101,8 @@ details.mpsec.form>*:not(summary){margin-bottom:var(--s-2)}
 /* os grupos de botoes sao fieldset (o papel de grupo vem do elemento): sem a moldura do navegador */
 fieldset.mpflyout{margin:0;min-width:0}
 fieldset.mpregmodo{border:0;margin:0;min-width:0;padding:0}
+
+/* atalho do mestre para a cena ligada ao mapa: um link discreto ao lado do nome, cortado se o título for longo */
+.mpbar .mpcena{max-width:18rem;min-width:0}
+.mpbar .mpcena span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpbar .mpcena svg{width:16px;height:16px;flex:0 0 auto}

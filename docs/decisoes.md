@@ -189,6 +189,16 @@ que ficam, e o porquê:
 - **Tour curto na primeira entrada** (7 passos) com convite para o completo, que continua em
   Configurações. "Visto" e "primeiros passos dispensados" ficam na conta, não só no navegador.
 
+## O tabletop (mapa interativo, 18 e 19/11/2026)
+
+Mapa com grade, tokens, régua, camadas, desenho, paredes e névoa, em tempo real (SSE com polling de reserva).
+Decisões do dono: a névoa é segurança real (o servidor corta o mapa em pedaços e só serve o revelado);
+vários mapas por campanha, um ativo; diagonal configurável; token de ficha, NPC ou avulso; jogador move só o
+dele; desfazer por pessoa; o mapa vai no pacote e **não** nos modelos. Descartado: WebSocket (CSRF e Security),
+mapa dentro do guia (regravaria o documento a cada arrasto), nome como elo da iniciativa (virou id do token).
+No pacote o mapa entra desligado e sem o que depende de conta ou ficha, porque esses ids não existem na outra
+instância. O que cada fase entregou e os avisos estão em `docs/plano-tabletop.md`.
+
 ## O que ficou de fora
 
 - **Modo de jogo próprio na tela larga.** No celular a sessão tem barra de jogo e gaveta; no

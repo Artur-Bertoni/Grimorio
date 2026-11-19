@@ -8,7 +8,7 @@
    (MapaParedes.java), e e a dele que vale; o jogador pergunta a rota ao servidor (mpRotaDoServidor). */
 var MP_VISAO_PADRAO=6;
 var MP_PAREDES=[["parede","Parede"],["janela","Janela"],["porta","Porta"]];
-var MP_FOG_MODOS=[["nenhum","Desligada"],["manual","Só as áreas que você revela"],["visao","Pela visão dos personagens, mais as áreas"]];
+var MP_FOG_MODOS=[["nenhum","Desligada"],["manual","Manual"],["visao","Pela visão"]];
 var MP_FORMAS_FOG=[["retangulo","Retângulo"],["circulo","Círculo"],["poligono","Polígono"]];
 
 function mpNomeDoTipo(e){
@@ -562,5 +562,6 @@ function mpSalvaFog(modo,mais){
 }
 /* Porta: abrir e fechar e do mestre (muda o que barra o movimento e a visao de todos). */
 function mpAlternaPorta(e){
+  som("porta"); MP.portaSom=Date.now();
   return mpMudaElemento(e,{dados:{aberta:!e.dados?.aberta}},"não consegui mexer na porta").catch(function(){ /* aviso em mpGrava */ });
 }

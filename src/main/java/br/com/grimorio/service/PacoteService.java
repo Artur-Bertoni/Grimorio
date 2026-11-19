@@ -57,6 +57,7 @@ public class PacoteService {
     private static final String DIR_IMG = "img/";
     private static final String CAMPO_FICHAS = "fichas";
     private static final String CAMPO_NOME = "nome";
+    private static final String CAMPO_MAPAS = "mapas";
 
     private final CampanhaRepo campanhas;
     private final DocumentoService docs;
@@ -65,11 +66,12 @@ public class PacoteService {
     private final IndiceService indice;
     private final FichaRepo fichas;
     private final UsuarioRepo usuarios;
+    private final MapaPacote mapas;
     private final ObjectMapper om = JsonMapper.builder().build();
 
     public PacoteService(CampanhaRepo campanhas, DocumentoService docs,
                          MidiaService midia, MidiaRepo catalogo, IndiceService indice,
-                         FichaRepo fichas, UsuarioRepo usuarios) {
+                         FichaRepo fichas, UsuarioRepo usuarios, MapaPacote mapas) {
         this.campanhas = campanhas;
         this.docs = docs;
         this.midia = midia;
@@ -77,11 +79,17 @@ public class PacoteService {
         this.indice = indice;
         this.fichas = fichas;
         this.usuarios = usuarios;
+        this.mapas = mapas;
     }
 
     // ---------- exportar ----------
 
     public void exportar(Long campanhaId, boolean comArquivos, OutputStream saida) throws IOException {
+        exportar(campanhaId, comArquivos, true, saida);
+    }
+
+    /** {@code comMapas} falso e o caminho dos modelos de campanha: o repositorio e os modelos nao carregam arte. */
+    public void exportar(Long campanhaId, boolean comArquivos, boolean comMapas, OutputStream saida) throws IOException {
         Campanha c = campanhas.findById(campanhaId)
                 .orElseThrow(() -> new IllegalArgumentException("campanha nao encontrada"));
         Path raiz = midia.raiz(campanhaId);
@@ -89,13 +97,15 @@ public class PacoteService {
 
         try (ZipOutputStream z = new ZipOutputStream(saida, StandardCharsets.UTF_8)) {
             z.putNextEntry(new ZipEntry(CAMPANHA_JSON));
-            z.write(om.writerWithDefaultPrettyPrinter().writeValueAsBytes(dadosDaCampanha(c, arquivos)));
+            z.write(om.writerWithDefaultPrettyPrinter().writeValueAsBytes(dadosDaCampanha(c, arquivos, comMapas)));
             z.closeEntry();
             copiarPasta(z, indice.pastaIndice(campanhaId), DIR_INDICE, p -> p.toString().endsWith(".json"));
             if (comArquivos) {
                 /* imagem, PDF e audio ja vem comprimidos: comprimir de novo so gasta processador */
                 z.setLevel(Deflater.BEST_SPEED);
-                copiarPasta(z, raiz.resolve("img"), DIR_IMG, p -> !p.getFileName().toString().endsWith(".parcial"));
+                Set<String> dosMapas = comMapas ? Set.of() : mapas.imagens(campanhaId);
+                copiarPasta(z, raiz.resolve("img"), DIR_IMG, p -> !p.getFileName().toString().endsWith(".parcial")
+                        && !dosMapas.contains(DIR_IMG + p.getFileName()));
                 for (Midia m : arquivos) copiar(z, m.getArquivo(), raiz.resolve(m.getArquivo()));
             }
             z.finish();
@@ -124,7 +134,7 @@ public class PacoteService {
         for (Path p : lista) copiar(z, prefixo + p.getFileName(), p);
     }
 
-    private ObjectNode dadosDaCampanha(Campanha c, List<Midia> arquivos) {
+    private ObjectNode dadosDaCampanha(Campanha c, List<Midia> arquivos, boolean comMapas) {
         Long campanhaId = c.getId();
         ObjectNode raiz = om.createObjectNode();
         raiz.put("formato", 2);
@@ -144,6 +154,7 @@ public class PacoteService {
                     k -> usuarios.findById(k).map(Usuario::getNome).orElse("")));
             o.set("conteudo", leJson(f.getConteudo()));
         }
+        if (comMapas) raiz.set(CAMPO_MAPAS, mapas.exportar(campanhaId));
         ArrayNode cat = raiz.putArray("midia");
         for (Midia m : arquivos) {
             ObjectNode o = cat.addObject();
@@ -176,7 +187,7 @@ public class PacoteService {
                                         boolean substituirGuia) throws IOException {
         if (zip == null || zip.isEmpty()) throw new IllegalArgumentException("arquivo vazio");
         try (InputStream in = zip.getInputStream()) {
-            return importarDoFluxo(campanhaId, usuarioId, in, substituirGuia);
+            return importarDoFluxo(campanhaId, usuarioId, in, substituirGuia, true);
         }
     }
 
@@ -185,13 +196,13 @@ public class PacoteService {
     @Transactional(rollbackFor = IOException.class)
     public Map<String, Object> importar(Long campanhaId, Long usuarioId, InputStream zip,
                                         boolean substituirGuia) throws IOException {
-        return importarDoFluxo(campanhaId, usuarioId, zip, substituirGuia);
+        return importarDoFluxo(campanhaId, usuarioId, zip, substituirGuia, false);
     }
 
     private Map<String, Object> importarDoFluxo(Long campanhaId, Long usuarioId, InputStream zip,
-                                                boolean substituirGuia) throws IOException {
+                                                boolean substituirGuia, boolean comMapas) throws IOException {
         midia.prepararPastas(campanhaId);
-        Importacao imp = new Importacao(campanhaId, usuarioId, substituirGuia);
+        Importacao imp = new Importacao(campanhaId, usuarioId, substituirGuia, comMapas);
         try (ZipInputStream z = new ZipInputStream(zip, StandardCharsets.UTF_8)) {
             ZipEntry e;
             int entradas = 0;
@@ -214,6 +225,7 @@ public class PacoteService {
         private final Long campanhaId;
         private final Long usuarioId;
         private final boolean substituirGuia;
+        private final boolean comMapas;
         /* caminho do PDF ou da faixa gravada -> hash. O registro espera o fim do zip, quando o
            catalogo e os indices (que poupam o PDF de ser reprocessado) ja foram lidos. */
         private final Map<String, String> gravados = new LinkedHashMap<>();
@@ -222,12 +234,14 @@ public class PacoteService {
         private int indices;
         private int imagens;
         private int nFichas;
+        private int nMapas;
         private int pdfs;
         private int faixas;
         private boolean trocouGuia;
         private boolean trocouMesa;
 
-        Importacao(Long campanhaId, Long usuarioId, boolean substituirGuia) {
+        Importacao(Long campanhaId, Long usuarioId, boolean substituirGuia, boolean comMapas) {
+            this.comMapas = comMapas;
             this.campanhaId = campanhaId;
             this.usuarioId = usuarioId;
             this.substituirGuia = substituirGuia;
@@ -256,6 +270,7 @@ public class PacoteService {
             nomeCampanha = n.path(CAMPO_NOME).asString("");
             aplicarCampanha(campanhaId, n);
             nFichas = importarFichas(campanhaId, usuarioId, n.path(CAMPO_FICHAS));
+            if (comMapas) nMapas = mapas.importar(campanhaId, n.path(CAMPO_MAPAS));
             for (JsonNode m : n.path("midia")) meta.put(relDoArquivo(m.path("arquivo").asString("")), m);
             if (!substituirGuia) return;
             trocouGuia = gravarDocumento(DocumentoService.GUIA, n.get("guia"));
@@ -365,6 +380,7 @@ public class PacoteService {
             r.put("guia", trocouGuia);
             r.put("mesa", trocouMesa);
             r.put(CAMPO_FICHAS, nFichas);
+            r.put(CAMPO_MAPAS, nMapas);
             return r;
         }
     }

@@ -63,7 +63,7 @@ function passosTour(p){
     L.push({e:1,a:'[data-msec="notas"]',ir:sec("notas"),t:"Minhas anotações",x:"Só você lê, nem o "+m+". Puxe o canto da caixa para deixar do tamanho que quiser."});
     L.push({a:'[data-msec="mural"]',ir:sec("mural"),t:"Mural",x:"Recados que a "+vmin("mesa")+" toda vê, inclusive o "+m+"."});
   }
-  L.push({e:1,a:"#btnBusca",t:"Buscar",x:"Procura na "+vmin("campanha")+" e nos livros, com a tecla / de qualquer lugar. Com a IA configurada, dá para perguntar sobre as regras."});
+  L.push({e:1,a:"#btnBusca",t:"Buscar",x:"Procura na "+vmin("campanha")+" e nos livros, com a tecla / de qualquer lugar."});
   if(p==="mestre")L.push({a:"#btnTrilha",t:Vm("trilha"),x:"Toca a trilha sonora com troca suave entre faixas. O que está tocando fica no topo."});
   L.push({e:p!=="mestre",a:"#btnDados",t:"Dados",x:"Clique num dado ou escreva a rolagem: 2d6+3, 2d20kh1 (fica o maior), 4d6dl1 (sai o menor). Quem sorteia é o servidor."
     +(p==="mestre"?" Você escolhe se a mesa toda vê cada rolagem sua, e pode pedir um teste aos "+j+".":" O "+m+" decide se a mesa vê as suas rolagens.")});
@@ -73,10 +73,31 @@ function passosTour(p){
   L.push({e:1,a:"#btnAjustes",t:"Configurações",x:(p==="mestre"
     ?"A "+vmin("campanha")+" (capa, tema sugerido, pacote), convites e a regra das rolagens, vocabulário, consulta rápida, busca, aparência e conta."
     :"O tema da página (o sugerido pelo "+m+" vem marcado), os sons, as animações e a sua conta.")+" O tour e o contato com o suporte também ficam aqui."});
+  /* o mapa fica por último: a tela dele é um quadro sem rodapé, e só entra se houver mapa a mostrar */
+  if(!mapaBloqueado()&&MP.lista.length){
+    if(p==="mestre"){
+      var mp=tourIr("mapa");
+      L.push({a:'#tabs [data-aba="mapa"]',ir:mp,t:Vm("mapa"),x:"Um "+vmin("mapa")+" interativo com grade, "+vmin("tokens")+", medição, paredes e névoa, ao vivo para a mesa. Arraste para mover, a roda dá zoom e o botão do meio arrasta o fundo. Você prepara vários e mostra um de cada vez."});
+      L.push({a:"#mpToken",ir:mp,t:"Novo "+vmin("token"),x:"Crie um "+vmin("token")+" avulso, de uma ficha ou de um NPC do elenco (o de NPC nasce escondido). A vida pode ficar ligada à ficha."});
+      L.push({a:"#mpAtiva",ir:mp,t:"Mostrar aos "+j,x:"Só o "+vmin("mapa")+" mostrado aparece para os "+j+". A névoa é cortada aqui no servidor: o que está coberto nunca chega à tela deles."});
+      L.push({a:"#mpRegua",ir:mp,t:"Régua e moldes",x:"Meça de ponto a ponto, pelo trajeto ou com cone, círculo e linha. Cada "+vmin("token")+" pode ter um deslocamento por "+vmin("turno")+", ligado à iniciativa, e as paredes contam na conta."});
+      L.push({a:"#mpPainelBtn",ir:mp,t:"Painel do "+vmin("mapa"),x:"Camadas, seleção em grupo, desenhos, paredes, névoa e visão por jogador. No botão ⋯ ao lado ficam o histórico (cada pessoa desfaz as próprias ações), seguir a vez e os atalhos, que também abrem com a tecla ?."});
+    } else {
+      var mpj=tourIr("mapa");
+      L.push({a:'#tabs [data-aba="mapa"]',ir:mpj,t:Vm("mapa"),x:"O "+vmin("mapa")+" da "+vmin("mesa")+": o que o "+m+" mostrar aparece aqui. Você move o seu "+vmin("token")+" arrastando, e só vê o que o seu personagem enxerga. No celular, fica no menu Mais."});
+      L.push({a:"#mpRegua",ir:mpj,t:"Régua e apontar",x:"Meça uma distância e aponte um ponto do "+vmin("mapa")+" para todos verem. Se a vez ou o deslocamento do turno limitar o seu movimento, a tela avisa."});
+    }
+  }
   L.push(fim);
   return L;
 }
+/* a lista de mapas decide se o tour fala do mapa: le antes de montar os passos */
 function iniciarTour(p,fim,completo){
+  fecharTour(true);
+  if(!CID||mapaBloqueado())return iniciaTour(p,fim,completo);
+  mpCarregaLista().then(function(){ iniciaTour(p,fim,completo); },function(){ MP.lista=[]; iniciaTour(p,fim,completo); });
+}
+function iniciaTour(p,fim,completo){
   fecharTour(true);
   $$("#layer .ov").forEach(function(o){ if(o.close)o.close(); });
   var todos=passosTour(p), passos=completo===false?todos.filter(function(s){ return s.e; }):todos, i=0;

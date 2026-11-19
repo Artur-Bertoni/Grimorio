@@ -93,6 +93,7 @@ function mpAplicaEstado(r){
   MP.seq=r.seq||0;
   if(r.igual)return;
   var mesmo=mpChaveMapa(MP.mapa)===mpChaveMapa(r.mapa);
+  if(mesmo){ mpDeslizaMudados(MP.els,r.elementos); }
   MP.mapa=r.mapa; MP.els=r.elementos||[];
   /* so o jogador recebe a vista: a mascara da nevoa e os pedacos da imagem que o servidor deixa ele ver */
   if((r.vista?.png||"")!==(MP.vista?.png||"")){ MP.vistaV=(MP.vistaV||0)+1; }
@@ -100,6 +101,7 @@ function mpAplicaEstado(r){
   mpPodaSel();
   mpTrocaNaLista(r.mapa);
   if(mesmo)mpRedesenhaTokens(); else mpRepinta();
+  mpSegueAVez();
 }
 /* o mapa sem o seq: o seq muda a cada token movido, e isso nao pede a pagina inteira de novo */
 function mpChaveMapa(m){
@@ -201,6 +203,8 @@ var MP_EVENTOS={
     MP.seq=Math.max(MP.seq,d.seq||0);
     /* o token que a pessoa esta arrastando nao pula para tras com um eco antigo */
     if(MP.arrastando?.includes(String(d.el.id)))return;
+    var antes=mpEl(d.el.id);
+    if(antes){ mpDeslizaMudados([antes],[d.el],d.via); mpSomDaPorta(antes,d.el); }
     mpGuarda(d.el);
     mpRedesenhaTokens();
   },
@@ -208,6 +212,7 @@ var MP_EVENTOS={
   ping:function(d){
     if(String(d.mapa)!==String(MP.id))return;
     MP.pings.push({x:d.x,y:d.y,quem:d.meu?"":d.quem,t:Date.now()});
+    som("ping");
     mpDesenha();
   },
   /* a ordem de empilhar mudou: a lista vem de novo do servidor, que e quem sabe a ordem */
@@ -244,6 +249,10 @@ function mpAgendaRecarga(){
   },150);
 }
 function mpZeraMapa(){ MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; MP.vista=null; MP.rotaSrv=null; MPT={}; mpSelecionaIds([]); }
+/* porta que abre ou fecha range na tela de quem ve (a de quem clicou toca na hora, em mpAlternaPorta) */
+function mpSomDaPorta(antes,depois){
+  if(depois.tipo==="PAREDE"&&depois.dados?.kind==="porta"&&!!antes.dados?.aberta!==!!depois.dados?.aberta&&Date.now()-(MP.portaSom||0)>1500){ som("porta"); }
+}
 function mpGuarda(el){
   var i=MP.els.findIndex(function(e){ return String(e.id)===String(el.id); });
   if(i>=0)MP.els[i]=el; else MP.els.push(el);
@@ -259,6 +268,7 @@ function mpGrava(promessa,msg){
 function mpMover(el,x,y,trilha){
   var ax=el.dados.x, ay=el.dados.y;
   el.dados.x=x; el.dados.y=y;
+  if(ax!==x||ay!==y){ som("solta"); }
   mpDesenha();
   /* o trajeto so vai quando o mapa mede por ele: o servidor cobra o caminho andado (nunca menos que a reta) */
   var corpo={dados:{x:x,y:y}};
@@ -429,7 +439,7 @@ function mpAtiva(id,liga){
 /* Aponta um ponto do mapa para todos. Sem SSE (polling) o proprio aviso nao volta, entao aparece aqui na hora. */
 function mpPing(p){
   if(!MP.id){ return; }
-  if(!MP.es){ MP.pings.push({x:p.x,y:p.y,quem:"",t:Date.now()}); mpDesenha(); }
+  if(!MP.es){ MP.pings.push({x:p.x,y:p.y,quem:"",t:Date.now()}); som("ping"); mpDesenha(); }
   api(mpAPI("/"+MP.id+"/ping"),{method:"POST",body:{x:mpArred(p.x),y:mpArred(p.y)}}).catch(function(){ /* o aviso e so um aceno: se nao foi, nao ha o que refazer */ });
 }
 function mpApagaMapa(id){

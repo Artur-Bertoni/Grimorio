@@ -12,8 +12,8 @@ function mpSessaoIni(){ return GM?(curSess()||D.sessoes[D.sessoes.length-1]||nul
 function viewMapa(){
   if(mapaBloqueado()){ return htmlDe("t-mapa-wip",{}); }
   var m=MP.mapa, si=mpSessaoIni();
-  return htmlDe("t-mapa",{ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,
-    painel:mpPainelAberto(),encaixa:mpEncaixando(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),nTokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"; }).length});
+  return htmlDe("t-mapa",{ini:GM?(si?iniHtml(si):""):iniPubHtml(),iniBotao:!!si,iniAberta:!!si&&!!(S.ini||iniDe(si).lista.length),gm:GM,carregado:MP.carregado,espera:MP.carregado?"":htmlDe("t-carregando-sm",{texto:""}),tem:!!m,nome:m?.nome||"",ativo:!!m?.ativo,cena:GM?mpRotuloCena(mpCenaLigada(m)):"",
+    painel:mpPainelAberto(),reguaModo:MP.reguaModo,ferr:MP.ferramenta,desAberto:!!MP.flyDes,desAtiva:MP_FORMAS.includes(MP.ferramenta),enquadre:mpVista().modo||"preenche",nTokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"; }).length});
 }
 function hydrateMapa(v){
   if(mapaBloqueado()){ return; }
@@ -28,12 +28,8 @@ function hydrateMapa(v){
     $("#mpPainel",v).hidden=!MP.painel;
     bp.classList.toggle("on",MP.painel); bp.setAttribute("aria-pressed",String(MP.painel));
   }; }
-  var bg=$("#mpEncaixe",v);
-  if(bg){ bg.onclick=function(){
-    var liga=!mpEncaixando();
-    mpAlternaEncaixe().then(function(){ toast(liga?"Encaixe na grade: ligado para todos":"Posição livre: ligada para todos"); })
-      .catch(function(){ /* o aviso ja saiu em mpGrava */ }); }; }
   mpLigaAcoes(v);
+  var bc=$("#mpCena",v); if(bc){ bc.onclick=function(){ mpAbreCenaLigada(); }; }
   var be=$("#mpEd",v); if(be){ be.onclick=function(){ mpEditaMapa(); }; }
   var bt=$("#mpToken",v); if(bt){ bt.onclick=function(){ mpNovoToken(bt); }; }
   var ba=$("#mpAtiva",v); if(ba){ ba.onclick=function(){ mpAtiva(MP.id,!MP.mapa?.ativo); }; }
@@ -45,10 +41,11 @@ function hydrateMapa(v){
     mpFerramenta(MP.ferramenta===f?"mover":f);
   }; });
   $$("[data-mp-rmodo]",v).forEach(function(b){ b.onclick=function(){ mpReguaModo(b.dataset.mpRmodo); }; });
+  var bat=$("#mpAtalhos",v); if(bat){ bat.onclick=function(){ mpMostraAtalhos(); }; }
   var bd=$("#mpDesfaz",v); if(bd){ bd.onclick=function(){ mpDesfaz(); }; }
   $$("[data-mpz]",v).forEach(function(b){ b.onclick=function(){
     var k=b.dataset.mpz;
-    if(k==="0"){ mpEnquadra(); return; }
+    if(k==="0"){ mpAlternaEnquadre(); return; }
     mpZoom(k==="+"?1.25:0.8,MPC.w/2,MPC.h/2);
   }; });
 }
@@ -91,16 +88,78 @@ function mpDadosDoPainel(){
     paredeKinds:MP_PAREDES,paredeKind:MP.paredeKind,paredes:paredes.map(mpItemParede),areas:areas.map(mpItemArea),
     tokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"&&!mpOculto(e); }).map(mpItemToken)};
 }
-/* Desfazer, Historico e Novo turno moram na barra do topo, junto do Encaixar e da Iniciativa. */
+/* O que se usa menos fica no menu "Mais" da barra do topo: historico, novo turno, seguir a vez e os atalhos.
+   O Desfazer mora nas ferramentas do canvas (e no Ctrl+Z). */
 function mpLigaAcoes(v){
-  $$("[data-mp-undo]",v).forEach(function(b){ b.onclick=function(){ mpDesfaz(); }; });
-  $$("[data-mp-hist]",v).forEach(function(b){ b.onclick=function(){ mpAbreHistorico(); }; });
-  $$("[data-mp-turno]",v).forEach(function(b){ b.onclick=function(){
-    /* Com iniciativa em andamento, "novo turno" e avancar a propria iniciativa: o turno sobe, a vez volta
-       ao primeiro e o servidor zera o gasto (o aviso chega pelo evento do mapa, a todos). Sem ela, so zera. */
-    var si=mpSessaoIni(), ini=si?iniDe(si):null;
-    if(ini?.lista.length){ ini.rodada=(ini.rodada||1)+1; ini.vez=iniOrdem(ini)[0].id; som("vez"); iniMudou(si); }
-    else { mpNovoTurno(); } }; });
+  var bm=$("#mpMais",v); if(bm){ bm.onclick=function(){ mpMenuMais(bm); }; }
+}
+function mpMenuMais(b){
+  var segue=mpSegueVez(), itens=[{v:"hist",rot:"Histórico",dica:GM?"Tudo o que foi feito, e desfazer":"O que você fez, e desfazer",perigo:false,desligado:false}];
+  if(GM){ itens.unshift({v:"encaixe",rot:mpEncaixando()?"Encaixar na grade: ligado":"Encaixar na grade: desligado",dica:"Vale para todos ao soltar; Alt inverte só para você",perigo:false,desligado:false}); }
+  if(GM){ itens.push({v:"turno",rot:"Novo "+vmin("turno"),dica:"Zera o deslocamento gasto de todos",perigo:false,desligado:false}); }
+  itens.push({v:"segue",rot:segue?"Parar de seguir a vez":"Seguir a vez",dica:"A tela vai até o "+vmin("token")+" de quem tem a vez",perigo:false,desligado:false});
+  itens.push({v:"atalhos",rot:"Atalhos e gestos",dica:"Tecla ?",perigo:false,desligado:false});
+  menuSolto(b,htmlDe("t-menu",{titulo:"Mais ações do "+vmin("mapa"),itens:itens}),function(i){
+    var v=i.dataset.v;
+    if(v==="encaixe"){ mpTrocaEncaixe(); }
+    else if(v==="hist"){ mpAbreHistorico(); }
+    else if(v==="turno"){ mpNovoTurnoDaTela(); }
+    else if(v==="segue"){ mpAlternaSegueVez(); }
+    else if(v==="atalhos"){ mpMostraAtalhos(); }
+  });
+}
+/* Encaixar na grade e do mestre e vale para todos (regras.encaixe do mapa) */
+function mpTrocaEncaixe(){
+  var liga=!mpEncaixando();
+  mpAlternaEncaixe().then(function(){ toast(liga?"Encaixe na grade: ligado para todos":"Posição livre: ligada para todos"); })
+    .catch(function(){ /* o aviso ja saiu em mpGrava */ });
+}
+/* Com iniciativa em andamento, "novo turno" e avancar a propria iniciativa: o turno sobe, a vez volta
+   ao primeiro e o servidor zera o gasto (o aviso chega pelo evento do mapa, a todos). Sem ela, so zera. */
+function mpNovoTurnoDaTela(){
+  var si=mpSessaoIni(), ini=si?iniDe(si):null;
+  if(ini?.lista.length){ ini.rodada=(ini.rodada||1)+1; ini.vez=iniOrdem(ini)[0].id; som("vez"); iniMudou(si); }
+  else { mpNovoTurno(); }
+}
+/* Seguir a vez: preferencia de cada pessoa, neste navegador */
+function mpSegueVez(){ try{ return localStorage.getItem("grim_mapa_segue")==="1"; }catch(error_){ return false; } }
+function mpAlternaSegueVez(){
+  var liga=!mpSegueVez();
+  try{ localStorage.setItem("grim_mapa_segue",liga?"1":"0"); }catch(error_){ /* vale ate recarregar */ }
+  toast(liga?"A tela vai acompanhar quem tem a vez":"A tela não acompanha mais a vez","ok");
+  if(liga){ MP.vezVista=null; mpSegueAVez(); }
+}
+/* Os atalhos do mapa numa janela, so os que valem para quem esta olhando */
+function mpMostraAtalhos(){
+  var t=vmin("token"), g=[{titulo:"Ver e mover",itens:[
+    {teclas:["Arrastar"],faz:"Move o fundo; arrastar um "+t+" move o "+t},
+    {teclas:["Roda"],faz:"Aproxima e afasta"},
+    {teclas:["+","−"],faz:"Aproxima e afasta pelo meio da tela"},
+    {teclas:["0"],faz:"Alterna entre preencher a tela e ver o "+vmin("mapa")+" inteiro"},
+    {teclas:["←","↑","→","↓"],faz:"O "+t+" selecionado anda uma casa"},
+    {teclas:["Ctrl","Z"],faz:"Desfaz a sua última ação"}]},
+    {titulo:"Ferramentas",itens:[
+    {teclas:["V"],faz:"Volta para mover"},
+    {teclas:["R"],faz:"Régua (reta ou trajeto)"},
+    {teclas:["A"],faz:"Medir área: cone, círculo, linha"},
+    {teclas:["I"],faz:"Apontar um ponto para todos"},
+    {teclas:["Esc"],faz:"Apaga a medida, o rascunho ou a seleção"}]}];
+  if(GM){
+    g[1].itens.splice(1,0,{teclas:["S"],faz:"Selecionar vários (Shift soma)"});
+    g.push({titulo:"Só para o "+vmin("mestre"),itens:[
+      {teclas:["L","O","B","P","M"],faz:"Linha, círculo, retângulo, polígono e marcação"},
+      {teclas:["W"],faz:"Parede (um clique por ponto, Enter termina)"},
+      {teclas:["N"],faz:"Área de névoa"},
+      {teclas:["F"],faz:"Pincel de névoa"},
+      {teclas:["]","["],faz:"Seleção para a frente ou para trás"},
+      {teclas:["Ctrl","A"],faz:"Seleciona tudo"},
+      {teclas:["Delete"],faz:"Remove a seleção"},
+      {teclas:["Alt"],faz:"Segurado no arraste, inverte o encaixe na grade"}]});
+  }
+  g.push({titulo:"No toque",itens:[
+    {teclas:["Um dedo"],faz:"Move o fundo ou o "+t},
+    {teclas:["Dois dedos"],faz:"Aproximam e afastam"}]});
+  overlay("Atalhos e gestos",htmlDe("t-mapa-atalhos",{grupos:g}),{wide:true});
 }
 /* O painel se refaz a cada token que muda (de qualquer pessoa): o foco de quem estava num
    botao dele volta para o mesmo botao. */
@@ -124,7 +183,7 @@ function mpPintaPainel(){
   mpLigaPainelFormas(p);
 }
 /* Secoes do painel: quais estao abertas fica guardado neste navegador (por pessoa, nao por mapa). */
-var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,visao:false,paredes:false,areas:false,desenhos:false,tokens:true};
+var MP_SECOES_PADRAO={mapas:true,camadas:false,sel:true,des:false,visao:false,pincel:false,paredes:false,areas:false,desenhos:false,tokens:true};
 function mpSecoes(){
   var o={...MP_SECOES_PADRAO};
   try{ Object.assign(o,JSON.parse(localStorage.getItem("grim_mapa_secoes")||"{}")); }catch(error_){ /* sem armazenamento vale o padrao */ }
@@ -439,6 +498,33 @@ function mpEditaMeuToken(el){
       mpMudaElemento(el,{dados:dados}).catch(function(){ /* aviso em mpGrava */ });
     }});
 }
+/* A cena ligada ao mapa (só o mestre tem o guia): a sessão em que ela está e a própria cena, ou null. */
+function mpCenaLigada(m){
+  var id=m?.cenaId; if(!id||!D?.sessoes)return null;
+  for(var i=0;i<D.sessoes.length;i++){
+    var c=(D.sessoes[i].cenas||[]).find(function(x){ return x.id===id; });
+    if(c)return {si:i,c:c};
+  }
+  return null;
+}
+function mpRotuloCena(l){ return l?Vm("cena")+" "+(l.c.n||"")+(l.c.titulo?" · "+l.c.titulo:""):""; }
+/* O caminho inverso do atalho da cena: abre a janela da cena ligada sem sair do mapa. A janela da cena
+   trabalha sobre a sessão atual (curSess), então ela passa a ser a da cena enquanto a janela estiver aberta,
+   e a de antes volta quando a última janela de cena fecha (a barra de iniciativa do mapa não troca de sessão). */
+function mpAbreCenaLigada(){
+  var l=mpCenaLigada(MP.mapa);
+  if(!l){ toast("A "+vmin("cena")+" ligada a este "+vmin("mapa")+" não existe mais. Escolha outra no formulário do "+vmin("mapa")+".","aviso"); return; }
+  var antes=S.sessao, camada=$("#layer");
+  S.sessao=l.si;
+  abrirCenaModal(l.c.id);
+  if(antes===l.si||!camada)return;
+  var ob=new MutationObserver(function(){
+    if($(".cenasheet",camada))return;
+    ob.disconnect();
+    if(S.sessao===l.si)S.sessao=antes;
+  });
+  ob.observe(camada,{childList:true});
+}
 /* O atalho da cena: abre o mapa que o mestre ligou a ela (formulario do mapa). Nao ativa nada para os jogadores. */
 function mpAbrirMapaDaCena(cenaId){
   mpCarregaLista().then(function(l){
@@ -545,7 +631,8 @@ atalho({tecla:"Backspace",quando:function(e){ return mpMestre()&&mpFocoLivre(e)&
 atalho({tecla:"a",ctrl:true,quando:function(e){ return mpMestre()&&!emCampoDeTexto(e); },faz:function(){
   mpSelecionaIds(mpOrdenados().filter(function(el){ return !mpPincelada(el); }).map(function(el){ return el.id; })); mpDesenha(); mpPintaPainel();
 }});
-atalho({tecla:"0",quando:mpTeclado,faz:function(){ mpEnquadra(); }});
+atalho({tecla:"0",quando:mpTeclado,faz:function(){ mpAlternaEnquadre(); }});
+atalho({tecla:"?",quando:mpTeclado,faz:function(){ mpMostraAtalhos(); }});
 atalho({tecla:"+",quando:mpTeclado,faz:function(){ mpZoom(1.25,MPC.w/2,MPC.h/2); }});
 atalho({tecla:"=",quando:mpTeclado,faz:function(){ mpZoom(1.25,MPC.w/2,MPC.h/2); }});
 atalho({tecla:"-",quando:mpTeclado,faz:function(){ mpZoom(0.8,MPC.w/2,MPC.h/2); }});

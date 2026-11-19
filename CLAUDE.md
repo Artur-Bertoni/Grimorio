@@ -41,11 +41,12 @@ src/main/java/br/com/grimorio/
   repo/       um repositório Spring Data por entidade
   service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
               PacoteService, ModeloService, UsuarioService, ConfigService, IaService,
-              RolagemService, SuporteService
+              RolagemService, SuporteService,
+              MapaService, MapaPacote (e MapaRegras, MapaMedida, MapaParedes, MapaNevoa, MapaVisao, MapaTiles)
   web/        um controller por área, todos sob /api
 src/main/resources/
   static/index.html   a casca: marcação fixa, e a lista ordenada de css/ e js/
-  static/paginas/     templates HTML das páginas (campanha, sessoes, sessao, elenco,
+  static/paginas/     templates HTML das páginas (mapa, campanha, sessoes, sessao, elenco,
                       biblioteca, mesa, configuracoes) e login.html, a única página
                       inteira dali: é pública, aberta em SecurityConfig, e /login.html
                       redireciona para ela (WebConfig)
@@ -225,6 +226,13 @@ sempre e enviada por SMTP quando ele está configurado em Administração (`smtp
 A biblioteca de e-mail entra direto (`jakarta.mail` + `angus-mail`), sem o starter, com
 versão fixa no `pom.xml`.
 
+**Mapa (tabletop)**: fora do guia e da mesa, em três tabelas (`mapa`, `mapa_elemento` com `tipo`
+TOKEN/DESENHO/PAREDE/FOG, `mapa_historico`) mais `mapa_explorado` (memória da névoa por jogador). Plano,
+decisões e o que cada fase entregou: `docs/plano-tabletop.md`. A aba fica atrás de um aviso WIP para quem não
+é administrador até o dono liberar (`mapa.liberado`). O pacote leva os mapas (`MapaPacote`: entram desligados e
+sem dono nem ficha); modelos de campanha nunca os levam. Imagem de mapa não sai pela mídia para o jogador, só em
+pedaços cortados pela névoa (`MapaTiles`).
+
 ## Separação mestre/jogador
 
 Isso é requisito, não detalhe. O corte é **no servidor**, nunca escondendo elemento na
@@ -286,6 +294,10 @@ novo no enum passa pela validação do Java e morre no banco com SQLState 23514.
 coluna enum a partir de `Enum.values()`. **Ao adicionar uma coluna enum nova, registre
 ela lá.** Não há Flyway de propósito: migração não testada é mais arriscada que
 `ddl-auto` com estas duas regras.
+No H2 (banco local) ele só **remove** o check, sem recriar: no H2 2.4 a restrição fica presa à conexão
+que a criou, e quando o pool aposenta essa conexão (uns 30 minutos depois do boot) todo insert e update
+da tabela morre com "Check constraint invalid" / "database has been closed" até reiniciar. Aconteceu com
+`mapa_elemento` (19/11/2026). O enum do Java segura o valor; no Postgres o check continua.
 
 **3. `index.html` precisa de `<!doctype html>` e `<meta charset="utf-8">`.** Sem isso
 o navegador adivinha Windows-1252, corrompe a regex de normalização de acento

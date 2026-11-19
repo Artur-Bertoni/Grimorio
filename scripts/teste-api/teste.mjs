@@ -103,6 +103,22 @@ function entradasZip(buf) {
   return nomes;
 }
 
+/* o campanha.json de dentro do zip (a entrada vem comprimida) */
+async function textoCampanhaJson(buf) {
+  const zlib = await import("node:zlib");
+  for (let i = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06])), p = buf.readUInt32LE(i + 16); buf.readUInt32LE(p) === 0x02014b50;) {
+    const n = buf.readUInt16LE(p + 28), x = buf.readUInt16LE(p + 30), c = buf.readUInt16LE(p + 32);
+    if (buf.toString("utf8", p + 46, p + 46 + n) === "campanha.json") {
+      const met = buf.readUInt16LE(p + 10), tam = buf.readUInt32LE(p + 20), loc = buf.readUInt32LE(p + 42);
+      const ini = loc + 30 + buf.readUInt16LE(loc + 26) + buf.readUInt16LE(loc + 28);
+      const dados = buf.subarray(ini, ini + tam);
+      return (met === 0 ? dados : zlib.inflateRawSync(dados)).toString("utf8");
+    }
+    p += 46 + n + x + c;
+  }
+  return "";
+}
+
 function forma(campo, buf, nome, tipo, extras = {}) {
   const f = new FormData();
   for (const [k, v] of Object.entries(extras)) f.append(k, v);
@@ -359,6 +375,12 @@ console.log("\n=== mapa (tabletop) ===");
   ok(r.s === 200 && r.d.dados.x === 105 && r.d.dados.nome === "Batedora" && r.d.dados.tam === 1 && r.d.visivel === true && r.d.dono === eu.id,
     "jogador move o proprio token e so a posicao muda", r.d);
   ok(await espera(new RegExp(`"tipo":"elemento".*"id":${tJog}`)), "o movimento sai pelo SSE", recebido.slice(-300));
+  /* o caminho que quem moveu desenhou viaja junto, para o token dos outros andar por ele em vez de saltar */
+  recebido = "";
+  r = await mestre.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { x: 300, y: 300 }, trajeto: [[300, 40], [320, 40]] });
+  ok(r.s === 200 && await espera(/"via":\[\[300(\.0)?,40(\.0)?\],\[320(\.0)?,40(\.0)?\]/), "o evento do movimento leva o caminho desenhado (via)", recebido.slice(-120));
+  r = await mestre.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { x: 301, y: 300 } });
+  ok(r.s === 200, "mestre ainda move o token sem caminho");
   r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tGuarda}`, { dados: { x: 0 } });
   ok(r.s === 403 && r.d?.codigo === "proibido", "jogador nao move o token dos outros", r.d);
   r = await jogador.put(`/api/c/${cid}/mapas/${mid}/elementos/${tOculto}`, { dados: { x: 0 } });
@@ -971,6 +993,12 @@ console.log("\n=== pacote: exportar e importar ===");
   const som = Buffer.concat([Buffer.from("ID3"), Buffer.alloc(2048, 7)]);
   let r = await mestre.req("POST", `/api/c/${cid}/midia/audio`, undefined, { form: forma("arquivo", som, "chuva.mp3", "audio/mpeg", { categoria: "Clima", nome: "Chuva fina" }) });
   ok(r.s === 200, "mestre sobe uma faixa", r.d);
+  /* um mapa com token de ficha, parede e desenho, para viajar no pacote */
+  const fich = (await mestre.get(`/api/c/${cid}/fichas`)).d;
+  const mapaPac = (await mestre.post(`/api/c/${cid}/mapas`, { nome: "Do pacote", largura: 1400, altura: 1000 })).d.id;
+  await mestre.post(`/api/c/${cid}/mapas/${mapaPac}/elementos`, { dados: { nome: "Heroi no mapa", fichaId: fich[0].id, desl: 9 } });
+  await mestre.post(`/api/c/${cid}/mapas/${mapaPac}/elementos`, { tipo: "PAREDE", dados: { kind: "porta", pts: [[100, 100], [400, 100]] } });
+  await mestre.post(`/api/c/${cid}/mapas/${mapaPac}/elementos`, { tipo: "DESENHO", dados: { forma: "linha", pts: [[10, 10], [200, 200]] } });
   r = await mestre.get(`/api/c/${cid}/pacote`);
   ok(r.s === 200 && r.bruto.length > 100 && r.bruto.slice(0, 2).toString() === "PK", "exporta zip", { s: r.s, n: r.bruto.length });
   const zip = r.bruto;
@@ -1000,6 +1028,29 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(r.s === 200 && /dragao/i.test(r.bruto.toString()), "a busca da campanha nova acha o texto do PDF");
   r = await mestre.get(`/api/c/${novo}/fichas`);
   ok(r.s === 200 && r.d.some(f => /Heroi/.test(f.nome)), "fichas entram em nome de quem importou", r.d);
+  /* mapas no pacote: chegam desligados, sem o elo com conta nem ficha, e o zip tem o campo "mapas" */
+  const doMestre = (await mestre.get(`/api/c/${cid}/mapas`)).d;
+  ok(doMestre.length >= 1 && /"mapas"/.test(await textoCampanhaJson(zip)), "o pacote leva os mapas da campanha", doMestre.length);
+  r = await mestre.get(`/api/c/${novo}/mapas`);
+  ok(r.s === 200 && r.d.length === doMestre.length && r.d.every(m => !m.ativo), "os mapas entram na campanha nova, todos desligados", r.d);
+  const doNovo = r.d.find(m => m.nome === "Do pacote");
+  const detNovo = doNovo ? (await mestre.get(`/api/c/${novo}/mapas/${doNovo.id}`)).d : {};
+  const tipos = (detNovo.elementos || []).map(e => e.tipo).sort().join();
+  ok(tipos === "DESENHO,PAREDE,TOKEN" && detNovo.elementos.find(e => e.tipo === "PAREDE").dados.kind === "porta" && doNovo.largura === 1400, "token, parede e desenho chegam, com o tamanho do mapa", { tipos, l: doNovo.largura });
+  let tokensImportados = 0, ligacoes = 0;
+  for (const m of r.d) {
+    const det = (await mestre.get(`/api/c/${novo}/mapas/${m.id}`)).d;
+    for (const e of det.elementos || []) {
+      if (e.tipo === "TOKEN") tokensImportados++;
+      if (e.dono !== 0 || "fichaId" in (e.dados || {}) || "usado" in (e.dados || {})) ligacoes++;
+    }
+  }
+  ok(tokensImportados >= 1 && ligacoes === 0, "os tokens vem sem dono, sem ficha e sem gasto de turno", { tokensImportados, ligacoes });
+  r = await jogador.get(`/api/c/${novo}/mapas`);
+  ok(r.s === 403 || (r.s === 200 && r.d.length === 0), "quem nao e da campanha nova nao ve os mapas", r.s);
+  r = await mestre.req("POST", `/api/c/${novo}/pacote`, undefined, { form: forma("arquivo", zip, "p.zip", "application/zip", { substituir: "true" }) });
+  r = await mestre.get(`/api/c/${novo}/mapas`);
+  ok(r.d.length === doMestre.length, "importar o mesmo pacote de novo nao duplica os mapas", r.d.length);
   /* com um mapa e um token dentro: apagar a campanha leva as tabelas do tabletop junto */
   const mapaNovo = (await mestre.post(`/api/c/${novo}/mapas`, { nome: "Vai junto" })).d.id;
   await mestre.post(`/api/c/${novo}/mapas/${mapaNovo}/elementos`, { dados: { nome: "Token" } });
@@ -1050,6 +1101,8 @@ console.log("\n=== modelos de campanha ===");
   ok(JSON.parse(r.d.json).campanha?.titulo === "Do modelo", "o guia leva o nome dado a campanha, nao o do modelo", JSON.parse(r.d.json).campanha?.titulo);
   r = await mestre.get(`/api/c/${nova}/mesa`);
   ok(JSON.parse(r.d.json).titulo === "Do modelo", "a mesa tambem leva o nome da campanha");
+  r = await mestre.get(`/api/c/${nova}/mapas`);
+  ok(r.s === 200 && r.d.length === 0, "o modelo nao leva mapa (nem a arte dele)", r.d);
   r = await mestre.get(`/api/c/${nova}/midia`);
   ok(r.d?.docs?.[0]?.abrev === "LV" && r.d?.faixas?.length === 1, "a campanha nova tem o livro e a faixa do modelo", r.d);
   r = await mestre.post(`/api/c/${nova}/modelo/naoexiste12`, {});
