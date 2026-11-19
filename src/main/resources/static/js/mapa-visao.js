@@ -1,10 +1,11 @@
 /* Tabletop: paredes, nevoa e visao (js/mapa-visao.js). */
 "use strict";
 
-/* ATENCAO: ate a fase do servidor (docs/plano-tabletop.md, 4b) a nevoa e so visual. As paredes e as areas
-   chegam inteiras ao navegador do jogador, que calcula o que ele enxerga: quem souber mexer no navegador
-   ve por baixo dela. A conta de cruzar parede e de rota tem gemea no servidor (MapaParedes.java), e e a
-   dele que vale para o deslocamento; aqui ela so mostra o trajeto antes de soltar. */
+/* A nevoa do jogador e cortada no servidor (MapaVisao.java): paredes e areas nunca chegam ao navegador dele, os
+   tokens fora da vista tambem nao, e a imagem do mapa vem em pedacos so onde ele ve ou lembra (MP.vista). Tudo o
+   que esta aqui de paredes, areas e visao e a tela do mestre (inclusive o "ver como os jogadores veem"); o
+   jogador so desenha a mascara que recebeu. A conta de cruzar parede e de rota tem gemea no servidor
+   (MapaParedes.java), e e a dele que vale; o jogador pergunta a rota ao servidor (mpRotaDoServidor). */
 var MP_VISAO_PADRAO=6;
 var MP_PAREDES=[["parede","Parede"],["janela","Janela"],["porta","Porta"]];
 var MP_FOG_MODOS=[["nenhum","Desligada"],["manual","Só as áreas que você revela"],["visao","Pela visão dos personagens, mais as áreas"]];
@@ -45,55 +46,50 @@ function mpCruza(s,ax,ay,bx,by,origem,destino){
 }
 /* origem e destino dizem se as pontas do trecho sao as do movimento (encostar nelas nao conta) ou pontos de passagem */
 function mpLivreTrecho(trechos,ax,ay,bx,by,origem,destino){
-  for(var i=0;i<trechos.length;i++){ if(mpCruza(trechos[i],ax,ay,bx,by,origem,destino)){ return false; } }
+  for(var s of trechos){ if(mpCruza(s,ax,ay,bx,by,origem,destino)){ return false; } }
   return true;
-}
-function mpLivreTrilha(trechos,pts){
-  for(var i=1;i<pts.length;i++){ if(!mpLivreTrecho(trechos,pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1],i===1,i===pts.length-1)){ return false; } }
-  return true;
-}
-var MP_DESVIOS=[0,1,2,3].map(function(i){ var a=(22.5+90*i)*Math.PI/180; return [2*Math.cos(a),2*Math.sin(a)]; });
-var MP_MAX_CANTOS=80;
-/* Menor caminho que contorna as paredes (grafo de visibilidade pelos cantos). Devolve os pontos de o a d,
-   ou null se nao ha como chegar. E a mesma conta do servidor, com menos cantos para o desenho no arraste ser leve. */
-function mpRota(trechos,o,d){
-  if(mpLivreTrecho(trechos,o[0],o[1],d[0],d[1],true,true)){ return [o,d]; }
-  var vistos={}, cantos=[];
-  trechos.forEach(function(s){ [[s[0],s[1]],[s[2],s[3]]].forEach(function(c){ var k=c[0]+","+c[1]; if(!vistos[k]){ vistos[k]=1; cantos.push(c); } }); });
-  if(cantos.length>MP_MAX_CANTOS){
-    var mx=(o[0]+d[0])/2, my=(o[1]+d[1])/2;
-    cantos.sort(function(p,q){ return Math.hypot(p[0]-mx,p[1]-my)-Math.hypot(q[0]-mx,q[1]-my); });
-    cantos=cantos.slice(0,MP_MAX_CANTOS);
-  }
-  var nos=[o,d];
-  cantos.forEach(function(c){ MP_DESVIOS.forEach(function(k){ nos.push([c[0]+k[0],c[1]+k[1]]); }); });
-  var n=nos.length, dist=[], antes=[], fechado=[];
-  for(var i=0;i<n;i++){ dist.push(Infinity); antes.push(-1); fechado.push(false); }
-  dist[0]=0;
-  for(var passo=0;passo<n;passo++){
-    var u=-1;
-    for(var j=0;j<n;j++){ if(!fechado[j]&&(u<0||dist[j]<dist[u])){ u=j; } }
-    if(u<0||dist[u]===Infinity){ return null; }
-    if(u===1){ break; }
-    fechado[u]=true;
-    for(var v=0;v<n;v++){
-      if(fechado[v]){ continue; }
-      var w=Math.hypot(nos[v][0]-nos[u][0],nos[v][1]-nos[u][1]);
-      if(dist[u]+w<dist[v]&&mpLivreTrecho(trechos,nos[u][0],nos[u][1],nos[v][0],nos[v][1],u===0,v===1)){ dist[v]=dist[u]+w; antes[v]=u; }
-    }
-  }
-  if(antes[1]<0){ return null; }
-  var rota=[];
-  for(var k=1;k>=0;k=antes[k]){ rota.push(nos[k]); if(k===0){ break; } }
-  return rota.reverse();
 }
 /* O trajeto do token do jogador: null (nada no meio, vale o que ele arrastou), false (parede fecha tudo) ou os
-   pontos da rota que contorna. O mestre nunca e barrado. */
-function mpRotaDoToken(ox,oy,x,y,trilha){
-  var t=GM?[]:mpTrechos(false);
-  if(!t.length){ return null; }
-  if(mpLivreTrilha(t,trilha)){ return null; }
-  return mpRota(t,[ox,oy],[x,y])||false;
+   pontos da rota que contorna, calculada no servidor (a rota que ele cobra). O mestre nunca e barrado. */
+function mpRotaDoToken(ox,oy,x,y,trilha,el){
+  return GM?null:mpRotaDoServidor(el,x,y,trilha);
+}
+/* O jogador nao recebe as paredes: a rota vem do servidor, uma pergunta por destino (uma por vez). A resposta que
+   chega redesenha na hora o pontilhado do arraste, se ele ainda vai para o mesmo lugar: o jogador ve o contorno que
+   vai pagar antes de soltar. Enquanto nao chega, vale a linha arrastada; ao soltar, o servidor decide. */
+function mpChaveRota(el,x,y){ return el.id+":"+mpArred(x)+","+mpArred(y); }
+function mpRotaDoServidor(el,x,y,trilha){
+  if(!MP.vista?.paredes||!el){ return null; }
+  var R=MP.rotaSrv||(MP.rotaSrv={}), chave=mpChaveRota(el,x,y);
+  if(R.chave===chave){ return R.r; }
+  if(R.indo!==chave){
+    R.quer={chave:chave,id:el.id,x:mpArred(x),y:mpArred(y),trajeto:trilha.slice(1,-1).map(function(q){ return [mpArred(q[0]),mpArred(q[1])]; })};
+    mpPedeRota();
+  }
+  return null;
+}
+function mpPedeRota(){
+  var R=MP.rotaSrv;
+  if(!R||R.indo||!R.quer){ return; }
+  var q=R.quer;
+  R.quer=null; R.indo=q.chave;
+  api(mpAPI("/"+MP.id+"/rota"),{method:"POST",body:{id:q.id,x:q.x,y:q.y,trajeto:q.trajeto}})
+    .then(function(r){
+      R.chave=q.chave;
+      if(r.livre){ R.r=null; } else { R.r=r.semCaminho?false:r.pts; }
+      mpAplicaRota(q.chave,R.r);
+    })
+    .catch(function(){ /* sem resposta, vale o caminho arrastado e o servidor decide ao soltar */ })
+    .finally(function(){ R.indo=null; mpPedeRota(); });
+}
+/* o pontilhado do arraste segue a rota que chegou (se o token ainda vai para o mesmo lugar) */
+function mpAplicaRota(chave,rota){
+  var a=MP.medida;
+  if(!a||a.rotaChave!==chave){ return; }
+  a.semCaminho=rota===false;
+  a.contorno=Array.isArray(rota);
+  if(a.contorno){ a.trilha=rota; }
+  mpDesenha();
 }
 function mpTemParedeDeVisao(){ return mpTrechos(true).length>0; }
 
@@ -145,7 +141,7 @@ function mpVisaoAgora(){
   var f=mpFontesVisao(), t=mpTrechos(true);
   var sig=f.map(function(s){ return s.x+","+s.y+","+s.r; }).join(";")+"|"+t.map(function(s){ return s.join(","); }).join(";");
   var c=MPC||{};
-  if(!c.visao||c.visao.sig!==sig){
+  if(c.visao?.sig!==sig){
     c.visao={sig:sig,polis:f.map(function(s){ return {x:s.x,y:s.y,r:s.r,pts:mpPoligonoVisao(s.x,s.y,s.r,t)}; })};
   }
   return c.visao.polis;
@@ -162,14 +158,14 @@ function mpExpChave(){
 }
 function mpExplorado(){
   var c=MPC, m=MP.mapa, k=mpExpChave();
-  if(c.exp&&c.exp.chave===k){ return c.exp; }
+  if(c.exp?.chave===k){ return c.exp; }
   var esc=Math.min(1,MP_EXP_LADO/Math.max(1,m.largura,m.altura)), cv=document.createElement("canvas");
   cv.width=Math.max(1,Math.ceil(m.largura*esc)); cv.height=Math.max(1,Math.ceil(m.altura*esc));
   var exp={chave:k,cv:cv,esc:esc,t:0,sig:"",v:0};
   c.exp=exp;
   try{
     var pref="grim_exp_c"+CID+"_m"+m.id+"_";
-    Object.keys(localStorage).forEach(function(x){ if(x.indexOf(pref)===0&&x!==k){ localStorage.removeItem(x); } });
+    Object.keys(localStorage).forEach(function(x){ if(x.startsWith(pref)&&x!==k){ localStorage.removeItem(x); } });
     var salvo=localStorage.getItem(k);
     if(salvo){
       var im=new Image();
@@ -216,7 +212,8 @@ function mpRevelado(x,y){
 }
 /* Token que a nevoa esconde de quem olha (so na tela dele): o dele nunca some */
 function mpOculto(e){
-  if(e.tipo!=="TOKEN"||mpFogModo()==="nenhum"||!mpFogOpaco()){ return false; }
+  /* ao jogador o servidor so manda o token que ele ve: o que chegou aparece */
+  if(!GM||e.tipo!=="TOKEN"||mpFogModo()==="nenhum"||!mpFogOpaco()){ return false; }
   if(GM?mpNum(e.dono,0)>0:e.meu){ return false; }
   return !mpRevelado(mpNum(e.dados?.x,0),mpNum(e.dados?.y,0));
 }
@@ -232,15 +229,15 @@ function mpPincelLarg(){ return Math.max(4,Math.round(mpPincel().casas*mpLado())
 function mpPontaPts(ponta,r){
   return ponta==="losango"?[[r,0],[0,r],[-r,0],[0,-r]]:[[r,r],[-r,r],[-r,-r],[r,-r]];
 }
+function mpCruzVet(o,a,b){ return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); }
 function mpCasco(pts){
   var p=pts.slice().sort(function(a,b){ return a[0]-b[0]||a[1]-b[1]; }), baixo=[], alto=[], i;
-  function cruz(o,a,b){ return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); }
   for(i=0;i<p.length;i++){
-    while(baixo.length>1&&cruz(baixo[baixo.length-2],baixo[baixo.length-1],p[i])<=0){ baixo.pop(); }
+    while(baixo.length>1&&mpCruzVet(baixo.at(-2),baixo.at(-1),p[i])<=0){ baixo.pop(); }
     baixo.push(p[i]);
   }
   for(i=p.length-1;i>=0;i--){
-    while(alto.length>1&&cruz(alto[alto.length-2],alto[alto.length-1],p[i])<=0){ alto.pop(); }
+    while(alto.length>1&&mpCruzVet(alto.at(-2),alto.at(-1),p[i])<=0){ alto.pop(); }
     alto.push(p[i]);
   }
   baixo.pop(); alto.pop();
@@ -290,7 +287,7 @@ function mpPintaPincel(ctx,z,cor){
   var q=MP.pincelCur, r=MP.rascunho;
   ctx.save();
   /* enquanto o botao esta apertado, verde onde vai liberar (vermelho onde vai cobrir): a nevoa so muda ao soltar */
-  if(r&&r.forma==="traco"){
+  if(r?.forma==="traco"){
     ctx.globalAlpha=0.4; ctx.fillStyle=MP.fogRevela===false?cor.perigo:cor.ok; ctx.strokeStyle=ctx.fillStyle;
     mpPreencheTraco(ctx,{pts:r.pts,larg:r.larg,ponta:r.ponta});
     ctx.globalAlpha=1;
@@ -314,7 +311,7 @@ function mpComecaPincel(e,p){
 function mpSeguePincel(e){
   var r=MP.rascunho, q=mpMundo(e);
   MP.pincelCur=q;
-  if(!r||r.forma!=="traco"){ return; }
+  if(r?.forma!=="traco"){ return; }
   var u=r.pts[r.pts.length-1];
   if(Math.hypot(q.x-u[0],q.y-u[1])>=Math.max(2/mpVista().z,r.larg*0.12)){ r.pts.push([q.x,q.y]); }
 }
@@ -327,7 +324,7 @@ function mpAfinaTraco(pts){
 }
 function mpTerminaPincel(a,cancelou){
   var r=MP.rascunho; MP.rascunho=null;
-  if(cancelou||!r||r.forma!=="traco"){ mpDesenha(); return; }
+  if(cancelou||r?.forma!=="traco"){ mpDesenha(); return; }
   mpCriaTraco(r);
 }
 function mpCriaTraco(r){
@@ -372,7 +369,7 @@ function mpPintaFumaca(f,cv,c,v,cor){
   f.setTransform(1,0,0,1,0,0); f.globalCompositeOperation="source-atop";
   MP_FUMACA_CAMADAS.forEach(function(l){
     var pat=f.createPattern(tex,"repeat");
-    if(!pat||!pat.setTransform){ return; }
+    if(!pat?.setTransform){ return; }
     pat.setTransform(new DOMMatrix([base*l.esc,0,0,base*l.esc,v.x*c.dpr+t*l.vx*k,v.y*c.dpr+t*l.vy*k]));
     f.globalAlpha=l.a; f.fillStyle=pat; f.fillRect(0,0,cv.width,cv.height);
   });
@@ -411,19 +408,38 @@ function mpAbertura(c,v,cv,m){
   c.abChave=chave;
   return ab;
 }
-/* A nevoa e uma camada a parte, desenhada na tela e nao no mapa: preenche tudo, a fumaca anda por cima, as areas
-   (e o pincel) abrem ou fecham na ordem em que foram feitas, e por fim a visao abre os buracos. */
-function mpPintaFog(ctx,z,cor){
-  var modo=mpFogModo(), c=MPC, m=MP.mapa, v=mpVista();
-  if(modo==="nenhum"||!m){ return; }
-  var cv=c.fogCv||(c.fogCv=document.createElement("canvas")), f=mpTelaCanvas(cv,c.cv), px=c.dpr*v.z;
-  f.setTransform(1,0,0,1,0,0); f.globalCompositeOperation="source-over"; f.globalAlpha=1; f.filter="none"; f.clearRect(0,0,cv.width,cv.height);
-  f.setTransform(c.dpr,0,0,c.dpr,0,0); f.translate(v.x,v.y); f.scale(v.z,v.z);
-  f.fillStyle=cor.fundo; f.fillRect(0,0,m.largura,m.altura);
+/* A mascara que o servidor mandou ao jogador (uma casa pequena por pixel: opaca onde ele ve, 60% onde lembra),
+   esticada sobre o mapa e borrada como a visao do mestre. Nula enquanto a imagem nao carregou: a nevoa fica fechada. */
+function mpAberturaServidor(c,v,cv){
+  var vi=MP.vista;
+  if(!vi?.png){ return null; }
+  var mi=c.vistaImg;
+  if(!mi||mi.src!==vi.png){
+    mi=c.vistaImg={src:vi.png,img:new Image(),ok:false};
+    mi.img.onload=function(){ if(c.vistaImg===mi){ mi.ok=true; mpDesenha(); } };
+    mi.img.src=vi.png;
+  }
+  if(!mi.ok){ return null; }
+  var bl=Math.max(3,Math.min(26,mpLado()*c.dpr*v.z*0.2));
+  var chave=["s",MP.vistaV,v.x,v.y,v.z,cv.width,cv.height,bl].join("|");
+  if(c.abChave===chave&&c.abCv){ return c.abCv; }
+  var mk=c.abMask||(c.abMask=document.createElement("canvas")), g=mpTelaCanvas(mk,cv);
+  g.setTransform(1,0,0,1,0,0); g.globalAlpha=1; g.clearRect(0,0,mk.width,mk.height);
+  g.setTransform(c.dpr,0,0,c.dpr,0,0); g.translate(v.x,v.y); g.scale(v.z,v.z);
+  g.imageSmoothingEnabled=true;
+  g.drawImage(mi.img,0,0,vi.cols*vi.cel,vi.lins*vi.cel);
+  var ab=c.abCv||(c.abCv=document.createElement("canvas")), h=mpTelaCanvas(ab,cv);
+  h.setTransform(1,0,0,1,0,0); h.clearRect(0,0,ab.width,ab.height);
+  h.filter="blur("+bl+"px)"; h.drawImage(mk,0,0); h.filter="none";
+  c.abChave=chave;
+  return ab;
+}
+/* as areas de nevoa (e o pincel), na ordem em que foram feitas: so o mestre as tem */
+function mpPintaAreasFog(f,cor,px){
   MP.els.forEach(function(e){
     if(e.tipo!=="FOG"){ return; }
     var d=e.dados||{};
-    if(!d.pts||!d.pts.length){ return; }
+    if(!d.pts?.length){ return; }
     f.globalCompositeOperation=d.revela?"destination-out":"source-over";
     if(d.forma==="traco"){
       /* a borda macia e um borrao do traco, em pixels da tela */
@@ -434,10 +450,24 @@ function mpPintaFog(ctx,z,cor){
     if(d.pts.length<2){ return; }
     f.fillStyle=cor.fundo; mpTracaForma(f,d.forma,d.pts); f.fill();
   });
+}
+/* A nevoa e uma camada a parte, desenhada na tela e nao no mapa: preenche tudo, a fumaca anda por cima, as areas
+   (e o pincel) abrem ou fecham na ordem em que foram feitas, e por fim a visao abre os buracos. Para o jogador,
+   areas e visao ja vem juntas na mascara do servidor. */
+function mpPintaFog(ctx,z,cor){
+  var modo=mpFogModo(), c=MPC, m=MP.mapa, v=mpVista();
+  if(modo==="nenhum"||!m){ return; }
+  var cv=c.fogCv||(c.fogCv=document.createElement("canvas")), f=mpTelaCanvas(cv,c.cv);
+  f.setTransform(1,0,0,1,0,0); f.globalCompositeOperation="source-over"; f.globalAlpha=1; f.filter="none"; f.clearRect(0,0,cv.width,cv.height);
+  f.setTransform(c.dpr,0,0,c.dpr,0,0); f.translate(v.x,v.y); f.scale(v.z,v.z);
+  f.fillStyle=cor.fundo; f.fillRect(0,0,m.largura,m.altura);
+  if(GM){ mpPintaAreasFog(f,cor,c.dpr*v.z); }
   mpPintaFumaca(f,cv,c,v,cor);
-  if(modo==="visao"){
+  var ab=null;
+  if(!GM){ ab=mpAberturaServidor(c,v,cv); } else if(modo==="visao"){ ab=mpAbertura(c,v,cv,m); }
+  if(ab){
     f.setTransform(1,0,0,1,0,0); f.globalCompositeOperation="destination-out";
-    f.drawImage(mpAbertura(c,v,cv,m),0,0);
+    f.drawImage(ab,0,0);
   }
   ctx.save();
   ctx.setTransform(1,0,0,1,0,0);

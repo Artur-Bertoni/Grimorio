@@ -88,3 +88,6 @@ details.mpsec[open]>summary.mptit{margin-bottom:var(--s-2)}
 details.mpsec.form{gap:0}
 details.mpsec.form>*:not(summary){margin-bottom:var(--s-2)}
 .ibtn svg{width:1rem;height:1rem;flex:0 0 auto;vertical-align:-.2em}
+/* os grupos de botoes sao fieldset (o papel de grupo vem do elemento): sem a moldura do navegador */
+fieldset.mpflyout{margin:0;min-width:0}
+fieldset.mpregmodo{border:0;margin:0;min-width:0;padding:0}

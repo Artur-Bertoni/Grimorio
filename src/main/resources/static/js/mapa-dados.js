@@ -15,6 +15,8 @@ var MP={lista:[],id:null,mapa:null,els:[],seq:0,sel:null,cid:null,carregado:fals
   ferramenta:"mover",reguaModo:"reta",regua:null,medida:null,
   paredeKind:"parede",fogForma:"retangulo",fogRevela:true,comoJogador:false};
 var MP_POLL_MS=3000;
+/* os pedacos da imagem que o jogador recebe (js/mapa-motor.js, mpTile), por mapa e lugar */
+var MPT={};
 /* WIP: o tabletop esta em construcao (docs/plano-tabletop.md). Enquanto a administracao nao liberar
    (Administracao > Mapa, `mapa.liberado` na tabela config, que vem em /api/sessao), so ela abre a
    aba Mapa; os outros veem o aviso. A decisao de liberar para todos e do dono. */
@@ -75,7 +77,7 @@ function mpSincroniza(){
 function mpAbrir(id){
   var troca=String(id)!==String(MP.id);
   MP.id=id||null;
-  if(troca){ MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); }
+  if(troca){ MP.mapa=null; MP.els=[]; MP.seq=0; MP.vista=null; MP.rotaSrv=null; mpSelecionaIds([]); }
   if(!MP.id){ mpRepinta(); return Promise.resolve(); }
   return mpRecarrega();
 }
@@ -92,6 +94,9 @@ function mpAplicaEstado(r){
   if(r.igual)return;
   var mesmo=mpChaveMapa(MP.mapa)===mpChaveMapa(r.mapa);
   MP.mapa=r.mapa; MP.els=r.elementos||[];
+  /* so o jogador recebe a vista: a mascara da nevoa e os pedacos da imagem que o servidor deixa ele ver */
+  if((r.vista?.png||"")!==(MP.vista?.png||"")){ MP.vistaV=(MP.vistaV||0)+1; }
+  MP.vista=r.vista||null;
   mpPodaSel();
   mpTrocaNaLista(r.mapa);
   if(mesmo)mpRedesenhaTokens(); else mpRepinta();
@@ -164,6 +169,7 @@ function mpDesliga(){
 }
 function mpZera(){
   MP.lista=[]; MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); MP.carregado=false; MP.voltas=0; MP.ocultas={};
+  MP.vista=null; MP.rotaSrv=null; MPT={};
 }
 function mpModoTempoReal(){ if(MP.es){ return "sse"; } return MP.poll?"polling":""; }
 
@@ -180,8 +186,15 @@ var MP_EVENTOS={
   mapa:function(d){
     mpTrocaNaLista(d.mapa);
     if(String(d.mapa?.id)!==String(MP.id))return;
+    /* o jogador pede o estado de novo: a imagem e a nevoa dele dependem do mapa e so o servidor as corta */
+    if(!GM){ mpAgendaRecarga(); return; }
     MP.mapa=d.mapa; MP.seq=Math.max(MP.seq,d.seq||0);
     mpRepinta();
+  },
+  /* com a nevoa ligada o jogador nao recebe o elemento que mudou: recebe este aviso e pede o que ele ve agora */
+  vista:function(d){
+    if(String(d.mapa)!==String(MP.id))return;
+    mpAgendaRecarga();
   },
   elemento:function(d){
     if(String(d.mapa)!==String(MP.id))return;
@@ -206,7 +219,7 @@ var MP_EVENTOS={
   turno:function(d){
     if(d.comIni&&!GM){
       var vz=MESA.ini?MESA.ini.vez+"/"+MESA.ini.rodada:"";
-      MESA.ini=d.ini&&d.ini.lista?d.ini:null;
+      MESA.ini=d.ini?.lista?d.ini:null;
       var mi=$("#mIni"); if(mi){ mi.innerHTML=iniPubHtml(); }
       if(MESA.ini&&(MESA.ini.vez+"/"+MESA.ini.rodada)!==vz){ som("vez"); }
     }
@@ -222,7 +235,15 @@ var MP_EVENTOS={
   }
 };
 function mpEvento(d){ var f=MP_EVENTOS[d.tipo]; if(f)f(d); }
-function mpZeraMapa(){ MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; mpSelecionaIds([]); }
+/* varios avisos seguidos (mover a selecao, por exemplo) viram um pedido so; com um token na mao, espera soltar */
+function mpAgendaRecarga(){
+  clearTimeout(MP.recargaT);
+  MP.recargaT=setTimeout(function(){
+    if(MP.arrastando){ mpAgendaRecarga(); return; }
+    if(mpNaTela())mpRecarrega();
+  },150);
+}
+function mpZeraMapa(){ MP.id=null; MP.mapa=null; MP.els=[]; MP.seq=0; MP.vista=null; MP.rotaSrv=null; MPT={}; mpSelecionaIds([]); }
 function mpGuarda(el){
   var i=MP.els.findIndex(function(e){ return String(e.id)===String(el.id); });
   if(i>=0)MP.els[i]=el; else MP.els.push(el);

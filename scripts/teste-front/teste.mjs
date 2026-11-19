@@ -389,10 +389,10 @@ ok(await pg.evaluate(() => !!MP.regua) && await pg.evaluate(() => mpTemParedeDeV
 await pg.keyboard.press('v'); await pg.keyboard.press('Escape'); await pg.evaluate(() => { MP.regua = null; });
 /* nevoa: modo pela visao, no painel */
 await abreSecao('visao');
-ok(/s[oó] visual/i.test(await pg.locator('#mpPainel').innerText()) === false, 'com a nevoa desligada o aviso de "so visual" nao aparece');
+ok(/névoa deixa ver/i.test(await pg.locator('#mpPainel').innerText()) === false, 'com a nevoa desligada o painel nao fala do corte');
 await pg.locator('#mpFogModo').selectOption('visao'); await espera(900);
 em = await estadoMapa(1, mw);
-ok(em.mapa.regras.fog === 'visao' && /s[oó] visual/i.test(await pg.locator('#mpPainel').innerText()), 'ligar a nevoa pela visao fica no mapa e o painel avisa que ela e so visual por enquanto');
+ok(em.mapa.regras.fog === 'visao' && /só o que a névoa deixa ver/i.test(await pg.locator('#mpPainel').innerText()) && !/s[oó] visual/i.test(await pg.locator('#mpPainel').innerText()), 'ligar a nevoa pela visao fica no mapa e o painel diz que os jogadores so recebem o que ela deixa ver');
 ok(await pg.evaluate(() => mpRevelado(630, 525) && !mpRevelado(770, 525) && !mpRevelado(1500, 100)), 'a visao do heroi alcanca ate a parede e nao passa dela, nem alem do alcance');
 ok(await pg.evaluate(() => { var t = MP.els.find(e => e.dados.nome === 'Heroi'); return !mpOculto(t); }), 'com a nevoa o mestre ainda ve tudo (translucida)');
 await pg.locator('#mpFogComo').check(); await espera(300);
@@ -519,9 +519,6 @@ await pg.locator('.ov [data-f="kind"]').selectOption('janela'); await salvar(); 
 em = await estadoMapa(1, mw);
 ok(em.elementos.find(e => e.id === idPorta).dados.kind === 'janela' && em.elementos.find(e => e.id === idPorta).dados.aberta === false, 'trocar a porta por janela pelo formulario: aberta so vale para porta');
 ok(await pg.evaluate(() => !mpLivreTrecho(mpTrechos(false), 1000, 525, 1100, 525, true, true) && mpLivreTrecho(mpTrechos(true), 1000, 525, 1100, 525, true, true)), 'janela barra o movimento e nao a visao');
-/* rota que contorna: o servidor e a tela fazem a mesma conta */
-ok(await pg.evaluate(() => { var r = mpRota(mpTrechos(false).filter(s => s[0] === 700), [455, 525], [945, 525]); return !!r && r.length >= 3 && mpLivreTrilha(mpTrechos(false).filter(s => s[0] === 700), r); }), 'a rota contorna a parede por uma ponta dela');
-ok(await pg.evaluate(() => mpRota([[0, 0, 100, 0], [100, 0, 100, 100], [100, 100, 0, 100], [0, 100, 0, 0]], [50, 50], [200, 50]) === null), 'sem caminho: dentro de uma caixa fechada nao ha rota');
 await pg.evaluate(id => mpAbrir(id), mid); await espera(1200);
 
 await pg.reload(); await espera(1800);
@@ -1485,14 +1482,23 @@ ok(ej.elementos.find(e => e.id === 301).dados.x === x301 + 210 && /custa/i.test(
 titulo('mapa: paredes e nevoa (jogador)');
 await ctx.request.post(B + '/__mapa-paredes/3');
 await pg.reload(); await espera(1800);
-ok(await pg.evaluate(() => mpFogModo()) === 'visao' && await pg.evaluate(() => MP.els.some(e => e.tipo === 'PAREDE')), 'o jogador recebe a nevoa e as paredes do mapa ativo');
-ok(await pg.evaluate(() => mpOculto(MP.els.find(e => e.id === 302))) && !/Guarda/.test(await pg.locator('#mpPainel').innerText()), 'o guarda atras da parede nao e visto pelo jogador, nem na lista do painel');
+ok(await pg.evaluate(() => mpFogModo()) === 'visao' && await pg.evaluate(() => !MP.els.some(e => e.tipo === 'PAREDE' || e.tipo === 'FOG') && MP.vista?.paredes === true && !!MP.vista.png), 'o jogador recebe o modo da nevoa e a mascara, mas nao as paredes');
+ok(await pg.evaluate(() => !('imagem' in MP.mapa) && MP.vista.tiles?.v.length > 0 && Object.keys(MPT).length > 0), 'a imagem do mapa chega em pedacos, sem o caminho dela');
+ok(await pg.evaluate(() => !MP.els.some(e => e.id === 302)) && !/Guarda/.test(await pg.locator('#mpPainel').innerText()), 'o guarda atras da parede nem chega ao jogador, e nao aparece na lista do painel');
 ok((await pg.locator('#mpPainel [data-mp-sec="visao"]').count()) === 0 && (await pg.locator('[data-mpf="parede"], [data-mpf="fog"], [data-mpf="pincel"]').count()) === 0, 'o jogador nao tem as ferramentas de parede, de nevoa nem o pincel');
 const p301 = await posToken(301);
+/* o pontilhado do arraste segue o contorno que o servidor calculou, assim que a resposta chega, e o rotulo diz */
+await pg.evaluate(() => { const el = MP.els.find(e => e.id === 301), x = el.dados.x + 140, y = el.dados.y;
+  MP.rotaSrv = null; MP.medida = { x0: el.dados.x, y0: y, x1: x, y1: y, el, trilha: [[el.dados.x, y], [x, y]], rotaChave: mpChaveRota(el, x, y) };
+  mpRotaDoServidor(el, x, y, [[el.dados.x, y], [x, y]]); });
+await espera(500);
+ok(await pg.evaluate(() => MP.medida.contorno === true && MP.medida.trilha.length >= 3 && /contornando a parede/.test(mpRotuloMedida(MP.medida).texto)), 'arrastando para o outro lado da parede, o pontilhado passa a seguir o contorno e o rotulo avisa');
+await pg.evaluate(() => { MP.medida = null; MP.rotaSrv = null; });
 await arrastaToken(301, 2);
 ej = await estadoMapa(3, 31);
 ok(ej.elementos.find(e => e.id === 301).dados.x === p301.dx + 140 && !/parede/i.test(await pg.locator('.toast').last().innerText().catch(() => '')), 'arrastar o token para o outro lado da parede segue a rota que a contorna: o servidor aceita');
-ok(await pg.evaluate(() => !mpOculto(MP.els.find(e => e.id === 302))) && /Guarda/.test(await pg.locator('#mpPainel').innerText()), 'do outro lado da parede a visao do token alcanca o guarda e ele aparece, na tela e na lista');
+await espera(600);
+ok(await pg.evaluate(() => MP.els.some(e => e.id === 302)) && /Guarda/.test(await pg.locator('#mpPainel').innerText()), 'do outro lado da parede a visao do token alcanca o guarda e ele aparece, na tela e na lista');
 await pg.locator('[data-msec="resumos"]').click(); await espera(500);
 ok((await pg.locator('.sugtema').count()) === 0, 'quem segue o tema das mesas nao e perguntado sobre o tema sugerido');
 ok(await pg.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'luar', 'e a campanha abre direto no tema do mestre');
