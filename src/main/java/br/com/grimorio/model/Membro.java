@@ -5,7 +5,9 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "membro",
-       uniqueConstraints = @UniqueConstraint(name = "uk_membro", columnNames = {"campanha_id", "usuario_id"}))
+       uniqueConstraints = @UniqueConstraint(name = "uk_membro", columnNames = {"campanha_id", "usuario_id"}),
+       /* "minhas campanhas" busca por usuario_id; o unico acima comeca por campanha_id e nao serve */
+       indexes = @Index(name = "ix_membro_usuario", columnList = "usuario_id"))
 public class Membro {
 
     @Id

@@ -56,7 +56,7 @@ function painelRolagens(abrir){
   var b=$("#btnRol"); if(b)b.classList.toggle("on",lig);
   clearInterval(RP.iv);
   if(lig){ rpAplica(p,rpGeo()); feedDados([]); puxaRolagens(false);
-    RP.iv=setInterval(function(){ if(!document.hidden&&!(DADOS.ov&&document.body.contains(DADOS.ov)))puxaRolagens(false); },2500); }
+    RP.iv=setInterval(function(){ if(!document.hidden&&!avisosAoVivo()&&!(DADOS.ov&&document.body.contains(DADOS.ov)))puxaRolagens(false); },2500); }
 }
 /* rolar pelo painel nao abre a janela do dado: o resultado ja entra na lista */
 function rolarDireto(c){
@@ -147,7 +147,7 @@ function abrirDados(o){
     $$("[data-vis]",ov).forEach(function(x){ x.setAttribute("aria-pressed",(x.dataset.vis==="1")===DADOS.pub); }); }; });
   /* com a janela aberta a mesa aparece mais depressa; fechada, a sondagem da mesa da conta */
   var iv=setInterval(function(){ if(!document.body.contains(ov)){ clearInterval(iv); DADOS.ov=null; DADOS.rola=null; return; }
-    if(!document.hidden)puxaRolagens(false); },2500);
+    if(!document.hidden&&!avisosAoVivo())puxaRolagens(false); },2500);
   puxaRolagens(false);
   function trava(s){ $$("[data-dado],#ddGo,[data-f]",ov).forEach(function(x){ x.disabled=s; }); }
   function rola(c){

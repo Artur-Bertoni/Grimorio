@@ -54,8 +54,12 @@ public class MiniaturaController {
         String nome = servir.getFileName().toString().toLowerCase();
         MediaType tipo = nome.endsWith(".webp") ? MediaType.parseMediaType("image/webp")
                 : MediaTypeFactory.getMediaType(nome).orElse(MediaType.APPLICATION_OCTET_STREAM);
+        /* Imagem trocada pelo mesmo nome fica no mesmo caminho. Com 30 dias de max-age e sem
+           Last-Modified, o navegador mostrava a velha por um mes. Agora guarda por 5 minutos e depois
+           pergunta: com o Last-Modified na resposta o Spring devolve 304 sem corpo se nada mudou. */
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePrivate())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePrivate())
+                .lastModified(Files.getLastModifiedTime(servir).toMillis())
                 .contentType(tipo)
                 .body(new FileSystemResource(servir));
     }

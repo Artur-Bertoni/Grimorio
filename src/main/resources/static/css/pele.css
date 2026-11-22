@@ -159,14 +159,14 @@ main.entra.board>*{animation-name:some}
 @keyframes some{from{opacity:0}}
 .abrindo{min-height:62vh;display:grid;place-items:center;align-content:center;gap:var(--s-4);text-align:center;animation:some var(--dur-3) ease-out}
 .abrindo svg{width:4.25rem;height:4.75rem;animation:pulsa 1.7s ease-in-out infinite}
-.abrindo b{font-family:var(--disp);font-size:var(--fs-6);letter-spacing:.1em;color:var(--gold);line-height:1.15}
-.abrindo span{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.26em;text-transform:uppercase;color:var(--fg3)}
+.abrindo b{font-family:var(--disp);font-size:var(--fs-6);letter-spacing:var(--tr-caixa);color:var(--gold);line-height:var(--lh-titulo)}
+.abrindo span{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa-larga);text-transform:uppercase;color:var(--fg3)}
 @keyframes pulsa{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.08);opacity:1}}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:var(--dur-3)}
 
 /* ---- escolha de tema ---- */
 .temas{display:flex;flex-direction:column;gap:var(--s-4)}
-.temagen{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.2em;text-transform:uppercase;color:var(--fg3);
+.temagen{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa-larga);text-transform:uppercase;color:var(--fg3);
   display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
 .temagen::after{content:"";flex:1;height:1px;background:var(--line)}
 .temalist{display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:var(--s-3)}
@@ -175,15 +175,29 @@ main.entra.board>*{animation-name:some}
   transition:transform var(--dur-2) var(--ease),box-shadow var(--dur-2),border-color var(--dur-2)}
 .temacard::before{content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(120% 80% at 50% -20%,color-mix(in srgb,var(--p-blood) 38%,transparent),transparent 65%)}
-.temacard b{position:relative;font-size:var(--fs-5);font-weight:700;letter-spacing:.05em;color:var(--p-gold);line-height:1.15}
-.temacard .tex{position:relative;font-size:var(--fs-2);line-height:1.35;color:var(--p-fg2)}
+.temacard b{position:relative;font-size:var(--fs-5);font-weight:var(--fw-titulo);letter-spacing:var(--tr-fino);color:var(--p-gold);line-height:var(--lh-titulo)}
+/* O mini bloco mostra o que o estilo muda e a paleta nao: o canto e a faixa do topo dos blocos (a
+   letra de titulo ja aparece no nome). Os cantos repetem o --rc de cada estilo em estilos.css, porque
+   la eles valem para a pagina inteira e aqui cada cartao veste o seu. */
+.temacard .tblk{position:relative;display:block;padding:var(--s-2) var(--s-3);font-size:var(--fs-2);line-height:var(--lh-ui);color:var(--p-fg2);
+  background:color-mix(in srgb,var(--p-fg) 6%,var(--p-bg));border:1px solid var(--p-line);border-radius:.3125rem;overflow:hidden}
+.temacard .tblk::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--p-blood) 18%,var(--p-gold) 50%,var(--p-blood) 82%,transparent)}
+.temacard .tblk[data-est="terror"]::before{background:linear-gradient(90deg,var(--p-bg),var(--p-blood) 50%,var(--p-bg))}
+.temacard .tblk[data-est="fantasia"]{border-radius:.625rem}
+.temacard .tblk[data-est="misterio"]{border-radius:1.25rem}
+.temacard .tblk[data-est="misterio"]::before{background:linear-gradient(90deg,transparent,var(--p-blood) 30%,var(--p-gold) 50%,var(--p-blood) 70%,transparent)}
+.temacard .tblk[data-est="investigacao"]{border-radius:.25rem}
+.temacard .tblk[data-est="investigacao"]::before{background:repeating-linear-gradient(90deg,var(--p-gold) 0 .5rem,transparent .5rem .875rem)}
+.temacard .tblk[data-est="ficcao"]{border-radius:1.125rem .25rem 1.125rem .25rem}
+.temacard .tblk[data-est="ficcao"]::before{background:linear-gradient(90deg,var(--p-gold),var(--p-blood) 60%,transparent)}
 .temacard .tsw{position:relative;display:flex;gap:var(--s-1);margin-top:.125rem}
 .temacard .tsw i{width:1.5rem;height:.4375rem;border-radius:var(--r-pill);display:block}
 .temacard:hover{transform:translateY(-2px);box-shadow:var(--e1)}
 .temacard:active{transform:scale(.98)}
 .temacard[aria-pressed="true"]{border-color:var(--p-gold);box-shadow:0 0 0 2px var(--p-gold)}
 .temacard[aria-pressed="true"]::after{content:"em uso";position:absolute;top:.5rem;right:.6875rem;
-  font:600 var(--fs-1)/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--p-gold)}
+  font:var(--fw-enfase) var(--fs-1)/var(--lh-solida) var(--ui);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--p-gold)}
 
 /* fundo parado: aba escondida ou 20s sem interacao (js/tema.js, acordaFundo) */
 html.quieto .atmo,html.quieto .atmo *{animation-play-state:paused!important}

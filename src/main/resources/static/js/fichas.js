@@ -122,7 +122,7 @@ function abrirFicha(f){
    Primeiro os campos de formulario do PDF (ficha preenchivel entrega rotulo e valor prontos),
    depois o texto das paginas. Com IA configurada ela organiza; sem, a montagem e local. */
 function lerPdfFicha(arq){
-  return arq.arrayBuffer().then(function(buf){ return window.pdfjsLib.getDocument({data:buf}).promise; }).then(function(doc){
+  return Promise.all([arq.arrayBuffer(),carregaPdfjs()]).then(function(r){ return r[1].getDocument({data:r[0]}).promise; }).then(function(doc){
     var campos=[], linhas=[], n=Math.min(doc.numPages,8), ch=Promise.resolve();
     var pag=function(i){ return doc.getPage(i).then(function(p){
       return Promise.all([p.getAnnotations().catch(function(){ return []; }),
@@ -168,7 +168,6 @@ function fichaDoLido(lido,nomeArq){
   return {nome:nome||String(nomeArq||"Ficha importada").replace(/\.pdf$/i,""),campos:campos};
 }
 function importarFichaPdf(arq){
-  if(!window.pdfjsLib){ toast("Leitor de PDF indisponível"); return; }
   toast("Lendo o PDF…");
   lerPdfFicha(arq).then(function(lido){
     /* PDF que e so imagem (escaneado, ou ficha que e toda arte): as paginas vao desenhadas

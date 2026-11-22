@@ -2,18 +2,29 @@
 "use strict";
 
 /* ---------- VISOR DE PDF ---------- */
-/* o pdf.js e carregado como modulo no index.html, que ja aponta o worker */
+/* O pdf.js (474 KB) so existe como modulo ES e so desce na primeira vez que alguem abre um PDF:
+   carregar na abertura cobrava de todo jogador que nunca abre livro. import() funciona em script
+   classico; o caminho vai absoluto porque o relativo resolveria contra js/. */
+var PDFJS_CARGA=null;
+function carregaPdfjs(){
+  if(!PDFJS_CARGA)PDFJS_CARGA=import(new URL("vendor/pdf.min.mjs",document.baseURI).href).then(function(m){
+    m.GlobalWorkerOptions.workerSrc=new URL("vendor/pdf.worker.min.mjs",document.baseURI).href;
+    window.pdfjsLib=m; return m;
+  }).catch(function(e){ PDFJS_CARGA=null; throw e; });
+  return PDFJS_CARGA;
+}
 var PDFC={};
 async function carregaPdf(ab){ if(PDFC[ab])return PDFC[ab];
   await carregaCatalogo();
   var d=LIB.docs[ab]; if(!d)return null;
-  PDFC[ab]={doc:await window.pdfjsLib.getDocument({url:d.url}).promise,nome:d.nome}; return PDFC[ab]; }
+  var pdfjs=await carregaPdfjs();
+  PDFC[ab]={doc:await pdfjs.getDocument({url:d.url}).promise,nome:d.nome}; return PDFC[ab]; }
 async function abrirPdf(ab,page,back){
   ab=String(ab||"").toUpperCase();
   await carregaCatalogo();
   if(!LIB.docs[ab]){ var o0=overlay("Abrir documento",htmlDe("t-pdf-ausente",{livro:nomeDoc(ab),mestre:GM}),{back:back});
     var b0=$("#lc2",o0); if(b0)b0.onclick=function(){ o0.close(); abrirArquivos(); }; return; }
-  if(!window.pdfjsLib){ toast("Visor de PDF indisponível"); return; }
+  try{ await carregaPdfjs(); }catch(e){ console.warn(e); toast("Visor de PDF indisponível","erro"); return; }
   var ov=overlay(nomeDoc(ab),htmlDe("t-pdf",{pagina:page||1}),
     {wide:true,cls:"pdfsheet",ovcls:"pdfov",back:back});
   var sheet=ov.querySelector(".sheet");

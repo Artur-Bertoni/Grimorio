@@ -15,7 +15,7 @@
 /* ---- base comum ---- */
 .btn,.ibtn,.edb,.tbtn,.addbtn,.backb,.x,.delx,.selmini,.cvtools button,.vmodes button,.tab,.mesanav button,.toast button{
   display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);
-  font-family:var(--ui);font-weight:600;letter-spacing:.02em;text-transform:none;line-height:1.1;
+  font-family:var(--ui);font-weight:var(--fw-enfase);letter-spacing:var(--tr-fino);text-transform:none;line-height:var(--lh-titulo);
   white-space:nowrap;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
   transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2),box-shadow var(--dur-2),
     transform var(--dur-1) var(--ease),opacity var(--dur-2)}
@@ -66,7 +66,7 @@
 .addbtn{border-color:color-mix(in srgb,var(--gold) 55%,transparent);border-style:dashed;align-self:flex-start}
 .x{color:var(--fg3)}
 .x:hover{transform:rotate(90deg)}
-.selmini{font-weight:500;background:var(--bg)}
+.selmini{font-weight:var(--fw-texto);background:var(--bg)}
 
 /* ---- botoes do topo ---- */
 .acts{display:flex;gap:var(--s-1);flex:0 1 auto;min-width:0;align-items:center}
@@ -78,15 +78,15 @@
 .ibtn.on::after,.ibtn[aria-pressed="true"]::after{content:"";position:absolute;left:25%;right:25%;bottom:3px;height:2px;
   border-radius:var(--r-xs);background:currentColor}
 .ibtn.live{border-color:var(--blood);color:var(--blood2)}
-.kbd{font-family:var(--ui);font-size:var(--fs-1);font-weight:500;border:1px solid var(--line2);border-radius:var(--r-xs);
-  padding:0 var(--s-1);color:var(--fg3);line-height:1.4}
+.kbd{font-family:var(--ui);font-size:var(--fs-1);font-weight:var(--fw-texto);border:1px solid var(--line2);border-radius:var(--r-xs);
+  padding:0 var(--s-1);color:var(--fg3);line-height:var(--lh-ui)}
 @media (hover:none){ .kbd{display:none} }
 
 /* ---- abas: uma so, no topo, na barra do celular e nas subabas ---- */
 .tab,.mesanav button{position:relative;min-height:var(--ctl-m);padding:0 var(--s-3);font-size:var(--fs-3);color:var(--fg2);
   border:1px solid transparent;border-radius:var(--rb);background:none;flex:0 0 auto}
 .tab:hover,.mesanav button:hover{color:var(--fg);background:var(--bg2)}
-.tab[aria-current="page"],.mesanav button[aria-pressed="true"],.mesanav button[aria-current="page"]{color:var(--fg);background:var(--bg3);border-color:var(--line2);font-weight:700}
+.tab[aria-current="page"],.mesanav button[aria-pressed="true"],.mesanav button[aria-current="page"]{color:var(--fg);background:var(--bg3);border-color:var(--line2);font-weight:var(--fw-titulo)}
 .tab .tabico{display:none;width:1.25rem;height:1.25rem;flex:0 0 auto}
 .tab .tabico svg{width:100%;height:100%}
 
@@ -97,13 +97,16 @@
 .vmodes button[aria-pressed="true"]{background:var(--bg4);color:var(--fg);box-shadow:inset 0 -2px 0 var(--gold)}
 
 /* ---- chips: rotulo curto, o unico controle em caixa alta ---- */
-.chip,.fchip{font-family:var(--ui);font-size:var(--fs-1);font-weight:600;letter-spacing:var(--tr-caixa);text-transform:uppercase;
-  border:1px solid var(--line2);border-radius:var(--r-pill);padding:2px var(--s-2);color:var(--fg2);white-space:nowrap;line-height:1.4;
+.chip,.fchip{font-family:var(--ui);font-size:var(--fs-1);font-weight:var(--fw-enfase);letter-spacing:var(--tr-caixa);text-transform:uppercase;
+  border:1px solid var(--line2);border-radius:var(--r-pill);padding:2px var(--s-2);color:var(--fg2);white-space:nowrap;line-height:var(--lh-ui);
   transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2)}
 .chip.b{border-color:var(--blood);color:var(--blood2)}
 .chip.g{border-color:var(--gold);color:var(--gold)}
 .chip.ok{border-color:var(--ok);color:var(--ok)}
-.chip.btn{min-height:0;font-size:var(--fs-1);background:none}
+/* chip que e botao: 24px de desenho (WCAG 2.5.8) e area invisivel em volta, como o botao pequeno */
+.chip.btn{min-height:1.5rem;display:inline-flex;align-items:center;position:relative;font-size:var(--fs-1);background:none}
+.chip.btn::after{content:"";position:absolute;inset:-4px -2px}
+summary.sm{line-height:var(--ctl-p)}
 .chip.btn:hover{background:var(--bg4);color:var(--fg);cursor:pointer;transform:none;box-shadow:none}
 .fchips{display:flex;gap:var(--s-1);flex-wrap:wrap;margin:var(--s-3) 0}
 .fchip{position:relative;min-height:var(--ctl-p);color:var(--fg2);cursor:pointer}
@@ -114,7 +117,7 @@
 
 /* ---- campos ---- */
 .inp,.form input,.form textarea,.form select,.sfield{background:var(--bg);color:var(--fg);border:1px solid var(--campo-borda);
-  border-radius:var(--r);font-family:var(--body);font-size:var(--fs-4);font-weight:400;letter-spacing:0;text-transform:none;
+  border-radius:var(--r);font-family:var(--body);font-size:var(--fs-4);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;
   transition:border-color var(--dur-2),box-shadow var(--dur-2),background-color var(--dur-2)}
 .inp,.form input,.form textarea,.form select{padding:var(--s-2) var(--s-3);min-height:var(--ctl-g)}
 .inp{flex:1;min-width:7.5rem}
@@ -131,19 +134,19 @@
 
 /* rotulo de campo: curto, em caixa alta, com contraste de texto */
 .form{display:flex;flex-direction:column;gap:var(--s-4)}
-.form label,.rotulo{display:flex;flex-direction:column;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-2);font-weight:600;
+.form label,.rotulo{display:flex;flex-direction:column;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-2);font-weight:var(--fw-enfase);
   letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2)}
 .form label>input,.form label>textarea,.form label>select{margin-top:2px}
-.frot,.form legend{font-family:var(--ui);font-size:var(--fs-2);font-weight:600;letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
+.frot,.form legend{font-family:var(--ui);font-size:var(--fs-2);font-weight:var(--fw-enfase);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
 .form fieldset{border:0;margin:0;padding:0;min-width:0}
 /* campos curtos lado a lado (formulario(): "linha" igual em campos seguidos) */
 .form .fgrade{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:var(--s-4)}
-.form .dica,.dica{font-family:var(--body);font-size:var(--fs-3);font-weight:400;letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
-.dica.erro{color:var(--blood2);font-weight:600}
-.dica.erro::before{content:"! ";font-weight:800}
+.form .dica,.dica{font-family:var(--body);font-size:var(--fs-3);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
+.dica.erro{color:var(--blood2);font-weight:var(--fw-enfase)}
+.dica.erro::before{content:"! ";font-weight:var(--fw-titulo)}
 /* obrigatorio aparece no rotulo, antes de salvar, e nao so no aviso depois */
 .obrig{color:var(--blood2);margin-left:.25em;letter-spacing:0}
-.form label.ck{flex-direction:row;align-items:center;gap:var(--s-2);font-family:var(--body);font-size:var(--fs-4);font-weight:400;
+.form label.ck{flex-direction:row;align-items:center;gap:var(--s-2);font-family:var(--body);font-size:var(--fs-4);font-weight:var(--fw-texto);
   letter-spacing:0;text-transform:none;color:var(--fg2);min-height:var(--ctl-m)}
 .form label.ck input{width:1.125rem;height:1.125rem;min-height:0;accent-color:var(--gold);padding:0;flex:0 0 auto;margin:0}
 .form label.ck input:focus{box-shadow:none}
@@ -155,7 +158,7 @@
 .toast{pointer-events:auto;display:flex;align-items:center;gap:var(--s-3);max-width:100%;background:var(--bg4);color:var(--fg);
   border:1px solid var(--line2);border-left:3px solid var(--fg3);border-radius:var(--rb);padding:var(--s-2) var(--s-3);
   font-family:var(--body);font-size:var(--fs-3);line-height:var(--lh-ui);box-shadow:var(--e2);animation:toastin var(--dur-3) var(--ease)}
-.toast .tico{flex:0 0 auto;width:1.125rem;height:1.125rem;display:grid;place-items:center;font:700 var(--fs-2)/1 var(--ui);
+.toast .tico{flex:0 0 auto;width:1.125rem;height:1.125rem;display:grid;place-items:center;font:var(--fw-titulo) var(--fs-2)/var(--lh-solida) var(--ui);
   border-radius:50%;background:var(--fg3);color:var(--bg)}
 .toast .ttx{flex:1;min-width:0}
 .toast.ok{border-left-color:var(--ok)} .toast.ok .tico{background:var(--ok)}
@@ -189,11 +192,11 @@
 /* ---- estado que nao depende so de cor ---- */
 /* a vez na iniciativa ganha a seta; a faixa tocando, o sublinhado; o resultado escolhido, a barra */
 .inichip.vez::before{content:"▶";font-size:.7em;margin-right:.25em}
-.trk.on{text-decoration:underline;text-underline-offset:3px;font-weight:600}
+.trk.on{text-decoration:underline;text-underline-offset:3px;font-weight:var(--fw-enfase)}
 .rit.sel{box-shadow:inset 3px 0 0 var(--gold)}
 .libdot.on{box-shadow:0 0 0 2px var(--bg2),0 0 0 3px var(--gold)}
 
-.subtit{display:block;font-family:var(--ui);font-weight:700;font-size:var(--fs-3);color:var(--fg2);margin-bottom:var(--s-1)}
+.subtit{display:block;font-family:var(--ui);font-weight:var(--fw-titulo);font-size:var(--fs-3);color:var(--fg2);margin-bottom:var(--s-1)}
 /* tela de 360px ou menos: o topo aperta o espaco entre os botoes, que ficam com 40px (acima do minimo de 24) */
 @media (max-width:360px){ .topin{gap:var(--s-1)} .acts{gap:0} .acts .ibtn{min-width:2.5rem;width:2.5rem} }
 
@@ -203,7 +206,6 @@
   input[type=checkbox],input[type=radio]{width:1.5rem;height:1.5rem}
   .fchip,.chip.btn{min-height:2rem;display:inline-flex;align-items:center}
   .fchip::after,.chip.btn::after{content:"";position:absolute;inset:-6px -2px}
-  .chip.btn{position:relative}
   .ckbox::after{inset:-14px}
   .alca::after{inset:-6px}
   .pnum input,.inp[type=number]{min-height:var(--alvo)}
@@ -211,7 +213,7 @@
 
 /* chip de acao (filtro, rolagem pronta, escolha) e texto: caixa normal. A caixa alta fica no chip
    de estado, que e curto ("encerrada", "você mestra") */
-.fchip{text-transform:none;letter-spacing:.01em;font-size:var(--fs-2)}
+.fchip{text-transform:none;letter-spacing:0;font-size:var(--fs-2)}
 
 /* ---- controles especiais, no mesmo sistema: player, trilha tocando, faixa da cena, liberar, menu ---- */
 .pbtn,.nbb,.tplay,.libdot,.mi{cursor:pointer;transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2),

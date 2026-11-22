@@ -3,14 +3,17 @@ package br.com.grimorio.web;
 import br.com.grimorio.model.*;
 import br.com.grimorio.repo.AnotacaoRepo;
 import br.com.grimorio.repo.MuralRepo;
+import br.com.grimorio.service.CampanhaEventos;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.DocumentoService;
 import br.com.grimorio.service.IndiceService;
 import br.com.grimorio.service.RolagemService;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
 import java.util.*;
@@ -20,6 +23,9 @@ import java.util.*;
 @RequestMapping("/api/c/{cid}")
 public class ConteudoController {
 
+    private static final int MAX_NOTAS = 200_000;
+    private static final String VERSAO = "versao";
+
     private final CampanhaService camp;
     private final DocumentoService docs;
     private final IndiceService indice;
@@ -27,11 +33,13 @@ public class ConteudoController {
     private final AnotacaoRepo anotacoes;
     private final Atual atual;
     private final RolagemService rolagens;
+    private final CampanhaEventos eventos;
 
     public ConteudoController(CampanhaService camp, DocumentoService docs, IndiceService indice,
                               MuralRepo mural, AnotacaoRepo anotacoes, Atual atual,
-                              RolagemService rolagens) {
+                              RolagemService rolagens, CampanhaEventos eventos) {
         this.rolagens = rolagens;
+        this.eventos = eventos;
         this.camp = camp;
         this.docs = docs;
         this.indice = indice;
@@ -45,6 +53,23 @@ public class ConteudoController {
         public Long versao;
     }
 
+    // ---------- aviso de mudanca (SSE) ----------
+
+    /**
+     * O empurrao da campanha: "a mesa mudou", "saiu rolagem". A conferencia de membro vem antes de
+     * abrir o fluxo, como no mapa; o proxy nao pode guardar nem comprimir o fluxo.
+     */
+    @GetMapping("/eventos")
+    public ResponseEntity<SseEmitter> eventos(@PathVariable Long cid) {
+        long uid = atual.id();
+        camp.exigeMembro(cid, uid);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("X-Accel-Buffering", "no")
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(eventos.inscrever(cid, uid));
+    }
+
     // ---------- guia (so mestre) ----------
 
     @GetMapping("/guia")
@@ -52,13 +77,13 @@ public class ConteudoController {
         camp.exigeMestre(cid, atual.id());
         Documento d = docs.ler(cid, DocumentoService.GUIA);
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("versao", d.getVersao());
+        m.put(VERSAO, d.getVersao());
         m.put("json", d.getConteudo());
         return m;
     }
 
     @PutMapping("/guia")
-    public ResponseEntity<?> gravarGuia(@PathVariable Long cid, @RequestBody CorpoDoc c) {
+    public ResponseEntity<Object> gravarGuia(@PathVariable Long cid, @RequestBody CorpoDoc c) {
         camp.exigeMestre(cid, atual.id());
         return gravar(cid, DocumentoService.GUIA, c);
     }
@@ -70,7 +95,7 @@ public class ConteudoController {
         camp.exigeMembro(cid, atual.id());
         Documento d = docs.ler(cid, DocumentoService.MESA);
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("versao", d.getVersao());
+        m.put(VERSAO, d.getVersao());
         m.put("json", d.getConteudo());
         return m;
     }
@@ -78,24 +103,25 @@ public class ConteudoController {
     @GetMapping("/mesa/versao")
     public Map<String, Object> versaoMesa(@PathVariable Long cid) {
         camp.exigeMembro(cid, atual.id());
-        return Map.of("versao", docs.ler(cid, DocumentoService.MESA).getVersao());
+        return Map.of(VERSAO, docs.versao(cid, DocumentoService.MESA));
     }
 
     @PutMapping("/mesa")
-    public ResponseEntity<?> gravarMesa(@PathVariable Long cid, @RequestBody CorpoDoc c) {
+    public ResponseEntity<Object> gravarMesa(@PathVariable Long cid, @RequestBody CorpoDoc c) {
         camp.exigeMestre(cid, atual.id());
         return gravar(cid, DocumentoService.MESA, c);
     }
 
-    private ResponseEntity<?> gravar(Long cid, String chave, CorpoDoc c) {
+    private ResponseEntity<Object> gravar(Long cid, String chave, CorpoDoc c) {
         try {
             long v = docs.gravar(cid, chave, c.json, c.versao == null ? -1 : c.versao);
-            return ResponseEntity.ok(Map.of("versao", v));
-        } catch (DocumentoService.ConflitoException e) {
+            if (DocumentoService.MESA.equals(chave)) eventos.mesaMudou(cid, v);
+            return ResponseEntity.ok(Map.of(VERSAO, v));
+        } catch (DocumentoService.ConflitoException _) {
             Documento d = docs.ler(cid, chave);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("erro", "conflito");
-            m.put("versao", d.getVersao());
+            m.put(VERSAO, d.getVersao());
             m.put("json", d.getConteudo());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(m);
         }
@@ -133,7 +159,7 @@ public class ConteudoController {
     }
 
     @PostMapping("/mural")
-    public ResponseEntity<?> postar(@PathVariable Long cid, @RequestBody CorpoTexto c) {
+    public ResponseEntity<Object> postar(@PathVariable Long cid, @RequestBody CorpoTexto c) {
         camp.exigeMembro(cid, atual.id());
         String t = c.texto == null ? "" : c.texto.trim();
         if (t.isEmpty()) return ResponseEntity.badRequest().body(Map.of("erro", "texto vazio"));
@@ -149,7 +175,7 @@ public class ConteudoController {
     }
 
     @DeleteMapping("/mural/{id}")
-    public ResponseEntity<?> apagarPost(@PathVariable Long cid, @PathVariable Long id) {
+    public ResponseEntity<Object> apagarPost(@PathVariable Long cid, @PathVariable Long id) {
         Papel papel = camp.exigeMembro(cid, atual.id());
         MuralPost p = mural.findById(id).filter(x -> Objects.equals(x.getCampanhaId(), cid)).orElse(null);
         if (p == null) return ResponseEntity.notFound().build();
@@ -179,13 +205,19 @@ public class ConteudoController {
     @PostMapping("/rolagens")
     public Map<String, Object> rolar(@PathVariable Long cid, @RequestBody CorpoRolagem c) {
         /* o botao de dado manda so os lados; a caixa de formula manda o texto */
-        String f = c.formula != null && !c.formula.isBlank() ? c.formula : "1d" + (c.lados == null ? 0 : c.lados);
-        return rolagens.rolar(cid, atual.usuario(), f, c.publica, c.rotulo, c.pedidoId);
+        int lados = c.lados == null ? 0 : c.lados;
+        String f = c.formula != null && !c.formula.isBlank() ? c.formula : "1d" + lados;
+        Map<String, Object> r = rolagens.rolar(cid, atual.usuario(), f, c.publica, c.rotulo, c.pedidoId);
+        /* depois do commit (rolar e transacional e ja voltou): quem recebe o aviso le a rolagem gravada */
+        eventos.rolagemNova(cid, atual.id(), Boolean.TRUE.equals(r.get("publica")));
+        return r;
     }
 
     @PostMapping("/rolagens/pedido")
     public Map<String, Object> pedirTeste(@PathVariable Long cid, @RequestBody CorpoRolagem c) {
-        return rolagens.pedir(cid, atual.usuario(), c.formula, c.rotulo);
+        Map<String, Object> r = rolagens.pedir(cid, atual.usuario(), c.formula, c.rotulo);
+        eventos.rolagemNova(cid, atual.id(), true);
+        return r;
     }
 
     // ---------- anotacoes privadas ----------
@@ -208,7 +240,10 @@ public class ConteudoController {
             x.setUsuarioId(uid);
             return x;
         });
-        a.setTexto(c.texto == null ? "" : c.texto);
+        String texto = c.texto == null ? "" : c.texto;
+        /* sem teto, qualquer membro gravava megas por pedido; 200 mil caracteres sao umas 60 paginas */
+        if (texto.length() > MAX_NOTAS) throw new IllegalArgumentException("as anotações passaram de 200 mil caracteres");
+        a.setTexto(texto);
         a.setAtualizadoEm(Instant.now());
         anotacoes.save(a);
         return Map.of("ok", true);

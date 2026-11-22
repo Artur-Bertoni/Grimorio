@@ -29,7 +29,9 @@ function abrirMaisAbas(b,itens){
   var resto=itens.filter(function(x){ return x.sobra; });
   menuSolto(b,htmlDe("t-menu",{titulo:"Mais seções",itens:resto.map(function(x){ return {v:x.msec||x.id,rot:x.rot,dica:"",perigo:false,desligado:false}; })}),
     function(it){ var x=resto.find(function(r){ return (r.msec||r.id)===it.dataset.v; });
-      S.view=x?x.id:"mesa"; if(x?.msec)S.msec=x.msec; render(); },{alinha:"direita"});
+      S.view=x?x.id:"mesa";
+      if(x?.msec){ S.msec=x.msec; }
+      render(); },{alinha:"direita"});
 }
 /* O mestre tem seis abas: no celular as cinco de sempre ficam na barra e o Mapa vai para o menu
    Mais do topo (abrirMais), sem a aba "Mais", que tiraria a Mesa da barra de baixo. */
@@ -39,7 +41,7 @@ function renderTabs(){
   else if(comMais){
     var atual=itens.findIndex(function(x){ return x.atual; }), vis=[0,1,2,3];
     if(atual>3)vis[3]=atual;
-    itens.forEach(function(x,i){ x.sobra=vis.indexOf(i)<0; });
+    itens.forEach(function(x,i){ x.sobra=!vis.includes(i); });
   }
   t.innerHTML=itens.map(function(x){ return htmlDe("t-aba",x); }).join("")+
     (comMais?htmlDe("t-aba",{id:"mais",ico:"mais",rot:"Mais",atual:false,msec:null}):"");
@@ -99,6 +101,8 @@ function desenhaTela(v,tela){
   catch(error_){
     console.error("tela "+S.view+" falhou:",error_);
     v.innerHTML=htmlDe("t-aba-falhou",{mensagem:String(error_?.message||error_)});
+    /* sem onclick no HTML: a CSP so roda script do proprio site, e handler inline e script inline */
+    var rb=$("#abaRecarrega",v); if(rb)rb.onclick=function(){ location.reload(); };
     return false;
   }
   return true;
@@ -128,9 +132,11 @@ function hydrateSessao(v){
 /* Barra de jogo do celular: cada botao aciona o controle de verdade da sessao (o mesmo id que o
    teste e o tour usam); o painel abre como gaveta e fecha com Esc ou no proprio botao. */
 function ligarBarraSessaoMovel(v){
-  var barra=$(".sessbarra",v); if(!barra)return;
+  var barra=$(".sessbarra",v); if(!barra){ document.body.classList.remove("barras-fora"); return; }
+  barrasAoRolar();
   var bp=$('[data-sb="painel"]',barra), rail=$("#railSessao",v);
   function painel(abre){ document.body.classList.toggle("painel-aberto",abre); bp.setAttribute("aria-expanded",String(abre));
+    if(abre)document.body.classList.remove("barras-fora");
     if(abre){ var f=focaveis(rail)[0]; if(f)f.focus(); } }
   painel(false);
   bp.onclick=function(){ painel(!document.body.classList.contains("painel-aberto")); };
@@ -146,6 +152,27 @@ function ligarBarraSessaoMovel(v){
       if(k==="ed")editarSessao(curSess());
       else if(k==="quadro"){ S.vmode="canvas"; S.vmodeEscolhido=true; render(); }
       else encerrarSessao(); }); };
+}
+/* Na sessao do celular, rolar para baixo tira as barras de baixo da frente e rolar para cima
+   devolve. Elas tambem voltam perto do topo e do fim da pagina, com o painel aberto e quando o
+   foco do teclado entra numa delas. Um ouvinte so, ligado uma vez: fora da sessao ele nao faz nada. */
+var BARRAS_ROLAGEM={ligado:false,y:0};
+function barrasAoRolar(){
+  BARRAS_ROLAGEM.y=scrollY; document.body.classList.remove("barras-fora");
+  if(BARRAS_ROLAGEM.ligado)return;
+  BARRAS_ROLAGEM.ligado=true;
+  addEventListener("scroll",function(){
+    var y=scrollY, dy=y-BARRAS_ROLAGEM.y, b=document.body;
+    if(Math.abs(dy)<8)return;
+    BARRAS_ROLAGEM.y=y;
+    var naSessao=innerWidth<=900&&!!document.querySelector(".sessbarra");
+    var noFim=y+innerHeight>=document.documentElement.scrollHeight-8;
+    var some=naSessao&&dy>0&&y>64&&!noFim&&!b.classList.contains("painel-aberto");
+    b.classList.toggle("barras-fora",some);
+  },{passive:true});
+  document.addEventListener("focusin",function(e){
+    if(e.target.closest?.("nav.tabs,.sessbarra"))document.body.classList.remove("barras-fora");
+  });
 }
 function lembraCena(v,d){
   var id=d.id.replace(/^scn-/,"");
@@ -169,17 +196,26 @@ function devolveFoco(v,mesma,focoSel){
   var h=$("h1",v); if(!h)return;
   h.setAttribute("tabindex","-1"); h.focus({preventScroll:true});
 }
-function render(){
+/* o que precisa ser acertado antes de desenhar: tela que a pessoa nao pode ver, previa de tema
+   esquecida, tempo real do mapa fora do mapa */
+function acertaAntesDeDesenhar(){
   /* a previa de tema da Aparencia so vale enquanto a pessoa esta la */
-  if(TEMA_PREVIA&&S.view!=="ajustes"){ TEMA_PREVIA=null; aplicarTema(temaAtivo()); }
+  if(S.view!=="ajustes"&&largaPrevia())aplicarTema(temaAtivo());
   if(CID&&!GM&&!TELAS_DO_JOGADOR[S.view])S.view="mesa";
   /* o tempo real do mapa so fica ligado com o mapa na tela */
   if(S.view!=="mapa"||!CID)mpDesliga();
   if(S.view==="sessao"&&!curSess())S.view="sessoes";
   /* no celular o quadro nao cabe: a sessao abre no roteiro, a nao ser que a pessoa escolha */
-  if(S.view==="sessao"&&!S.vmodeEscolhido&&window.innerWidth<860)S.vmode="roteiro";
+  if(S.view==="sessao"&&!S.vmodeEscolhido&&window.innerWidth<=900)S.vmode="roteiro";
+}
+/* tela que ocupa a janela inteira, sem rolagem da pagina: o quadro da sessao e o mapa */
+function telaDeQuadro(){
+  return (GM&&S.view==="sessao"&&S.vmode==="canvas"&&!BOOTERR)||(S.view==="mapa"&&!!CID&&!mapaBloqueado());
+}
+function render(){
+  acertaAntesDeDesenhar();
   renderTabs();
-  var v=$("#view"), board=(GM&&S.view==="sessao"&&S.vmode==="canvas"&&!BOOTERR)||(S.view==="mapa"&&!!CID&&!mapaBloqueado());
+  var v=$("#view"), board=telaDeQuadro();
   marcaCorpo(v,board);
   pintarMarca();
   var chave=chaveDaTela(), y=window.scrollY||0, mesma=(chave===ULT); ULT=chave;

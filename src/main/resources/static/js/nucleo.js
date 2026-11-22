@@ -177,9 +177,39 @@ function refreshMesa(){ if(!PRONTO)return;
     if(S.msec==="fichas")return;
     var b=$("#mbody"); if(!b)return;
     try{ b.innerHTML=mesaSec(); hydrateMesa(); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ } },300); }
-function sondaMesa(){ clearInterval(sondaT);
-  sondaT=setInterval(function(){ if(document.hidden||!CID)return;
-    api(cAPI("/mesa/versao")).then(function(r){
+/* Aviso do servidor (SSE, /api/c/{id}/eventos): "a mesa mudou", "saiu rolagem". Com ele aberto a
+   pergunta de 6 em 6 segundos vira reserva, uma a cada minuto; sem ele (proxy que guarda o fluxo,
+   erro repetido) a pergunta volta ao ritmo de sempre. O evento nao traz conteudo: a tela le pelas
+   rotas de sempre, que fazem o corte mestre/jogador. */
+var AVISOS={es:null,cid:null,ok:false,voltas:0,tique:0,pausa:0,pausaCid:null};
+function avisosAoVivo(){ return AVISOS.ok&&AVISOS.cid===CID; }
+function desligaAvisos(){ if(AVISOS.es)AVISOS.es.close(); AVISOS.es=null; AVISOS.cid=null; AVISOS.ok=false; }
+function ligaAvisos(){
+  if(AVISOS.es&&AVISOS.cid===CID)return;
+  desligaAvisos();
+  if(!CID||typeof EventSource==="undefined")return;
+  /* depois de desistir, so tenta de novo em 5 minutos: a reserva cobre o intervalo */
+  if(AVISOS.pausaCid===CID&&Date.now()<AVISOS.pausa)return;
+  var es=new EventSource(cAPI("/eventos"));
+  AVISOS.es=es; AVISOS.cid=CID; AVISOS.voltas=0;
+  es.addEventListener("campanha",function(ev){
+    if(AVISOS.es!==es)return;
+    AVISOS.ok=true; AVISOS.voltas=0;
+    var d=null; try{ d=JSON.parse(ev.data); }catch(error_){ d=null; /* evento ilegivel: a reserva rele */ }
+    if(!d)return;
+    /* "ola" chega a cada (re)conexao: o que mudou enquanto a conexao estava caida entra aqui */
+    if(d.tipo==="ola"||(d.tipo==="mesa"&&d.versao!==VMESA))puxaMesa();
+    if(d.tipo==="ola"||d.tipo==="rolagem")puxaRolagens(true);
+  });
+  es.onerror=function(){
+    if(AVISOS.es!==es)return;
+    AVISOS.ok=false; AVISOS.voltas++;
+    if(es.readyState===2||AVISOS.voltas>=4){ AVISOS.pausa=Date.now()+300000; AVISOS.pausaCid=CID; desligaAvisos(); }
+  };
+}
+function puxaMesa(){
+  if(!CID)return Promise.resolve();
+  return api(cAPI("/mesa/versao")).then(function(r){
       if(!r||r.versao===VMESA)return;
       return api(cAPI("/mesa")).then(function(m){ VMESA=m.versao;
         var antes=idsMesa(), vz=MESA.ini?MESA.ini.vez+"/"+MESA.ini.rodada:"", ra=MESA.ini?MESA.ini.rodada:0;
@@ -188,8 +218,15 @@ function sondaMesa(){ clearInterval(sondaT);
         if(!GM&&MESA.ini&&(MESA.ini.vez+"/"+MESA.ini.rodada)!==vz)som("vez");
         /* quem nao esta na tela do mapa (que recebe o aviso na hora) fica sabendo do turno novo por aqui */
         if(!GM&&MESA.ini&&MESA.ini.rodada!==ra)mpAvisaTurno(MESA.ini.rodada); });
-    }).catch(function(){});
-    puxaRolagens(true); },6000); }
+    }).catch(function(){ /* a proxima volta tenta de novo */ });
+}
+function sondaMesa(){ clearInterval(sondaT); ligaAvisos();
+  sondaT=setInterval(function(){
+    if(!CID){ desligaAvisos(); return; }
+    if(document.hidden)return;
+    ligaAvisos();
+    if(avisosAoVivo()&&(++AVISOS.tique%10))return;
+    puxaMesa(); puxaRolagens(true); },6000); }
 
 /* Le o JSON do guia e decide se ele entra em D; devolve o motivo quando nao entra. O boot e o
    "Tentar de novo" passam os dois por aqui: guia num formato anterior nunca pode chegar a D,

@@ -55,7 +55,7 @@ function mpPinta(){
   ctx.setTransform(c.dpr,0,0,c.dpr,0,0);
   ctx.fillStyle=cor.fundo; ctx.fillRect(0,0,c.w,c.h);
   if(!m||!c.w){ return; }
-  if(v.novo){ v.novo=false; mpEnquadra(true); }
+  if(v.novo){ v.novo=false; mpEnquadra(true); mpCentralizaNoMeu(); }
   ctx.translate(v.x,v.y); ctx.scale(v.z,v.z);
   var W=m.largura, H=m.altura;
   ctx.fillStyle=cor.area; ctx.fillRect(0,0,W,H);
@@ -512,10 +512,10 @@ function mpAxial(h){ return {q:h.i-(h.j-((h.j%2+2)%2))/2,r:h.j}; }
 function mpEnquadra(semDesenhar){
   var m=MP.mapa;
   if(!MPC||!m||!MPC.w){ return; }
-  var v=mpVista(), inteiro=v.modo==="inteiro", pad=inteiro?24:0, w=MPC.w-mpLarguraDoPainel();
+  var v=mpVista(), inteiro=v.modo==="inteiro", pad=inteiro?24:0, esq=mpLarguraDasFerramentas(), w=MPC.w-mpLarguraDoPainel()-esq;
   var kx=(w-pad*2)/m.largura, ky=(MPC.h-pad*2)/m.altura;
   v.z=Math.min(MP_ZOOM_MAX,Math.max(MP_ZOOM_MIN,inteiro?Math.min(kx,ky):Math.max(kx,ky)));
-  v.x=(w-m.largura*v.z)/2; v.y=(MPC.h-m.altura*v.z)/2;
+  v.x=esq+(w-m.largura*v.z)/2; v.y=(MPC.h-m.altura*v.z)/2;
   if(!semDesenhar){ mpDesenha(); }
 }
 /* na tela larga o painel aberto cobre a direita do mapa: enquadrar usa so o que sobra. No
@@ -527,9 +527,26 @@ function mpAlternaEnquadre(){
   var b=$('[data-mpz="0"]');
   if(b){ var t=v.modo==="inteiro"?"Preencher a tela com o "+vmin("mapa"):"Ver o "+vmin("mapa")+" inteiro"; b.title=t+" (0)"; b.setAttribute("aria-label",t); }
 }
+/* A coluna de ferramentas flutua sobre a esquerda do mapa: enquadrar comeca depois dela, senao o
+   que estava no canto (no celular, o proprio token do jogador) nascia escondido embaixo dos botoes. */
+function mpLarguraDasFerramentas(){
+  var f=MPC?.wrap.querySelector(".cvtools:not(.mpdesenho)");
+  if(!f?.offsetWidth){ return 0; }
+  var r=f.getBoundingClientRect(), w=MPC.wrap.getBoundingClientRect();
+  return r.left-w.left<w.width/2?Math.round(r.right-w.left)+8:0;
+}
+/* Na abertura, o jogador ve primeiro o proprio personagem: com um token dele no mapa, a vista
+   centraliza nele (no mesmo zoom do enquadramento). Sem token, fica o enquadramento. */
+function mpCentralizaNoMeu(){
+  if(GM||!MPC){ return; }
+  var el=MP.els.find(function(e){ return e.tipo==="TOKEN"&&e.meu; });
+  if(!el){ return; }
+  var v=mpVista(), b=mpBBox(el), esq=mpLarguraDasFerramentas();
+  v.x=esq+(MPC.w-mpLarguraDoPainel()-esq)/2-(b.x0+b.x1)/2*v.z; v.y=MPC.h/2-(b.y0+b.y1)/2*v.z;
+}
 function mpLarguraDoPainel(){
   var p=$("#mpPainel");
-  if(!p||p.hidden||window.innerWidth<900){ return 0; }
+  if(!p||p.hidden||window.innerWidth<=900){ return 0; }
   return p.offsetWidth+16;
 }
 function mpZoom(fator,cx,cy){
@@ -539,8 +556,8 @@ function mpZoom(fator,cx,cy){
 }
 function mpCentraliza(el){
   if(!MPC||!el){ return; }
-  var v=mpVista(), b=mpBBox(el);
-  v.x=(MPC.w-mpLarguraDoPainel())/2-(b.x0+b.x1)/2*v.z; v.y=MPC.h/2-(b.y0+b.y1)/2*v.z;
+  var v=mpVista(), b=mpBBox(el), esq=mpLarguraDasFerramentas();
+  v.x=esq+(MPC.w-mpLarguraDoPainel()-esq)/2-(b.x0+b.x1)/2*v.z; v.y=MPC.h/2-(b.y0+b.y1)/2*v.z;
   mpDesenha();
 }
 function mpMede(){

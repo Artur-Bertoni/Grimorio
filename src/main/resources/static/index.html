@@ -58,7 +58,7 @@
 </header>
 
 <main id="view" tabindex="-1" aria-live="off"></main>
-<footer class="rodape" id="rodape"><span>© <span id="rdAno"></span> Grimório · Todos os direitos reservados</span>
+<footer class="rodape" id="rodape">
   <nav class="rdlinks" aria-label="Rodapé"><a href="/privacidade" target="_blank" rel="noopener">Privacidade</a><a href="/termos" target="_blank" rel="noopener">Termos de uso</a><button type="button" class="rdsup" id="rdSup">Falar com o suporte</button></nav></footer>
 <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
 <div class="sr-only" id="anuncio" role="status" aria-live="polite"></div>
@@ -66,13 +66,6 @@
 <div id="layer"></div>
 <div id="fantasmas" aria-hidden="true"></div>
 
-<!-- pdf.js so existe como modulo ES: este e o unico script nao classico. Ele roda depois dos
-     classicos, mas so e usado quando a pessoa abre um PDF, nunca ao carregar. -->
-<script type="module">
-import * as pdfjs from "./vendor/pdf.min.mjs";
-pdfjs.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.mjs";
-window.pdfjsLib = pdfjs;
-</script>
 <!-- a ordem importa: cada arquivo usa o que os anteriores declararam (o mapa vem antes de rotas.js, que le MP) -->
 <script src="vendor/petite-vue.js"></script>
 <script src="js/nucleo.js"></script>

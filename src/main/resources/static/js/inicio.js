@@ -17,7 +17,6 @@ $("#btnTrilha").onclick=function(){ abrirTrilha(); };
 $("#btnDados").onclick=function(){ abrirDados(); };
 $("#btnRol").onclick=function(){ painelRolagens(); };
 $("#rdSup").onclick=function(){ abrirSuporte(); };
-$("#rdAno").textContent=new Date().getFullYear();
 $("#nbName").onclick=function(){ abrirTrilha(); };
 $("#nbPlay").onclick=function(){
   if(!PL.cur){ return; }

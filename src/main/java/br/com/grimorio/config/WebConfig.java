@@ -10,7 +10,10 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import org.springframework.http.CacheControl;
+
 import java.nio.file.Path;
+import java.time.Duration;
 import java.nio.file.Paths;
 
 /**
@@ -44,9 +47,14 @@ public class WebConfig implements WebMvcConfigurer {
            numa instancia nova (pasta criada depois, no boot) nenhuma midia era servida ate reiniciar. */
         try { java.nio.file.Files.createDirectories(dir); }
         catch (java.io.IOException e) { throw new IllegalStateException("nao consegui criar a pasta de midia " + dir, e); }
+        /* private: a midia e da campanha (PDF so de mestre, audio nunca para jogador). Sem isso um
+           proxy compartilhado no caminho podia guardar o arquivo e entrega-lo a outra pessoa.
+           Um dia, nao trinta: o PDF pode ser trocado no mesmo caminho (volume + Reescanear), e
+           depois do prazo o navegador so pergunta (Last-Modified, 304). Imagem sai pelo
+           MiniaturaController, com prazo proprio. */
         registry.addResourceHandler("/midia/**")
                 .addResourceLocations(dir.toUri().toString())
-                .setCachePeriod(60 * 60 * 24 * 30);
+                .setCacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate());
     }
 
     /**

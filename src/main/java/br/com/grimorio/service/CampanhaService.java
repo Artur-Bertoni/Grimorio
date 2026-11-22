@@ -16,13 +16,17 @@ public class CampanhaService {
     private final MembroRepo membros;
     private final ConviteRepo convites;
     private final UsuarioRepo usuarios;
+    private final DocumentoRepo documentos;
+
+    private static final SecureRandom SORTE = new SecureRandom();
 
     public CampanhaService(CampanhaRepo campanhas, MembroRepo membros,
-                           ConviteRepo convites, UsuarioRepo usuarios) {
+                           ConviteRepo convites, UsuarioRepo usuarios, DocumentoRepo documentos) {
         this.campanhas = campanhas;
         this.membros = membros;
         this.convites = convites;
         this.usuarios = usuarios;
+        this.documentos = documentos;
     }
 
     /** Estourada quando o usuario nao pode fazer aquilo naquela campanha. */
@@ -30,38 +34,36 @@ public class CampanhaService {
         public SemAcessoException(String m) { super(m); }
     }
 
-    @Transactional(readOnly = true)
+    /* As conferencias abaixo sao uma leitura de repositorio cada (o repositorio ja e transacional) e
+       sao chamadas de dentro dos metodos transacionais desta classe: @Transactional nelas nao fazia nada. */
     public Campanha porId(Long id) {
         return campanhas.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("campanha nao encontrada"));
     }
 
-    @Transactional(readOnly = true)
     public Optional<Papel> papelDe(Long campanhaId, Long usuarioId) {
         return membros.findByCampanhaIdAndUsuarioId(campanhaId, usuarioId).map(Membro::getPapel);
     }
 
     /** Exige que o usuario seja membro. Devolve o papel dele. */
-    @Transactional(readOnly = true)
     public Papel exigeMembro(Long campanhaId, Long usuarioId) {
         return papelDe(campanhaId, usuarioId)
                 .orElseThrow(() -> new SemAcessoException("voce nao participa desta campanha"));
     }
 
-    @Transactional(readOnly = true)
     public void exigeMestre(Long campanhaId, Long usuarioId) {
         if (exigeMembro(campanhaId, usuarioId) != Papel.MESTRE)
             throw new SemAcessoException("so o mestre da campanha faz isso");
     }
 
-    @Transactional(readOnly = true)
     public void exigeDono(Long campanhaId, Long usuarioId) {
         Campanha c = porId(campanhaId);
         if (!Objects.equals(c.getDonoId(), usuarioId))
             throw new SemAcessoException("so quem criou a campanha faz isso");
     }
 
-    @Transactional(readOnly = true)
+    /* nao e so leitura: campanha de antes da coluna calcula a sessao do cartao uma vez, aqui */
+    @Transactional
     public List<Map<String, Object>> minhas(Long usuarioId) {
         List<Membro> meus = membros.findByUsuarioId(usuarioId);
         if (meus.isEmpty()) return List.of();
@@ -80,9 +82,24 @@ public class CampanhaService {
             m.put("arquivada", c.isArquivada());
             m.put("dono", Objects.equals(c.getDonoId(), usuarioId));
             m.put("papel", papeis.get(c.getId()).name());
+            m.put("sessao", sessaoDoCartao(c, papeis.get(c.getId())));
             out.add(m);
         }
         return out;
+    }
+
+    /* Quem mestra ve a sessao do guia; quem joga, a da mesa (o guia nao e dele). Nulo na coluna e
+       campanha que ainda nao gravou nada desde que ela existe: le o documento uma vez e guarda. */
+    private String sessaoDoCartao(Campanha c, Papel papel) {
+        boolean mestre = papel == Papel.MESTRE;
+        String s = mestre ? c.getSessaoGuia() : c.getSessaoMesa();
+        if (s != null) return s;
+        String conteudo = documentos.findByCampanhaIdAndChave(c.getId(), mestre ? DocumentoService.GUIA : DocumentoService.MESA)
+                .map(Documento::getConteudo).orElse("");
+        s = mestre ? UltimaSessao.doGuia(conteudo) : UltimaSessao.daMesa(conteudo);
+        if (mestre) c.setSessaoGuia(s);
+        else c.setSessaoMesa(s);
+        return s;
     }
 
     @Transactional
@@ -99,19 +116,21 @@ public class CampanhaService {
         return c;
     }
 
+    /** O que a tela mudou na campanha; campo nulo fica como esta. */
+    public record Edicao(String nome, String sistema, String descricao, String tema,
+                         Boolean arquivada, String capa, Boolean rolagensAbertas) { }
+
     @Transactional
-    public void editar(Long campanhaId, Long usuarioId, String nome, String sistema,
-                       String descricao, String tema, Boolean arquivada, String capa,
-                       Boolean rolagensAbertas) {
+    public void editar(Long campanhaId, Long usuarioId, Edicao e) {
         exigeMestre(campanhaId, usuarioId);
         Campanha c = porId(campanhaId);
-        if (nome != null && !nome.isBlank()) c.setNome(nome.trim());
-        if (sistema != null) c.setSistema(sistema.trim());
-        if (descricao != null) c.setDescricao(descricao.trim());
-        if (tema != null && !tema.isBlank()) c.setTema(tema.trim());
-        if (arquivada != null) c.setArquivada(arquivada);
-        if (capa != null) c.setCapa(capaValida(capa));
-        if (rolagensAbertas != null) c.setRolagensAbertas(rolagensAbertas);
+        if (e.nome() != null && !e.nome().isBlank()) c.setNome(e.nome().trim());
+        if (e.sistema() != null) c.setSistema(e.sistema().trim());
+        if (e.descricao() != null) c.setDescricao(e.descricao().trim());
+        if (e.tema() != null && !e.tema().isBlank()) c.setTema(e.tema().trim());
+        if (e.arquivada() != null) c.setArquivada(e.arquivada());
+        if (e.capa() != null) c.setCapa(capaValida(e.capa()));
+        if (e.rolagensAbertas() != null) c.setRolagensAbertas(e.rolagensAbertas());
         campanhas.save(c);
     }
 
@@ -131,9 +150,13 @@ public class CampanhaService {
     public List<Map<String, Object>> membrosDe(Long campanhaId, Long usuarioId) {
         exigeMembro(campanhaId, usuarioId);
         Campanha c = porId(campanhaId);
+        List<Membro> lista = membros.findByCampanhaIdOrderByPapelAscIdAsc(campanhaId);
+        /* as contas numa consulta so, em vez de uma por membro */
+        Map<Long, Usuario> contas = new HashMap<>();
+        usuarios.findAllById(lista.stream().map(Membro::getUsuarioId).toList()).forEach(u -> contas.put(u.getId(), u));
         List<Map<String, Object>> out = new ArrayList<>();
-        for (Membro m : membros.findByCampanhaIdOrderByPapelAscIdAsc(campanhaId)) {
-            Usuario u = usuarios.findById(m.getUsuarioId()).orElse(null);
+        for (Membro m : lista) {
+            Usuario u = contas.get(m.getUsuarioId());
             if (u == null) continue;
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("usuarioId", u.getId());
@@ -185,7 +208,7 @@ public class CampanhaService {
         c.setCampanhaId(campanhaId);
         c.setPapel(papel == null ? Papel.JOGADOR : papel);
         c.setRotulo(rotulo == null ? "" : rotulo.trim());
-        c.setUsosMax(Math.max(1, Math.min(50, usosMax)));
+        c.setUsosMax(Math.clamp(usosMax, 1, 50));
         if (diasValidade != null && diasValidade > 0)
             c.setExpiraEm(Instant.now().plusSeconds(86400L * diasValidade));
         c.setToken(token());
@@ -206,10 +229,17 @@ public class CampanhaService {
                 .ifPresent(convites::delete);
     }
 
+    /** O convite existe e ainda vale? O cadastro confere isto antes de criar a conta. */
+    @Transactional(readOnly = true)
+    public boolean conviteValido(String token) {
+        if (token == null || token.isBlank()) return false;
+        return convites.findByToken(token.trim()).filter(Convite::valido).isPresent();
+    }
+
     /** Devolve a campanha em que a pessoa entrou. */
     @Transactional
     public Campanha aceitarConvite(String token, Long usuarioId) {
-        Convite c = convites.findByToken(token == null ? "" : token.trim())
+        Convite c = convites.travarPorToken(token == null ? "" : token.trim())
                 .orElseThrow(() -> new IllegalArgumentException("convite nao encontrado"));
         if (!c.valido()) throw new IllegalArgumentException("esse convite expirou ou ja foi usado");
         Campanha camp = porId(c.getCampanhaId());
@@ -223,9 +253,8 @@ public class CampanhaService {
 
     private String token() {
         String abc = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        SecureRandom r = new SecureRandom();
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 22; i++) sb.append(abc.charAt(r.nextInt(abc.length())));
+        for (int i = 0; i < 22; i++) sb.append(abc.charAt(SORTE.nextInt(abc.length())));
         return sb.toString();
     }
 }

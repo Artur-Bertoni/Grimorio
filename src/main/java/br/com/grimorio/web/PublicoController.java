@@ -1,12 +1,11 @@
 package br.com.grimorio.web;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import br.com.grimorio.config.AppProps;
+import br.com.grimorio.service.Freio;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import br.com.grimorio.service.SuporteService;
 import br.com.grimorio.service.TextosService;
@@ -37,12 +37,16 @@ public class PublicoController {
     private final UsuarioService usuarios;
     private final SuporteService email;
     /* freio contra quem usa o "esqueci a senha" para encher a caixa de alguem */
-    private final Map<String, Deque<Instant>> pedidos = new ConcurrentHashMap<>();
+    private final Freio freio;
+    private final AppProps props;
 
-    public PublicoController(TextosService textos, UsuarioService usuarios, SuporteService email) {
+    public PublicoController(TextosService textos, UsuarioService usuarios, SuporteService email,
+                             Freio freio, AppProps props) {
         this.textos = textos;
         this.usuarios = usuarios;
         this.email = email;
+        this.freio = freio;
+        this.props = props;
     }
 
     @GetMapping("/texto/{chave}")
@@ -64,10 +68,16 @@ public class PublicoController {
     public Map<String, Object> esqueci(@RequestBody Esqueci p) {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("porEmail", email.envioConfigurado());
-        String chave = p.conta == null ? "" : p.conta.trim().toLowerCase();
-        if (!email.envioConfigurado() || chave.isEmpty() || excedeu(chave)) return r;
+        String chave = p.conta == null ? "" : p.conta.trim().toLowerCase(Locale.ROOT);
+        if (!email.envioConfigurado() || chave.isEmpty()
+                || freio.excedeu("esqueci:" + chave, PEDIDOS_POR_HORA, Duration.ofHours(1))) return r;
         usuarios.pedirRedefinicao(chave).ifPresent(par -> {
-            String link = ServletUriComponentsBuilder.fromCurrentContextPath()
+            String base = props.urlPublicaResolvida();
+            if (base.isEmpty()) {
+                log.warn("Link de redefinicao montado pelo endereco do pedido: defina URL_PUBLICA para nao depender do cabecalho Host");
+                base = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+            }
+            String link = UriComponentsBuilder.fromUriString(base)
                     .path("/paginas/login.html").queryParam("redefinir", par.getValue()).toUriString();
             try {
                 email.enviarPara(par.getKey().getEmail(), "[Grimório] Redefinir a senha",
@@ -81,15 +91,6 @@ public class PublicoController {
             }
         });
         return r;
-    }
-
-    private boolean excedeu(String chave) {
-        Instant agora = Instant.now(), corte = agora.minus(Duration.ofHours(1));
-        Deque<Instant> fila = pedidos.computeIfAbsent(chave, k -> new ConcurrentLinkedDeque<>());
-        while (!fila.isEmpty() && fila.peekFirst().isBefore(corte)) fila.pollFirst();
-        if (fila.size() >= PEDIDOS_POR_HORA) return true;
-        fila.addLast(agora);
-        return false;
     }
 
     public static class Redefinir {

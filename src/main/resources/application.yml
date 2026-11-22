@@ -20,6 +20,15 @@ server:
 
 spring:
   web:
+    # Sem isto o Spring Security marcava todo estatico como no-store, e cada abertura do app
+    # baixava de novo os ~50 JS e CSS, os templates, as fontes e o pdf.js (~480 KB). no-cache guarda
+    # e so pergunta se mudou (304 pelo Last-Modified): os arquivos nao levam hash no nome, entao
+    # guardar sem perguntar (max-age) deixaria alguem com o JS velho depois de um deploy.
+    resources:
+      cache:
+        use-last-modified: true
+        cachecontrol:
+          no-cache: true
     error:
       whitelabel:
         enabled: false
@@ -49,6 +58,8 @@ spring:
 grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}
   suporte-email: ${SUPORTE_EMAIL:artur_b_santos@hotmail.com}
+  # endereco dos links que vao por e-mail; vazio usa o RAILWAY_PUBLIC_DOMAIN (ver AppProps)
+  url-publica: ${URL_PUBLICA:}
 
 logging:
   level:

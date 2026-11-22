@@ -1,8 +1,11 @@
 # Grimório
 
 Painel de mesa de RPG, agnóstico de sistema. Uma instância serve várias campanhas e
-vários mestres. Spring Boot 4.1 / Java 25 no backend, HTML + JS puro no front,
+vários mestres. Spring Boot 4.2 / Java 25 no backend, HTML + JS puro no front,
 PostgreSQL em produção e H2 em arquivo no local, deploy no Railway por Dockerfile.
+
+A 4ª rodada (front e backend auditados, e depois tudo o que era código aplicado) está em
+`docs/auditoria-rodada-4.md`.
 
 O `README.md` é para quem vai subir uma instância. Este arquivo é para quem mexe no
 código: é o que não dá para descobrir lendo os arquivos, e principalmente o que já
@@ -39,10 +42,17 @@ src/main/java/br/com/grimorio/
   model/      Usuario, Campanha, Membro, Convite, Documento, Anotacao,
               MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado
   repo/       um repositório Spring Data por entidade
-  service/    CampanhaService, DocumentoService, MidiaService, IndiceService,
-              PacoteService, ModeloService, UsuarioService, ConfigService, IaService,
-              RolagemService, SuporteService,
-              MapaService, MapaPacote (e MapaRegras, MapaMedida, MapaParedes, MapaNevoa, MapaVisao, MapaTiles)
+  service/    CampanhaService, DocumentoService (e UltimaSessao), MidiaService (e ArmazenamentoMidia,
+              IndexadorPdf), IndiceService, PacoteService, ModeloService, UsuarioService,
+              ConfigService, IaService, RolagemService, SuporteService,
+              CanalSse (MapaEventos, CampanhaEventos), MapaService, MapaPacote
+              (e MapaRegras, MapaMedida, MapaParedes, MapaNevoa, MapaVisao, MapaTiles)
+              MapaService é a porta do mapa e onde se confere quem pede (mestre ou jogador);
+              o resto mora ao lado: MapaBase (a trava de cada mapa, permissões, JSON de saída),
+              MapaAvisos (o que sai pelo SSE e para quem), MapaMovimento, MapaDesfazer,
+              MapaIniciativa e MapaVida (token e ficha). Operação nova no mapa usa MapaBase.travado.
+              MidiaService cataloga; gravar no volume (hash, hard link, espaço) é de
+              ArmazenamentoMidia, e ler o PDF para a busca é de IndexadorPdf.
   web/        um controller por área, todos sob /api
 src/main/resources/
   static/index.html   a casca: marcação fixa, e a lista ordenada de css/ e js/
@@ -59,6 +69,7 @@ src/main/resources/
                       componentes, camadas, tema, tour (guias), musica, cena, pagina-*, configuracoes,
                       rotas, render…)
   static/paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
+  static/publico/     o JS das páginas públicas (tema, login, legal): a CSP não aceita script inline
   static/icones/, favicon.ico, manifest.webmanifest, robots.txt   gerados por scripts/teste-front/icones.mjs
   static/vendor/      pdf.js (módulos .mjs), petite-vue e as fontes, para não depender de CDN
   application.yml
@@ -69,8 +80,9 @@ bundler, framework nem TypeScript sem combinar: o jar sobe sem passo de build de
 Três regras seguram a divisão em arquivos:
 
 - **A ordem das tags em `index.html` é a ordem de execução.** Todo arquivo é script
-  clássico (a única exceção é o pdf.js, que só existe como módulo ES: um `<script type="module">` inline
-  põe `window.pdfjsLib` e o worker; ele roda depois dos clássicos, então só use `pdfjsLib` dentro de função) com `"use strict"` no topo, e os nomes de topo de todos eles dividem o mesmo
+  clássico (a única exceção é o pdf.js, que só existe como módulo ES e só desce quando alguém abre
+  um PDF: peça com `await carregaPdfjs()`, em `js/pdf.js`, que devolve o módulo com o worker
+  apontado; não volte a importá-lo no `index.html`) com `"use strict"` no topo, e os nomes de topo de todos eles dividem o mesmo
   escopo global. Código que *roda ao carregar* só pode usar o que arquivos anteriores
   declararam; dentro de funções, qualquer nome serve. `inicio.js` é o último e dá a partida.
 - **Nome de topo novo não pode repetir nome do navegador** (`name`, `status`, `open`,
@@ -112,7 +124,9 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
   `--s-1`…`--s-8` (base de 4px), canto é `--r-xs`/`--rb`/`--rc`/`--r-pill`, sombra é `--e1`
   (cartão) / `--e2` (menu, painel, aviso) / `--e3` (janela), camada é `--z-*` e tempo é
   `--dur-1/2/3` com `--ease`. Tudo em `css/tokens.css` (as sombras em `pele.css`, porque dependem
-  de `--sh`). Efeito longo de momento ou de tema fica fora da escala de propósito.
+  de `--sh`). Efeito longo de momento ou de tema fica fora da escala de propósito. Ponto de quebra
+  só 360, 600, 900 e 1280, sempre `max-width` (o JS usa `innerWidth<=900`); a escala está comentada
+  em `tokens.css`. Entrelinha é `--lh-*`, espaçamento de letra `--tr-*` e peso `--fw-*`.
 - **Botão, aba, campo, chip e aviso moram só em `controles.css`.** Quatro variantes (`.btn`,
   `.btn.sec`, `.btn.dang`, `.btn.fant`) em três alturas (40, 32, 24px); o pequeno ganha área de
   toque invisível. Não crie outra classe de botão: use uma variante e um tamanho (`.btn.m`).
@@ -145,8 +159,10 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
   `TITULO_DA_TELA`. `render()` também devolve o foco ao mesmo controle no redesenho
   (`seletorEstavel`: id ou `data-*`) e leva o foco ao `h1` na troca de tela.
 - **No celular, a sessão tem barra de jogo** (`.sessbarra`: Painel, Iniciativa, Liberar e ⋯) acima
-  das abas, e o painel abre como gaveta; cada botão aciona o controle de verdade (`#iniBtn`,
-  `#libBtn`), que continua existindo. Configurações abaixo de 1000px é uma lista de seções, cada
+  das abas, e o painel abre como gaveta. Rolando para baixo as duas barras descem para fora da tela e
+  voltam ao rolar para cima, perto do topo e do fim, com o painel aberto ou com o foco numa delas
+  (`barrasAoRolar`, classe `barras-fora` no `body`); cada botão aciona o controle de verdade (`#iniBtn`,
+  `#libBtn`), que continua existindo. Configurações até 900px é uma lista de seções, cada
   uma numa tela com voltar (`S.aj` vazio é a lista). Na tela larga a grade da Campanha se acomoda
   por `arranjaGrade()` enquanto o navegador não tiver `masonry`. Painel solto (quadro, rolagens)
   tem o botão "Posição e tamanho" (`menuPainel`) como alternativa ao arraste.
@@ -180,6 +196,11 @@ O front guarda o guia na variável `D` e a mesa em `MESA`. Mexeu em `D`, chame
 `save()`; mexeu em `MESA`, chame `salvarMesa()`. Os dois fazem debounce e PUT com
 versão; em 409 relêem a versão e repetem uma vez.
 
+**O cartão da lista de campanhas mostra a sessão da vez** sem abrir os documentos: cada gravação do guia
+ou da mesa (`DocumentoService.gravar`) resume a última sessão encerrada, ou a próxima, em
+`campanha.sessao_guia` e `sessao_mesa` (`UltimaSessao`), e `/api/campanhas` manda a do papel de quem
+pede. Coluna nula é campanha de antes delas: a lista calcula uma vez e guarda.
+
 A mesa também carrega o que o jogador precisa para as partes de jogo: `tema` (o tema
 sugerido pelo mestre), `ini` (o espelho público da iniciativa, com NPC oculto virando
 "???") e `fichaModelo`/`fichaFormula` (os campos e a rolagem das fichas). `aplicaMesa()`
@@ -198,13 +219,13 @@ segundo plano, as cópias iguais que ficaram de antes. Duas regras seguram isso:
 
 - **Nunca reescreva um arquivo de mídia no lugar** (`Files.write` num caminho existente):
   se ele for um link, a mudança aparece em todas as campanhas que o compartilham. Trocar
-  arquivo é sempre gravar ao lado e mover por cima, como faz `gravarCompartilhado()`.
+  arquivo é sempre gravar ao lado e mover por cima, como faz `ArmazenamentoMidia.gravar()`.
 - Volume que não aceita hard link cai para cópia comum, com aviso no log; nada quebra, só
   não economiza.
   O boot testa o volume e escreve no log se ele aceita hard link. Isso só aparece para o
   administrador da instância (Administração › Armazenamento, via `/api/admin/sistema`); nada
   sobre compartilhamento ou espaço economizado aparece para mestre ou jogador.
-- PDF repetido não é reprocessado: `copiarIndiceDoGemeo()` copia o índice de busca da cópia
+- PDF repetido não é reprocessado: `IndexadorPdf.copiarIndiceDoGemeo()` copia o índice de busca da cópia
   já indexada, trocando sigla, nome e `publico` para a campanha que recebe.
 
 Antes de gravar, o servidor confere o espaço livre. Sem espaço, ainda aceita conteúdo que já
@@ -250,6 +271,15 @@ tela:
   o jogador. Rolagem não vai para o mural, de propósito: ela tem o painel próprio
   (`painelRolagens()`). Pedido de teste do mestre é uma linha da mesma tabela com
   `pedido = true`.
+- **Aviso em tempo real da campanha** (`/api/c/{cid}/eventos`, `CampanhaEventos`): SSE que só diz
+  "a mesa mudou" (com a versão) e "saiu rolagem", nunca o conteúdo; a tela lê pelas rotas de sempre.
+  Rolagem fechada de outra pessoa não gera aviso para o jogador. Com o fluxo aberto, a pergunta de 6 em
+  6 s vira reserva de 1 por minuto (`avisosAoVivo()`, em `nucleo.js`); sem ele, volta ao ritmo
+  normal. Mapa e campanha dividem `CanalSse`: papel conferido no banco a cada envio e uma fila de
+  envio por pessoa (thread virtual), para uma conexão travada não segurar as outras. Mudança nova que
+  o jogador precisa ver na hora publica ali, depois do commit.
+- **CSP com `script-src self unsafe-eval`**: nenhum `<script>` inline nem `onclick=` em HTML
+  (ligue o evento no JS). O `unsafe-eval` existe só pelo `new Function` do petite-vue.
 - Ficha (`/api/c/{cid}/fichas`): o jogador só enxerga as suas; ficha de outra pessoa
   responde 404, não 403. O mestre vê e edita todas.
   O pacote leva as fichas; na importação elas entram em nome de quem importou, com o dono
@@ -259,6 +289,24 @@ tela:
   promover ou rebaixar alguém (pela tela ou direto no banco) só valia depois de um novo login.
 - 403 sempre tem corpo com `codigo`: `csrf` (a tela pede token novo em `/api/ping` e repete o
   pedido uma vez, em `api()` e `upload()`) ou `proibido`.
+- **Conta desativada perde a sessão no pedido seguinte.** `ContaDoPedido` (filtro na cadeia de
+  segurança) carrega a conta uma vez por pedido em `/api` e `/midia`, responde 401
+  `conta-desativada` se ela foi desativada ou apagada, e guarda a conta no pedido: `Atual.usuario()`
+  lê dali. Não busque a conta de novo no banco dentro do mesmo pedido.
+- **Login sobrevive a deploy pelo cookie `GRIMORIO_LEMBRAR`** (remember-me do Spring Security,
+  assinado com a chave `seguranca.lembrar` da tabela `config`, gerada no primeiro boot). A sessão do
+  Tomcat continua na memória e morre a cada deploy; o cookie reabre. Trocar a chave desloga todas
+  as contas; trocar a senha invalida os cookies daquela conta.
+- **Freio de tentativas** (`service/Freio`, na memória): senha errada (`FreioDeLogin`: 5 por conta+IP,
+  30 por IP, 20 por conta, em 15 min, responde 429 `muitas-tentativas` com `Retry-After`), cadastro
+  (10 por IP por hora) e "esqueci a senha" (5 por conta por hora). O IP vem do `X-Forwarded-For`,
+  que o cliente pode forjar: por isso existe a contagem só por conta. Rota pública nova que crie
+  algo ou mande e-mail entra no freio.
+- **Com o cadastro fechado, o convite é conferido antes de a conta existir**
+  (`CampanhaService.conviteValido`). Um convite inventado criava a conta e só falhava depois.
+- **Link que sai por e-mail usa `AppProps.urlPublicaResolvida()`** (`URL_PUBLICA` ou
+  `RAILWAY_PUBLIC_DOMAIN`), nunca o cabeçalho Host: montar pelo Host deixava qualquer um receber o
+  token de redefinição da senha alheia.
 - A chave da API da Anthropic fica na tabela `config` e só o servidor usa. O navegador
   nunca a recebe, nem o do mestre.
 
@@ -528,10 +576,20 @@ Mexeu em controller, segurança, entidade ou dependência: rode isto além do te
 o `AuthorizationManager` quebrado na migração para o Spring Security 7 (`check` virou `authorize`; sem
 isso `/api/admin` e `/midia` davam 500 e o app compilava e subia normal).
 
+**CI** (`.github/workflows/testes.yml`): a cada push na `main` o teste de API roda contra H2 e contra
+Postgres (container de serviço), falha se o boot deixar erro de DDL no log, e o teste de tela roda no
+Chrome do runner.
+
 SQL de schema vale testar contra um Postgres de verdade, não por leitura. As duas
 armadilhas do `ddl-auto` acima foram confirmadas assim.
 
 ## Deploy
+
+Estático (JS, CSS, templates, fontes, pdf.js) sai com `Cache-Control: no-cache` e `Last-Modified`
+(`spring.web.resources.cache` no `application.yml`): o navegador guarda e pergunta se mudou (304).
+Sem isso o Spring Security marcava tudo `no-store` e cada abertura baixava o app inteiro de novo.
+Não troque por `max-age` enquanto os arquivos não levarem hash no nome: quem abriu antes de um
+deploy ficaria com o JS velho. A mídia sai `private` com `Last-Modified`: imagem (`MiniaturaController`) com `max-age` de 5 minutos e PDF/áudio com 1 dia, porque um arquivo pode ser trocado no mesmo caminho e, com prazo longo, o navegador mostrava o velho.
 
 Railway, Dockerfile na raiz (ele vence o builder padrão sozinho). Duas variáveis:
 `DATABASE_URL` apontando para o serviço `Postgres` e `PORT=8080`. Volume em `/data`.

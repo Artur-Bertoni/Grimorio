@@ -56,7 +56,8 @@ public class CampanhaController {
 
     @PutMapping("/campanhas/{cid}")
     public Map<String, Object> editar(@PathVariable Long cid, @RequestBody CorpoCampanha c) {
-        svc.editar(cid, atual.id(), c.nome, c.sistema, c.descricao, c.tema, c.arquivada, c.capa, c.rolagensAbertas);
+        svc.editar(cid, atual.id(), new CampanhaService.Edicao(c.nome, c.sistema, c.descricao, c.tema,
+                c.arquivada, c.capa, c.rolagensAbertas));
         return Map.of("ok", true);
     }
 

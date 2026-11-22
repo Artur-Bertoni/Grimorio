@@ -43,6 +43,19 @@ public class Campanha {
     @Column(name = "criado_em", nullable = false)
     private Instant criadoEm = Instant.now();
 
+    /* A sessao que o cartao da lista de campanhas mostra, ja resumida (UltimaSessao): uma para
+       quem mestra (do guia) e outra para quem joga (da mesa), porque a lista nao abre documentos
+       de megas. Nulo e "ainda nao calculado" (campanha de antes da coluna); vazio, "nada a mostrar". */
+    @Column(name = "sessao_guia", length = 400)
+    private String sessaoGuia;
+
+    @Column(name = "sessao_mesa", length = 400)
+    private String sessaoMesa;
+
+    public String getSessaoGuia() { return sessaoGuia; }
+    public void setSessaoGuia(String v) { this.sessaoGuia = v; }
+    public String getSessaoMesa() { return sessaoMesa; }
+    public void setSessaoMesa(String v) { this.sessaoMesa = v; }
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getNome() { return nome; }

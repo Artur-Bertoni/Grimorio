@@ -3,7 +3,7 @@
 
 /* painel aberto de saida na tela larga; no celular ele cobre o mapa, entao comeca fechado */
 function mpPainelAberto(){
-  if(MP.painel==null){ MP.painel=window.innerWidth>=900; }
+  if(MP.painel==null){ MP.painel=window.innerWidth>900; }
   return MP.painel;
 }
 /* A iniciativa mora numa sessao do guia. O mestre mexe nela aqui, na sessao que estava aberta (ou

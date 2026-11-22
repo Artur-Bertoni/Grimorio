@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "convite")
+@Table(name = "convite", indexes = @Index(name = "ix_convite_campanha", columnList = "campanha_id"))
 public class Convite {
 
     @Id

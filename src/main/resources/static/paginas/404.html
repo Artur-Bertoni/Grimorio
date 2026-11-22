@@ -9,12 +9,7 @@
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/icones/icone.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/vendor/fontes.css">
-<script>
-/* servida pelo TratadorDeErros em qualquer endereco que nao existe: veste o tema deste aparelho */
-try{ var p=JSON.parse(localStorage.getItem("grim_pele")||"null");
-  if(p&&p.v){ var r=document.documentElement; for(var k in p.v)r.style.setProperty("--"+k,p.v[k]); r.style.setProperty("color-scheme",p.esquema||"dark"); }
-}catch(error_){ /* sem armazenamento: fica o tema padrao */ }
-</script>
+<script src="/publico/tema.js"></script>
 <style>
 :root{--bg:#0a0708;--bg2:#130d0f;--line2:#48313a;--fg:#ece4d9;--fg2:#b7a9a2;--gold:#c9a227;--sobre-gold:#140e02;--blood2:#e5455a;
 --disp:"Cinzel",Georgia,serif;--body:"Spectral",Georgia,serif;--ui:"Barlow Condensed","Arial Narrow",sans-serif;color-scheme:dark}

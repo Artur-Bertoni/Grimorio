@@ -132,12 +132,14 @@ html[data-tema="cinza"] .cv .card:hover::before{background-position:-20% 0,left 
 .resitem>summary{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) var(--s-4);cursor:pointer;list-style:none;transition:background-color var(--dur-1)}
 .resitem>summary::-webkit-details-marker{display:none}
 .resitem>summary:hover{background:var(--bg3)}
-.resitem>summary b{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:.03em;flex:1;min-width:0}
-.resitem>summary::after{content:"+";font-family:var(--ui);font-size:var(--fs-5);line-height:1;color:var(--fg3);transition:transform var(--dur-2) var(--ease),color var(--dur-2)}
-.resitem[open]>summary::after{transform:rotate(45deg);color:var(--gold)}
+.resitem>summary b{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:var(--tr-fino);flex:1;min-width:0}
+/* chevron que vira para cima ao abrir: o "+" girado virava um "x", que se le como apagar */
+.resitem>summary::after{content:"";flex:none;width:var(--s-2);height:var(--s-2);margin:0 var(--s-1) var(--s-1);border:solid var(--fg3);border-width:0 2px 2px 0;
+  transform:rotate(45deg);transition:transform var(--dur-2) var(--ease),border-color var(--dur-2)}
+.resitem[open]>summary::after{transform:translateY(var(--s-1)) rotate(-135deg);border-color:var(--gold)}
 .resitem[open]>summary{border-bottom:1px solid var(--line);background:var(--bg3)}
 .resitem[open]{border-color:var(--line2)}
-.rsdata{font-family:var(--ui);font-size:var(--fs-2);letter-spacing:.08em;color:var(--fg3);white-space:nowrap}
+.rsdata{font-family:var(--ui);font-size:var(--fs-2);letter-spacing:var(--tr-caixa);color:var(--fg3);white-space:nowrap}
 .resbody{padding:var(--s-3) var(--s-4) var(--s-4)}
 .resacts{display:flex;gap:var(--s-1);justify-content:flex-end;margin-top:var(--s-3)}
 .abriu[open]>.resbody{animation:desce var(--dur-3) var(--ease)}
@@ -188,7 +190,7 @@ body.fora #btnDados{display:none!important}
 .dados{display:flex;flex-direction:column;align-items:center;gap:var(--s-3);text-align:center}
 .dadoface{position:relative;width:9rem;height:9rem;display:grid;place-items:center;color:var(--gold)}
 .dadoface .dd{position:absolute;inset:0;width:100%;height:100%;stroke-width:.6}
-.dadoface b{position:relative;top:-.25rem;font-family:var(--disp);font-size:2.4rem;font-weight:800;line-height:1;color:var(--fg);
+.dadoface b{position:relative;top:-.25rem;font-family:var(--disp);font-size:2.4rem;font-weight:var(--fw-titulo);line-height:var(--lh-solida);color:var(--fg);
   text-shadow:0 0 .5rem var(--bg2),0 0 1rem var(--bg2),0 0 1.5rem var(--bg2)}
 .dadoface.rolando .dd{animation:rola .65s cubic-bezier(.3,.6,.4,1)}
 @keyframes rola{0%{transform:rotate(0) scale(1)}40%{transform:rotate(300deg) scale(.8)}100%{transform:rotate(720deg) scale(1)}}
@@ -202,7 +204,7 @@ body.fora #btnDados{display:none!important}
 .ddleg{margin:0;font-family:var(--body);font-size:var(--fs-3);color:var(--fg2)}
 .ddrow{display:flex;gap:var(--s-1);flex-wrap:wrap;justify-content:center}
 .ddhist{list-style:none;margin:0;padding:0;display:flex;gap:var(--s-1);flex-wrap:wrap;justify-content:center;min-height:1.6rem}
-.ddhist li{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.06em;color:var(--fg3);border:1px solid var(--line);
+.ddhist li{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-fino);color:var(--fg3);border:1px solid var(--line);
   border-radius:var(--rb);padding:.125rem var(--s-2);display:flex;gap:var(--s-1)}
 .ddhist b{color:var(--fg)}
 .ddhist b.crit{color:var(--gold)}
@@ -217,8 +219,8 @@ body.fora #btnDados{display:none!important}
   font-size:var(--fs-3);color:var(--fg2)}
 .ddit:nth-child(odd){background:color-mix(in srgb,var(--bg3) 70%,transparent)}
 .ddit .ddq{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ddit .ddq i{font-style:normal;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);margin-left:var(--s-1)}
-.ddit .ddd{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.08em;color:var(--fg3)}
+.ddit .ddq i{font-style:normal;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg3);margin-left:var(--s-1)}
+.ddit .ddd{font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);color:var(--fg3)}
 .ddit b{font-family:var(--disp);font-size:var(--fs-4);color:var(--fg);min-width:2.25rem;text-align:right}
 .ddit b.crit{color:var(--gold)}
 .ddit b.falha{color:var(--blood2)}

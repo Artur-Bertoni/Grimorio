@@ -72,21 +72,24 @@
 <template id="t-sessao-modos"><div class="vmodes" role="group" aria-label="Modo de ver a sessão"><button type="button" data-vm="canvas" :aria-pressed="String(modo === 'canvas')">{{ Vm('quadro') }}</button><button type="button" data-vm="roteiro" :aria-pressed="String(modo === 'roteiro')">{{ Vm('roteiro') }}</button></div></template>
 
 <!-- p: as pecas acima, cada uma ja preenchida (volta, prog, enc, acoes, modos) -->
+<!-- Quadro e Roteiro dividem o mesmo cabecalho compacto: trocar de modo e trocar de visualizacao,
+     e os controles ficam no mesmo lugar. O progresso fica junto do titulo que ele descreve. -->
 <template id="t-sessao-quadro">
-  <div class="boardbar"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span data-solta v-html="guia"></span><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span class="esp"></span><div class="bbacoes"><button type="button" :class="'ibtn' + (painel ? ' on' : '')" id="railBtn" :aria-pressed="String(!!painel)">Painel</button><span data-solta v-html="p.modos"></span><span data-solta v-html="p.acoes"></span></div></div>
+  <div class="boardbar"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span data-solta v-html="guia"></span><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span class="esp"></span><div class="bbacoes"><button type="button" :class="'ibtn' + (painel ? ' on' : '')" id="railBtn" :aria-pressed="String(!!painel)">Painel</button><span class="bbsep" aria-hidden="true"></span><span data-solta v-html="p.modos"></span><span class="bbsep" aria-hidden="true"></span><span data-solta v-html="p.acoes"></span></div></div>
   <span data-solta v-html="ini"></span>
   <span data-solta v-html="quadro"></span>
 </template>
 
 <template id="t-sessao-roteiro">
-  <div class="sesshead"><div><span data-solta v-html="p.volta"></span><p class="eyebrow mt-3">{{ Vm('sessao') }} {{ s.numero }}</p><div class="titlinha"><h1 class="page">{{ s.titulo }}</h1><span data-solta v-html="guia"></span></div><p v-if="s.resumo" class="lead sm sectxt mt-1">{{ s.resumo }}</p></div>
-    <div class="sesslado"><span data-solta v-html="p.prog"></span>
-      <div class="bbacoes"><span data-solta v-html="p.enc + p.modos + p.acoes"></span></div></div></div>
+  <div class="boardbar sesshead"><span data-solta v-html="p.volta"></span><h1>{{ s.titulo }}</h1><span data-solta v-html="guia"></span><span class="chip">{{ Vm('sessao') }} {{ s.numero }}</span><span data-solta v-html="p.prog + p.enc"></span><span class="esp"></span><div class="bbacoes"><span data-solta v-html="p.modos"></span><span class="bbsep" aria-hidden="true"></span><span data-solta v-html="p.acoes"></span></div></div>
   <span data-solta v-html="ini"></span>
   <!-- celular: as acoes do jogo numa barra fixa acima das abas, e o painel como gaveta -->
   <div class="sessbarra" role="toolbar" aria-label="Ações da sessão"><button type="button" class="sbb" data-sb="painel" aria-expanded="false" aria-controls="railSessao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Painel</span></button><button type="button" class="sbb" data-sb="ini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M5 5h10M5 12h14M5 19h7"/><circle cx="19" cy="5" r="1.6"/></svg><span>Iniciativa</span></button><button type="button" class="btn m sbprim" data-sb="lib">Liberar</button><button type="button" class="sbb" data-sb="mais" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg><span>Mais</span></button></div>
   <div class="sess"><aside class="rail" id="railSessao" v-html="painel" aria-label="Painel da sessão"></aside>
-    <section class="minw0"><div class="roteiro" data-ordena="cenas"><span data-solta v-html="cenas"></span><p v-if="!cenas" class="empty">Nenhuma {{ vmin('cena') }} ainda. Comece pela primeira.</p><button class="addbtn" data-act="scn-add">+ {{ vmin('cena') }}</button></div></section></div>
+    <section class="minw0"><p v-if="s.resumo" class="lead sm sectxt sessresumo">{{ s.resumo }}</p>
+      <div class="roteiro" data-ordena="cenas"><span data-solta v-html="cenas"></span>
+        <div v-if="!cenas" class="empty sessvazia"><p class="m0">Nenhuma {{ vmin('cena') }} ainda. Uma {{ vmin('cena') }} junta o que ler em voz alta, quem aparece, os testes e a trilha.</p><button type="button" class="btn" data-act="scn-add">Criar a primeira {{ vmin('cena') }}</button></div>
+        <button v-else type="button" class="btn sec m addcena" data-act="scn-add">+ {{ Vm('cena') }}</button></div></section></div>
 </template>
 
 <!-- territorios: [{id, nome, cor, x, y, cards (HTML)}]; painel: HTML do painel -->

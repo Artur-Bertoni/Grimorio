@@ -110,8 +110,14 @@ function cardHtml(s,c){
     testes:(te&&te.itens.length)||0,imagens:ib?ib.itens.slice(0,4):[]});
 }
 var TPOS=[{x:40,y:24},{x:40,y:186},{x:336,y:110},{x:632,y:40},{x:632,y:430}];
-function tpos(s,i){ var t=s.territorios[i]; if(typeof t.x==="number")return t;
-  var d=TPOS[i]||{x:40+(i%3)*300,y:24+Math.floor(i/3)*390}; t.x=d.x; t.y=d.y; return t; }
+function tposPadrao(i){ return TPOS[i]||{x:40+(i%3)*300,y:24+Math.floor(i/3)*390}; }
+/* Territorio que ninguem arrastou (sem posicao, ou ainda exatamente na posicao padrao, que versoes
+   antigas gravavam) e automatico: depois de medido ele desce ate nao encostar no de cima (CV.auto,
+   em quadro.js). Isso nao e gravado, para acompanhar o territorio de cima quando ele ganha cenas.
+   Arrastar grava x e y e o territorio deixa de ser automatico. */
+function tposAuto(s,i){ var t=s.territorios[i], d=tposPadrao(i); return typeof t.x!=="number"||(t.x===d.x&&t.y===d.y); }
+function tpos(s,i){ var t=s.territorios[i]; if(!tposAuto(s,i))return t;
+  return (CV.auto&&CV.auto[t.id])||tposPadrao(i); }
 
 /* O elenco e o cadastro da campanha. A sessao guarda so os ids do que usa. */
 var EL={

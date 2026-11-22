@@ -76,6 +76,8 @@ var TEMAS={
      sugeriu, se ela segue o tema das mesas (grim_segue, ligado de saida); senao o dela.
    A previa da tela de Aparencia (TEMA_PREVIA) so pinta: nao grava nada e some ao sair de la. */
 var TEMA_PREVIA=null;
+/* tira a previa; diz se havia uma (quem chama repinta o tema de verdade) */
+function largaPrevia(){ if(!TEMA_PREVIA)return false; TEMA_PREVIA=null; return true; }
 function temaPessoal(){ var p="";
   try{ p=localStorage.getItem("grim_tema")||""; }catch(error_){ /* sem armazenamento no navegador: fica sem tema pessoal */ }
   return TEMAS[p]?p:""; }

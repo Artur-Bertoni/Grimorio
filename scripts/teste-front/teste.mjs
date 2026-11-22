@@ -55,8 +55,8 @@ pg.on('pageerror', e => erros.push('pageerror: ' + e.message));
 pg.on('console', m => {
   // o 403 do teste de senha errada e o 507 do armazenamento cheio sao esperados
   // o 409 do bloqueio de movimento do mapa tambem e esperado
-  // o 404 do SSE do mapa e esperado quando o teste desliga o tempo real (/__sse/0)
-  if (m.type() === 'error' && !/403|507|409/.test(m.text()) && !/mapas\/eventos/.test(m.location()?.url || '') && !/EventSource/.test(m.text())) erros.push('console: ' + m.text());
+  // o 404 dos dois SSE (mapa e aviso da campanha) e esperado quando o teste desliga o tempo real (/__sse/0)
+  if (m.type() === 'error' && !/403|507|409/.test(m.text()) && !/\/(mapas\/)?eventos$/.test(m.location()?.url || '') && !/EventSource/.test(m.text())) erros.push('console: ' + m.text());
 });
 pg.on('dialog', d => d.accept());
 const espera = ms => pg.waitForTimeout(ms);
@@ -607,6 +607,7 @@ ok(new RegExp('#/c/1/mapa/' + mid + '$').test(pg.url()) && await pg.evaluate(() 
 await ctx.request.post(B + '/__sse/0');
 await pg.reload(); await espera(2500);
 ok(await pg.evaluate(() => mpModoTempoReal()) === 'polling' && await pg.locator('.mpaviso').isVisible(), 'sem SSE o mapa cai para polling e avisa no painel');
+ok(await pg.evaluate(() => !avisosAoVivo() && !!sondaT), 'sem SSE o aviso da campanha tambem desiste e a pergunta de 6 em 6 segundos continua');
 await ctx.request.post(B + '/__sse/1');
 await pg.locator('#tabs .tab[data-aba="home"]').click(); await espera(600);
 ok(await pg.evaluate(() => mpModoTempoReal()) === '', 'sair do mapa desliga o tempo real');
@@ -938,8 +939,10 @@ await espera(300);
 await pg.evaluate(() => { window.__rol = []; new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
   if (n.classList && n.classList.contains('rol')) window.__rol.push(n.textContent); }))).observe(document.body, { childList: true }); });
 await ctx.request.post(B + '/__rolagem-de-outro/1');
-await espera(6800);
-ok((await pg.evaluate(() => window.__rol)).some(t => /Jogadora rolou 1d20: 13/.test(t)), 'rolagem de outra pessoa avisa com a janela fechada');
+/* com o aviso do servidor (SSE) a rolagem chega em menos de 2 s; antes dependia da pergunta de 6 em 6 */
+await espera(1800);
+ok(await pg.evaluate(() => avisosAoVivo()), 'o aviso da campanha (SSE) esta ligado');
+ok((await pg.evaluate(() => window.__rol)).some(t => /Jogadora rolou 1d20: 13/.test(t)), 'rolagem de outra pessoa avisa com a janela fechada, pelo aviso do servidor');
 await pg.locator('#btnDados').click();
 await espera(400);
 await pg.locator('#ddF').fill('2d6+3');
@@ -1027,12 +1030,9 @@ const secs = await pg.locator('[data-aj]').allInnerTexts();
 ok(secs.length === 13, 'treze secoes para mestre admin: ' + secs.join(' | '));
 ok((await pg.locator('#ajBody h2').first().innerText()).trim() === secs[0].trim(), 'o titulo da secao e o mesmo nome do item do menu');
 ok(/^configurações$/i.test((await pg.locator('h1.page').innerText()).trim()) && /configurações/i.test(await pg.locator('#btnAjustes').innerText()), 'a area se chama Configuracoes');
-ok(/direitos reservados/i.test(await pg.locator('#rodape').innerText()), 'rodape com direitos reservados');
-await pg.locator('#rdSup').click();
-await espera(400);
-ok(await pg.locator('.ov #suM').isVisible() && await pg.locator('.ov #suA').isVisible(), 'o rodape abre o contato com o suporte numa janela');
-await pg.keyboard.press('Escape');
-await espera(300);
+ok(!(await pg.locator('#rodape').isVisible()), 'dentro da campanha nao ha rodape: o suporte fica em Configuracoes');
+const grupos = await pg.locator('.ajmenu .ajgt').allInnerTexts();
+ok(grupos.length === 3 && /esta campanha/i.test(grupos[0]) && /você/i.test(grupos[1]) && /instância/i.test(grupos[2]), 'o menu de Configuracoes tem os tres grupos de escopo: ' + grupos.join(' | '));
 await foto('09-ajustes');
 await pg.locator('[data-aj="suporte"]').click();
 await espera(300);
@@ -1447,6 +1447,15 @@ ok((await pg.locator('[data-entrar]').count()) === 3, 'lista as tres campanhas')
 const capa = await pg.locator('[data-entrar="1"] .ccimg img').evaluate(i => ({ src: i.getAttribute('src'), w: i.naturalWidth }));
 ok(/^\/midia\/c1\/img\//.test(capa.src) && capa.w > 0, 'capa aparece no cartao da home: ' + capa.src);
 ok((await pg.locator('[data-entrar="2"] .ccini').count()) === 1, 'campanha sem capa mostra a inicial');
+ok(await pg.locator('[data-entrar="1"] .ccses').innerText() === 'Próxima: Sessão 1 · A chegada'
+  && await pg.locator('[data-entrar="3"] .ccses').innerText() === 'Última: Capítulo 4 · O porão'
+  && (await pg.locator('[data-entrar="2"] .ccses').count()) === 0, 'o cartao mostra a sessao da vez, com a palavra da campanha, e nada sem sessao');
+ok(!/direitos reservados/i.test(await pg.locator('#rodape').innerText()) && await pg.locator('#rodape').isVisible(), 'fora da campanha o rodape aparece, sem o aviso de direitos');
+await pg.locator('#rdSup').click();
+await espera(400);
+ok(await pg.locator('.ov #suM').isVisible() && await pg.locator('.ov #suA').isVisible(), 'o rodape abre o contato com o suporte numa janela');
+await pg.keyboard.press('Escape');
+await espera(300);
 await foto('09b-home-campanhas');
 const txt = await pg.locator('#view').innerText();
 ok(/você mestra/i.test(txt) && /você joga/i.test(txt), 'mostra os dois papeis');
@@ -1729,6 +1738,17 @@ await pg.locator('.sessbarra [data-sb="painel"]').click(); await espera(400);
 ok(await pg.evaluate(() => document.body.classList.contains('painel-aberto') && getComputedStyle(document.querySelector('#railSessao')).visibility === 'visible'), 'o painel abre como gaveta');
 await pg.locator('.sessbarra [data-sb="painel"]').click(); await espera(400);
 ok(await pg.evaluate(() => getComputedStyle(document.querySelector('#railSessao')).visibility === 'hidden'), 'e fecha no mesmo botao');
+/* a sessao do teste e curta: estica a pagina para ter o que rolar */
+await pg.evaluate(() => { document.querySelector('#view').style.minHeight = '3000px'; scrollTo(0, 0); }); await espera(150);
+await pg.evaluate(() => scrollTo(0, 400)); await espera(500);
+const fora = await pg.evaluate(() => ({ cls: document.body.classList.contains('barras-fora'),
+  abas: document.querySelector('nav.tabs').getBoundingClientRect().top >= innerHeight - 1,
+  jogo: document.querySelector('.sessbarra').getBoundingClientRect().top >= innerHeight - 1 }));
+ok(fora.cls && fora.abas && fora.jogo, 'rolando para baixo na sessao as duas barras saem da tela: ' + JSON.stringify(fora));
+await pg.evaluate(() => scrollTo(0, 300)); await espera(500);
+ok(await pg.evaluate(() => !document.body.classList.contains('barras-fora') && document.querySelector('.sessbarra').getBoundingClientRect().bottom <= innerHeight - 1),
+  'rolando para cima elas voltam');
+await pg.evaluate(() => { document.querySelector('#view').style.minHeight = ''; scrollTo(0, 0); }); await espera(300);
 const sobreBarra = await pg.evaluate(() => { const b = document.querySelector('nav.tabs').getBoundingClientRect();
   return [...document.querySelectorAll('body *')].filter(e => { const s = getComputedStyle(e); if (s.position !== 'fixed' || e.closest('nav.tabs') || e.offsetParent === null && s.position !== 'fixed') return false;
     const r = e.getBoundingClientRect(); return r.width && r.height && s.visibility !== 'hidden' && r.bottom > b.top + 1 && r.top < b.bottom && !e.matches('nav.tabs,.sessbarra,.sessbarra *,#toasts,.toasts,.atmo,.atmo *,body::before') && +s.zIndex > 55; }).map(e => e.className || e.tagName); });

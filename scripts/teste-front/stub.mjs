@@ -51,9 +51,11 @@ const GUIA_BRANCO = JSON.stringify({ versao: 3, campanha: { titulo: '', sistema:
   elenco: { personagens: [], npcs: [], locais: [], pistas: [] }, sessoes: [], trilhaCategorias: [] });
 
 const CAMPS = [
-  { id: 1, nome: 'Campanha de teste', sistema: 'Sistema de teste', papel: 'MESTRE', arquivada: false, rolagensAbertas: true },
+  { id: 1, nome: 'Campanha de teste', sistema: 'Sistema de teste', papel: 'MESTRE', arquivada: false, rolagensAbertas: true,
+    sessao: JSON.stringify({ tipo: 'proxima', rotulo: 'Sessão', n: 1, titulo: 'A chegada' }) },
   { id: 2, nome: 'Mesa em branco', sistema: '', papel: 'MESTRE', arquivada: false },
-  { id: 3, nome: 'Onde eu jogo', sistema: 'Outro sistema', papel: 'JOGADOR', arquivada: false },
+  { id: 3, nome: 'Onde eu jogo', sistema: 'Outro sistema', papel: 'JOGADOR', arquivada: false,
+    sessao: JSON.stringify({ tipo: 'ultima', rotulo: 'Capítulo', n: 4, titulo: 'O porão' }) },
 ];
 let ST = {};
 /* SEMENTE=n deixa o sorteio do stub previsivel, para comparar retratos de duas rodadas */
@@ -148,6 +150,10 @@ const catalogo = cid => ({
    so os tokens visiveis). /eventos e um SSE de verdade; com /__sse/0 ele responde 404 e a tela
    tem de cair para polling. */
 var MAPAS = {}, TURNOS = {}, MAPA_SEQ = 500, SSE = {}, SEM_SSE = false; // var: zera() roda antes desta linha
+/* o aviso da campanha (/api/c/{id}/eventos): so diz o que mudou, a tela le pelas rotas de sempre.
+   /__sse/0 tambem o desliga, e a tela volta a perguntar de 6 em 6 segundos. */
+var AVISOS_SSE = {};
+const avisa = (cid, ev) => { for (const r of (AVISOS_SSE[cid] || [])) r.write('event: campanha\ndata: ' + JSON.stringify(ev) + '\n\n'); };
 const sseEnvia = (cid, ev) => { for (const r of (SSE[cid] || [])) r.write('event: mapa\ndata: ' + JSON.stringify(ev) + '\n\n'); };
 function mapasIniciais() {
   TURNOS = {};
@@ -404,6 +410,14 @@ http.createServer(async (req, res) => {
         const desde = Number(new URL(req.url, 'http://x').searchParams.get('desde') || 0);
         return envia(res, 200, (ROLAGENS[m[1]] || []).filter(r => r.id > desde));
       }
+      if ((m = p.match(/^\/api\/c\/(\d+)\/eventos$/))) {
+        if (SEM_SSE) return envia(res, 404, { erro: 'sem SSE agora' });
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+        const cid = m[1]; (AVISOS_SSE[cid] ||= new Set()).add(res);
+        req.on('close', () => AVISOS_SSE[cid].delete(res));
+        res.write('event: campanha\ndata: ' + JSON.stringify({ tipo: 'ola' }) + '\n\n');
+        return;
+      }
       if (rotaMapa(M, p, {}, req, res)) return;
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) return envia(res, 200, FICHAS[m[1]] || []);
       if (p === '/api/zerar') { zera(); return envia(res, 200, { ok: true }); }
@@ -481,6 +495,7 @@ http.createServer(async (req, res) => {
       if ((m = p.match(/^\/api\/c\/(\d+)\/(guia|mesa)$/))) {
         const d = ST[m[2]][m[1]] || (ST[m[2]][m[1]] = { json: '{}', versao: 0 });
         d.json = b.json || '{}'; d.versao += 1;
+        if (m[2] === 'mesa') avisa(m[1], { tipo: 'mesa', versao: d.versao });
         return envia(res, 200, { versao: d.versao });
       }
       if ((m = p.match(/^\/api\/c\/\d+\/midia\/(\d+)$/))) {
@@ -526,6 +541,7 @@ http.createServer(async (req, res) => {
         const r = { id: ++ST.seq, autor: ST.perfil.nome, minha: true, mestre, ...s, rotulo: b.rotulo || '',
           publica: mestre ? b.publica !== false : c.rolagensAbertas !== false, pedido: false, pedidoId: b.pedidoId || null, em: Date.now() };
         (ROLAGENS[m[1]] ||= []).unshift(r);
+        avisa(m[1], { tipo: 'rolagem' });
         return envia(res, 200, r);
       }
       if ((m = p.match(/^\/api\/c\/(\d+)\/rolagens\/pedido$/))) {
@@ -533,18 +549,21 @@ http.createServer(async (req, res) => {
         const r = { id: ++ST.seq, autor: ST.perfil.nome, minha: true, mestre: true, formula: s.formula, detalhe: '', valor: 0, lados: s.lados,
           extremo: 0, rotulo: b.rotulo || '', publica: true, pedido: true, pedidoId: null, em: Date.now() };
         (ROLAGENS[m[1]] ||= []).unshift(r);
+        avisa(m[1], { tipo: 'rolagem' });
         return envia(res, 200, r);
       }
       if ((m = p.match(/^\/__rolagem-de-outro\/(\d+)$/))) {
         const r = { id: ++ST.seq, autor: 'Jogadora', minha: false, mestre: false, formula: '1d20', detalhe: '[13]', lados: 20, valor: 13,
           extremo: 0, rotulo: '', publica: true, pedido: false, pedidoId: null, em: Date.now() };
         (ROLAGENS[m[1]] ||= []).unshift(r);
+        avisa(m[1], { tipo: 'rolagem' });
         return envia(res, 200, r);
       }
       if ((m = p.match(/^\/__pedido-de-outro\/(\d+)$/))) {
         const r = { id: ++ST.seq, autor: 'Mestre de teste', minha: false, mestre: true, formula: '1d20', detalhe: '', lados: 20, valor: 0,
           extremo: 0, rotulo: 'Percepcao', publica: true, pedido: true, pedidoId: null, em: Date.now() };
         (ROLAGENS[m[1]] ||= []).unshift(r);
+        avisa(m[1], { tipo: 'rolagem' });
         return envia(res, 200, r);
       }
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) {

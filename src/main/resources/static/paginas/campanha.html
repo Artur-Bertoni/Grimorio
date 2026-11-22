@@ -12,19 +12,19 @@
 
 <!-- capa: url da imagem, ou vazio para mostrar a inicial -->
 <template id="t-capa">
-  <div class="ccimg"><img v-if="capa" :src="capa" alt="" loading="lazy"><span v-else class="ccini" aria-hidden="true">{{ inicial }}</span></div>
+  <div :class="'ccimg' + (capa ? '' : ' sem')"><img v-if="capa" :src="capa" alt="" loading="lazy"><span v-else class="ccini" aria-hidden="true">{{ inicial }}</span></div>
 </template>
 
-<!-- campanhas: [{id, nome, sistema, mestre, arquivada, capa (HTML)}]; sem campanhas, a tela de primeira entrada.
+<!-- campanhas: [{id, nome, sistema, mestre, arquivada, capa (HTML), sessao (linha pronta ou vazio)}]; sem campanhas, a tela de primeira entrada.
      Com campanhas, criar e entrar ficam atras de dois botoes: a lista e o que importa nessa tela. -->
 <template id="t-campanhas">
   <p class="eyebrow">Grimório</p>
   <span v-if="campanhas" data-solta><div class="pagehd"><h1 class="page">Suas campanhas</h1>
       <div class="linha"><button type="button" class="btn" id="ncAbreCriar" aria-expanded="false" aria-controls="cxCriar">+ Nova campanha</button><button type="button" class="btn sec" id="ncAbreEntrar" aria-expanded="false" aria-controls="cxEntrar">Entrar com convite</button></div></div>
     <div class="campgrid">
-      <button v-for="c in campanhas" type="button" :class="'ccard' + (c.arquivada ? ' arq' : '')" :data-entrar="c.id" :aria-label="'Abrir ' + c.nome + (c.mestre ? ', você mestra' : ', você joga') + (c.arquivada ? ', arquivada' : '')"><span data-solta v-html="c.capa"></span>
-        <span class="ccb"><b>{{ c.nome }}</b><span class="ccsis">{{ c.sistema || 'sem sistema definido' }}</span>
-          <span class="ccft"><span :class="'chip' + (c.mestre ? ' g' : '')">{{ c.mestre ? 'você mestra' : 'você joga' }}</span><span v-if="c.arquivada" class="chip">arquivada</span><span class="go" aria-hidden="true">abrir ›</span></span></span></button>
+      <button v-for="c in campanhas" type="button" :class="'ccard' + (c.arquivada ? ' arq' : '')" :data-entrar="c.id" :aria-label="'Abrir ' + c.nome + (c.mestre ? ', você mestra' : ', você joga') + (c.arquivada ? ', arquivada' : '') + (c.sessao ? '. ' + c.sessao : '')"><span data-solta v-html="c.capa"></span>
+        <span class="ccb"><b>{{ c.nome }}</b><span class="ccsis">{{ c.sistema || 'sem sistema definido' }}</span><span v-if="c.sessao" class="ccses">{{ c.sessao }}</span>
+          <span class="ccft"><span :class="'chip' + (c.mestre ? ' g' : '')">{{ c.mestre ? 'você mestra' : 'você joga' }}</span><span v-if="c.arquivada" class="chip">arquivada</span></span></span></button>
     </div></span>
   <span v-else data-solta><h1 class="page">Comece pela sua campanha</h1>
     <p class="lead">Você ainda não participa de nenhuma. Crie a sua, ou entre numa com a chave que quem mestra te passou.</p></span>

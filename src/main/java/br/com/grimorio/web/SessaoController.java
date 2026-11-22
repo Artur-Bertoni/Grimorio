@@ -4,14 +4,18 @@ import br.com.grimorio.model.Campanha;
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.ConfigService;
+import br.com.grimorio.service.Freio;
 import br.com.grimorio.service.MetricaService;
 import br.com.grimorio.service.UsuarioService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 @RestController
 @RequestMapping("/api")
@@ -23,8 +27,18 @@ public class SessaoController {
     private final CampanhaService campanhas;
     private final MetricaService metricas;
 
+    private static final int CADASTROS_POR_HORA = 10;
+    private static final String LOGIN = "login";
+
+    private final Freio freio;
+    /* Decidir se e a primeira conta e cria-la andam juntos: dois cadastros no mesmo instante numa
+       instancia vazia viravam dois administradores (e o segundo passava pela porta do primeiro). A
+       instancia e unica, entao uma trava na memoria basta; criar() faz o commit antes de soltar. */
+    private final ReentrantLock primeiraConta = new ReentrantLock();
+
     public SessaoController(Atual atual, ConfigService config, UsuarioService usuarios,
-                            CampanhaService campanhas, MetricaService metricas) {
+                            CampanhaService campanhas, MetricaService metricas, Freio freio) {
+        this.freio = freio;
         this.atual = atual;
         this.config = config;
         this.usuarios = usuarios;
@@ -58,7 +72,7 @@ public class SessaoController {
         Usuario u = atual.usuario();
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", u.getId());
-        m.put("login", u.getLogin());
+        m.put(LOGIN, u.getLogin());
         m.put("nome", u.getNome());
         m.put("email", u.getEmail());
         m.put("toursVistos", UsuarioService.toursVistos(u));
@@ -84,7 +98,7 @@ public class SessaoController {
      * de conta. O login nao muda: e a chave de tudo e dos convites.
      */
     @PutMapping("/perfil")
-    public ResponseEntity<?> perfil(@RequestBody MeuPerfil p) {
+    public ResponseEntity<Object> perfil(@RequestBody MeuPerfil p) {
         Usuario u = atual.usuario();
         boolean querSenha = p.senhaNova != null && !p.senhaNova.isBlank();
         if (querSenha && !usuarios.conferirSenha(u.getId(), p.senhaAtual))
@@ -96,7 +110,7 @@ public class SessaoController {
         Usuario d = usuarios.porId(u.getId());
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("id", d.getId());
-        r.put("login", d.getLogin());
+        r.put(LOGIN, d.getLogin());
         r.put("nome", d.getNome());
         r.put("email", d.getEmail());
         r.put("senhaTrocada", querSenha);
@@ -115,16 +129,30 @@ public class SessaoController {
      * em maos, ou quando a instancia ainda nao tem nenhum usuario.
      */
     @PostMapping("/registrar")
-    public ResponseEntity<?> registrar(@RequestBody NovoCadastro c) {
-        boolean primeiro = usuarios.quantos() == 0;
+    public ResponseEntity<Object> registrar(@RequestBody NovoCadastro c, HttpServletRequest req) {
+        /* conta nova e barata de criar: sem freio, um script enchia o banco de contas */
+        if (freio.excedeu("cadastro:" + req.getRemoteAddr(), CADASTROS_POR_HORA, Duration.ofHours(1)))
+            return ResponseEntity.status(429).body(Map.of("erro", "cadastros demais deste endereço; tente mais tarde",
+                    "codigo", "muitas-tentativas"));
         boolean temConvite = c.convite != null && !c.convite.isBlank();
-        if (!primeiro && !config.registroAberto() && !temConvite)
-            return ResponseEntity.status(403).body(Map.of("erro", "esta instância não aceita cadastro aberto"));
-
-        Usuario u = usuarios.criar(c.login, c.nome, c.senha, primeiro);
+        Usuario u;
+        primeiraConta.lock();
+        try {
+            boolean primeiro = usuarios.quantos() == 0;
+        /* Com o cadastro fechado, o convite e a unica porta, entao ele e conferido ANTES de a conta
+           existir. Antes so se olhava se o campo vinha preenchido: um convite inventado criava a
+           conta e so falhava na hora de entrar na campanha. */
+            if (!primeiro && !config.registroAberto() && !(temConvite && campanhas.conviteValido(c.convite)))
+                return ResponseEntity.status(403).body(Map.of("erro", temConvite
+                        ? "esse convite não existe mais ou já foi usado; peça outro a quem mestra"
+                        : "esta instância não aceita cadastro aberto", "codigo", "proibido"));
+            u = usuarios.criar(c.login, c.nome, c.senha, primeiro);
+        } finally {
+            primeiraConta.unlock();
+        }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("id", u.getId());
-        r.put("login", u.getLogin());
+        r.put(LOGIN, u.getLogin());
         r.put("admin", u.isAdmin());
         if (temConvite) {
             try {

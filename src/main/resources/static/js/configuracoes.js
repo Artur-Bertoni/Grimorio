@@ -2,24 +2,36 @@
 "use strict";
 
 /* ---------- PAGINA DE AJUSTES (no lugar do menu "...") ---------- */
+/* Cada secao diz de quem e (o terceiro item): mudar algo da campanha afeta a mesa, o que e da
+   pessoa vale so para ela, e o da instancia vale para todo mundo neste servidor. O menu mostra os
+   tres grupos com rotulo, para ninguem alterar no lugar errado. */
+var GRUPOS_AJUSTE=["campanha","voce","instancia"];
+function tituloGrupoAjuste(g){ return g==="campanha"?"Esta "+vmin("campanha"):(g==="voce"?"Você":"Instância"); }
 function secoesAjustes(){
   var l=[];
-  if(GM&&CID)l.push(["campanha",Vm("campanha")],["mesa","Mesa e convites"],["vocab","Vocabulário"],["ref",Vm("referencia")],["busca","Busca"]);
-  l.push(["aparencia","Aparência"],["privacidade","Privacidade e acessibilidade"]);
-  if(CID)l.push(["guias","Guias"]);
-  l.push(["conta","Conta"],["suporte","Suporte"]);
-  if(ADMIN)l.push(["admin","Administração"],["textos","Textos legais"],["uso","Uso"]);
+  if(GM&&CID)l.push(["campanha",Vm("campanha"),"campanha"],["mesa","Mesa e convites","campanha"],["vocab","Vocabulário","campanha"],
+    ["ref",Vm("referencia"),"campanha"],["busca","Busca","campanha"]);
+  l.push(["aparencia","Aparência","voce"],["privacidade","Privacidade e acessibilidade","voce"]);
+  if(CID)l.push(["guias","Guias","voce"]);
+  l.push(["conta","Conta","voce"],["suporte","Suporte","voce"]);
+  if(ADMIN)l.push(["admin","Administração","instancia"],["textos","Textos legais","instancia"],["uso","Uso","instancia"]);
   return l;
+}
+function menuAjustes(l){
+  return htmlDe("t-ajmenu",{grupos:GRUPOS_AJUSTE.map(function(g){
+    var itens=l.filter(function(x){ return x[2]===g; }), titulo=tituloGrupoAjuste(g);
+    return itens.length?{id:g,titulo:titulo,nav:subnav(itens,S.aj,"data-aj",titulo)}:null;
+  }).filter(Boolean)});
 }
 function rotuloAjuste(k){ return (secoesAjustes().find(function(x){ return x[0]===k; })||[])[1]||""; }
 /* No celular Configuracoes e uma lista: cada secao abre numa tela propria, com voltar. Na tela
    larga o menu fica ao lado e a primeira secao ja vem aberta. */
-function ajustesEmLista(){ return window.innerWidth<1000; }
+function ajustesEmLista(){ return window.innerWidth<=900; }
 function viewAjustes(){
   var l=secoesAjustes();
   if(!l.some(function(x){return x[0]===S.aj;}))S.aj=ajustesEmLista()?"":l[0][0];
   return htmlDe("t-ajustes",{cabeca:cabecaPagina(tituloApp(),"Configurações",{id:"ajCamps",texto:"Minhas "+vmin("campanhas"),sec:true}),
-    lista:!S.aj,abas:subnav(l,S.aj,"data-aj")});
+    lista:!S.aj,abas:menuAjustes(l)});
 }
 /* As janelas de ajuste ja existiam como overlay. Aqui elas sao montadas dentro da
    pagina: a mesma funcao recebe este "fabricante" no lugar do overlay. */

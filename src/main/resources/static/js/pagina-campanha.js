@@ -30,10 +30,19 @@ function chaveDoTexto(t){
   return t;
 }
 /* sem campanha nenhuma, a mesma tela vira a de primeira entrada */
+/* A linha do cartao com a sessao da vez: o servidor manda {tipo, rotulo, n, titulo} ja resumido
+   (UltimaSessao), com a palavra que aquela campanha usa para "sessao". Sem nada, sem linha. */
+function linhaSessaoDoCartao(txt){
+  var s=null; try{ s=txt?JSON.parse(txt):null; }catch(error_){ s=null; /* resumo ilegivel: o cartao fica sem a linha */ }
+  if(!s?.n)return "";
+  var rot=s.rotulo||VOCAB_PADRAO.sessao;
+  return (s.tipo==="proxima"?"Próxima: ":"Última: ")+rot+" "+s.n+(s.titulo?" · "+s.titulo:"");
+}
 function viewSemCampanha(){ return htmlDe("t-campanhas",{campanhas:null}); }
 function viewEscolher(){
   return htmlDe("t-campanhas",{campanhas:CAMPANHAS.map(function(c){
-    return {id:c.id,nome:c.nome,sistema:c.sistema,mestre:c.papel==="MESTRE",arquivada:!!c.arquivada,capa:capaHtml(c)}; })});
+    return {id:c.id,nome:c.nome,sistema:c.sistema,mestre:c.papel==="MESTRE",arquivada:!!c.arquivada,capa:capaHtml(c),
+      sessao:linhaSessaoDoCartao(c.sessao)}; })});
 }
 function hydrateCampanhas(v){
   $$("[data-entrar]",v).forEach(function(b){ b.onclick=function(){
@@ -125,14 +134,14 @@ function erroNoCampo(campo,msg){ if(!campo)return;
 }
 function trocarCampanha(){
   api("/api/sessao").then(function(s2){ EU=s2; ADMIN=!!s2.admin; CAMPANHAS=s2.campanhas||[];
-    CID=null; GM=false; PRONTO=true; S.view=CAMPANHAS.length?"escolher":"semcampanha";
+    CID=null; GM=false; PRONTO=true; S.view=CAMPANHAS.length?"escolher":"semcampanha"; desligaAvisos();
     /* fora da campanha volta o tema da pessoa */
     TEMA_PREVIA=null; trocarTema(temaAtivo()); pintarMarca();
     render(); }).catch(function(e){ toast("Não consegui listar suas campanhas. "+mensagemDeErro(e),"erro"); });
 }
 /* ---------- navegacao interna de uma pagina ---------- */
-function subnav(itens,atual,attr){
-  return htmlDe("t-subnav",{rotulo:null,itens:itens.map(function(x){ var a={}; a[attr]=x[0];
+function subnav(itens,atual,attr,rotulo){
+  return htmlDe("t-subnav",{rotulo:rotulo||null,itens:itens.map(function(x){ var a={}; a[attr]=x[0];
     return {attrs:a,texto:x[1],on:atual===x[0]}; })});
 }
 

@@ -6,6 +6,11 @@
   <div :class="'ajgrade' + (lista ? ' so-lista' : ' com-secao')"><button v-if="!lista" type="button" class="backb ajvolta" id="ajVolta">‹ Todas as configurações</button><div class="ajmenu" v-html="abas"></div><div id="ajBody" class="ajbody" role="region" aria-live="polite" aria-label="Seção de configurações"></div></div>
 </template>
 
+<!-- o menu de Configuracoes em grupos por escopo: esta campanha, voce, instancia -->
+<template id="t-ajmenu">
+  <div v-for="g in grupos" class="ajgrupo"><p class="eyebrow ajgt" aria-hidden="true">{{ g.titulo }}</p><span data-solta v-html="g.nav"></span></div>
+</template>
+
 <!-- a janela de ajuste montada dentro da pagina, no lugar do overlay -->
 <template id="t-em-pagina">
   <h2 class="sec mb-3">{{ titulo }}</h2><span data-solta v-html="corpo"></span>
@@ -221,7 +226,7 @@
 
 <!-- t: o tema; e: o estilo dele; sugerido: e o tema que o mestre sugeriu -->
 <template id="t-tema-card">
-  <button class="temacard" :data-tema="k" :aria-pressed="String(ativo)" :style="'--p-bg:' + t.v.bg + ';--p-fg:' + t.v.fg + ';--p-fg2:' + t.v.fg2 + ';--p-line:' + t.v.line2 + ';--p-blood:' + t.v.blood + ';--p-gold:' + t.v.gold"><b :style="'font-family:' + e.disp">{{ t.nome }}</b><span class="tex" :style="'font-family:' + (e.body || CORPO)">A porta range e a sala fica em silêncio.</span><span class="tsw"><i :style="'background:' + t.v.blood"></i><i :style="'background:' + t.v.blood2"></i><i :style="'background:' + t.v.gold"></i><i :style="'background:' + t.v.fg2"></i></span><span v-if="sugerido || escolhido || seu" class="tetqs"><span v-if="escolhido" class="tesc">escolhido</span><span v-if="sugerido" class="tsug">sugerido</span><span v-if="seu" class="tseu">seu tema</span></span></button>
+  <button class="temacard" :data-tema="k" :aria-pressed="String(ativo)" :style="'--p-bg:' + t.v.bg + ';--p-fg:' + t.v.fg + ';--p-fg2:' + t.v.fg2 + ';--p-line:' + t.v.line2 + ';--p-blood:' + t.v.blood + ';--p-gold:' + t.v.gold"><b :style="'font-family:' + e.disp">{{ t.nome }}</b><span class="tblk" :data-est="t.estilo" :style="'font-family:' + (e.body || CORPO)">Estilo {{ e.nome }}</span><span class="tsw"><i :style="'background:' + t.v.blood"></i><i :style="'background:' + t.v.blood2"></i><i :style="'background:' + t.v.gold"></i><i :style="'background:' + t.v.fg2"></i></span><span v-if="sugerido || escolhido || seu" class="tetqs"><span v-if="escolhido" class="tesc">escolhido</span><span v-if="sugerido" class="tsug">sugerido</span><span v-if="seu" class="tseu">seu tema</span></span></button>
 </template>
 
 <!-- estilos: [{nome, cartoes (HTML)}], so os que tem tema; dentro: ha campanha aberta;

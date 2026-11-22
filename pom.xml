@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.2</version>
+        <version>4.2.0</version>
         <relativePath/>
     </parent>
 
@@ -89,6 +89,21 @@
     <build>
         <finalName>grimorio</finalName>
         <plugins>
+            <!-- Gera os metadados das propriedades grimorio.* (AppProps): o editor passa a conhecer e
+                 documentar midia-dir, url-publica etc. no application.yml. So roda na compilacao, nao
+                 entra no jar. A partir do JDK 23 o processador precisa ser declarado aqui. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

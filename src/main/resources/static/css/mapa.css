@@ -19,7 +19,7 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
   background:color-mix(in srgb,var(--bg) 93%,transparent);border:1px solid var(--line2);border-radius:var(--rc);box-shadow:var(--e2)}
 .mppainel[hidden]{display:none}
 .mpsec{display:flex;flex-direction:column;gap:var(--s-2)}
-.mptit{margin:0;font-family:var(--ui);font-size:var(--fs-1);font-weight:600;letter-spacing:var(--tr-caixa-larga);text-transform:uppercase;color:var(--fg3)}
+.mptit{margin:0;font-family:var(--ui);font-size:var(--fs-1);font-weight:var(--fw-enfase);letter-spacing:var(--tr-caixa-larga);text-transform:uppercase;color:var(--fg3)}
 .mplista,.mpescolha{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1)}
 .mpitem{display:flex;align-items:center;gap:var(--s-2);padding-right:var(--s-1);border-radius:var(--rb)}
 /* aberto e selecionado: fundo --bg4, nunca dourado (dourado e do primario) */
@@ -41,30 +41,30 @@ fieldset.cvtools{border:0;margin:0;padding:0;min-width:0}
 
 /* janela de atalhos e gestos: grupos em colunas, tecla a esquerda e o que ela faz a direita */
 .mpatalhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:var(--s-5)}
-.mpatgrupo h3{margin:0 0 var(--s-2);font-size:var(--fs-3);font-weight:600;color:var(--fg)}
+.mpatgrupo h3{margin:0 0 var(--s-2);font-size:var(--fs-3);font-weight:var(--fw-enfase);color:var(--fg)}
 .mpatgrupo dl{margin:0;display:flex;flex-direction:column;gap:var(--s-2)}
 .mpatlin{display:grid;grid-template-columns:7.5rem 1fr;gap:var(--s-3);align-items:baseline}
 .mpatlin dt{display:flex;flex-wrap:wrap;gap:var(--s-1)}
 .mpatlin dd{margin:0;font-size:var(--fs-2);color:var(--fg2)}
 .mpatalhos kbd{display:inline-block;min-width:1.5rem;padding:0 var(--s-1);border:1px solid var(--line2);border-bottom-width:2px;border-radius:var(--r-xs);
-  background:var(--bg3);color:var(--fg);font-family:var(--ui);font-size:var(--fs-1);line-height:1.5rem;text-align:center}
+  background:var(--bg3);color:var(--fg);font-family:var(--ui);font-size:var(--fs-1);line-height:var(--ctl-p);text-align:center}
 
 .mpvazio{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-6);text-align:center}
 
 /* celular: o painel vira uma gaveta embaixo do mapa, por cima dele */
-@media (max-width:899px){
+@media (max-width:900px){
   .mppainel{left:var(--s-2);right:var(--s-2);top:auto;bottom:var(--s-2);width:auto;max-height:55%}
 }
 
 /* aviso de obra (MAPA_WIP): ocupa o lugar do mapa para quem nao e administrador */
 .mpwip{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-4);padding:var(--s-7) var(--s-4);text-align:center}
 .mpwip h1{margin:0}
-.mpwipsel{margin:0;font-family:var(--disp);font-weight:800;font-size:clamp(4rem,18vw,9rem);line-height:1;letter-spacing:var(--tr-caixa-larga);color:var(--fg3)}
+.mpwipsel{margin:0;font-family:var(--disp);font-weight:var(--fw-titulo);font-size:clamp(4rem,18vw,9rem);line-height:var(--lh-solida);letter-spacing:var(--tr-caixa-larga);color:var(--fg3)}
 
 /* ferramentas de desenho e de area: uma fileira ao lado da coluna do zoom */
 .mpwrap .cvtools.mpdesenho{left:calc(var(--s-3) + 3.5rem);flex-direction:row;flex-wrap:wrap;max-width:calc(100% - 20rem)}
 .mpwrap .cvtools.mpdesenho .cvsep{width:1px;height:auto;margin:0 var(--s-1)}
-@media (max-width:899px){
+@media (max-width:900px){
   .mpwrap .cvtools.mpdesenho{left:calc(var(--s-3) + 3.75rem);max-width:calc(100% - 4.5rem)}
 }
 /* modo da regua (reta ou trajeto): dois botoes de texto ao lado, so com a regua ligada */

@@ -40,12 +40,12 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 .fgrp{display:flex;flex-direction:column;gap:var(--s-2)}
 .rowed{border:1px solid var(--line);border-left:2px solid var(--line2);border-radius:var(--r);padding:var(--s-2) var(--s-3);
   display:flex;flex-direction:column;gap:var(--s-2);background:var(--bg3)}
-.rowhd{display:flex;align-items:center;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.14em;
+.rowhd{display:flex;align-items:center;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);
   text-transform:uppercase;color:var(--fg3)}
 .rowhd span{flex:1}
 .pick{display:flex;align-items:flex-start;gap:var(--s-2);flex-wrap:wrap}
 .pick img,.pick .semimg{width:4.5rem;height:4.5rem;object-fit:cover;border:1px solid var(--line2);border-radius:var(--r-xs);background:var(--bg3)}
-.pick .semimg{display:grid;place-items:center;text-align:center;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:.1em;
+.pick .semimg{display:grid;place-items:center;text-align:center;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);
   color:var(--fg3);text-transform:uppercase}
 .pick .pkit{display:inline-flex;flex-direction:column}
 .formft{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap;margin-top:var(--s-1);padding-top:var(--s-3);border-top:1px solid var(--line)}
@@ -56,11 +56,11 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
   overflow:hidden;cursor:pointer}
 .cad:hover{border-color:var(--line2)}
 .cad .ci{aspect-ratio:4/3;background:var(--bg3);display:grid;place-items:center;color:var(--fg3);
-  font:600 var(--fs-1)/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;overflow:hidden}
+  font:var(--fw-enfase) var(--fs-1)/var(--lh-solida) var(--ui);letter-spacing:var(--tr-caixa);text-transform:uppercase;overflow:hidden}
 .cad .ci img{width:100%;height:100%;object-fit:cover;object-position:top center}
 .cad .cb{padding:var(--s-2) var(--s-3) var(--s-3);display:flex;flex-direction:column;gap:var(--s-1);flex:1}
-.cad .cb b{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:.03em}
-.cad .cb p{margin:0;font-size:var(--fs-3);color:var(--fg3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;
+.cad .cb b{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:var(--tr-fino)}
+.cad .cb p{margin:0;font-size:var(--fs-3);color:var(--fg3);line-height:var(--lh-ui);display:-webkit-box;-webkit-line-clamp:3;
   -webkit-box-orient:vertical;overflow:hidden}
 .cad .ct2{display:flex;gap:var(--s-1);align-items:center;margin-top:auto;padding-top:var(--s-2);flex-wrap:wrap}
 
@@ -76,7 +76,7 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 .passo.ok b{color:var(--fg3)}
 
 .aviso{border:1px solid var(--line2);border-left:2px solid var(--gold);border-radius:var(--r);background:var(--bg3);
-  padding:var(--s-3) var(--s-3);font-size:var(--fs-3);color:var(--fg2);line-height:1.5;max-width:104ch}
+  padding:var(--s-3) var(--s-3);font-size:var(--fs-3);color:var(--fg2);line-height:var(--lh-texto);max-width:104ch}
 .aviso b{color:var(--fg)}
 .aviso p{margin:0 0 var(--s-2)}
 .aviso p:last-child{margin:0}
@@ -88,7 +88,7 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 
 
 
-@media (max-width:560px){
+@media (max-width:600px){
   .tbtn,.edb{padding:var(--s-1) var(--s-2);font-size:var(--fs-1)}
   .mesanav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .mesanav button{white-space:nowrap}
@@ -109,9 +109,9 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 /* ---------- menu solto (Mais, mover para, escolhas curtas) ---------- */
 .menucamada{position:fixed;inset:0 auto auto 0;z-index:var(--z-menu)}
 .menu{box-shadow:var(--e2)}
-.menu .mi{display:flex;align-items:center;gap:var(--s-3);min-height:var(--ctl-m);font-family:var(--ui);font-size:var(--fs-3);font-weight:600}
+.menu .mi{display:flex;align-items:center;gap:var(--s-3);min-height:var(--ctl-m);font-family:var(--ui);font-size:var(--fs-3);font-weight:var(--fw-enfase)}
 .menu .mi .mt{flex:1;font-family:inherit;font-size:inherit;white-space:normal}
-.menu .mi .ms{font-weight:500}
+.menu .mi .ms{font-weight:var(--fw-texto)}
 .menu .mi:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .menu .mi.dang{color:var(--blood2)}
 .menu .mi:disabled{opacity:.45;cursor:not-allowed}
@@ -121,7 +121,6 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 
 /* ---------- barra da sessao ---------- */
 .bbacoes{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.sesslado{display:flex;flex-direction:column;gap:var(--s-2);align-items:flex-end}
 .encerra{margin-left:var(--s-2)}
 .so-toque{display:none}
 @media (pointer:coarse){ .so-toque{display:inline} .so-mouse{display:none} }
@@ -150,20 +149,22 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 
 /* sem conexao: uma faixa fina no topo da pagina */
 body.offline header.top::before{content:"Sem conexão";position:absolute;left:50%;top:100%;translate:-50% 0;z-index:var(--z-elevado);
-  padding:2px var(--s-3);border-radius:0 0 var(--r-xs) var(--r-xs);background:var(--warn);color:var(--bg);font:600 var(--fs-1)/1.4 var(--ui)}
+  padding:2px var(--s-3);border-radius:0 0 var(--r-xs) var(--r-xs);background:var(--warn);color:var(--bg);font:var(--fw-enfase) var(--fs-1)/var(--lh-ui) var(--ui)}
 
 /* ---------- pagina da campanha ---------- */
 /* o lapis mora junto do titulo, nao do outro lado da tela */
 .titlinha{display:flex;align-items:flex-start;gap:var(--s-3);flex-wrap:wrap}
-.titlinha .edb{margin-top:.6em}
+/* lapis e "?" do guia ao lado do titulo: o mesmo tamanho de botao de icone (40px), alinhados entre si */
+.titlinha .edb.ico{width:var(--ctl-m);min-width:var(--ctl-m);min-height:var(--ctl-m);border-radius:var(--rb)}
+.titlinha .edb,.titlinha .guiab{margin-top:var(--s-1)}
 .passos{list-style:none;margin:0;padding:0}
 /* proxima sessao: a acao mais provavel de quem abre a campanha, em destaque e com botao primario */
 .proxima{display:flex;align-items:center;justify-content:space-between;gap:var(--s-4) var(--s-6);flex-wrap:wrap;margin-top:var(--s-6);
   padding:var(--s-5) var(--s-6);background:var(--bg2);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:var(--rc);box-shadow:var(--e1)}
 .proxtx{display:flex;flex-direction:column;gap:var(--s-1);min-width:0;flex:1 1 20rem}
-.proxtx h2{font-family:var(--disp);font-size:var(--fs-6);font-weight:700;line-height:var(--lh-titulo);color:var(--fg);margin:0}
+.proxtx h2{font-family:var(--disp);font-size:var(--fs-6);font-weight:var(--fw-titulo);line-height:var(--lh-titulo);color:var(--fg);margin:0}
 .proxacoes{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap}
-.caixa>h2.flb{margin:0;font-weight:600;line-height:var(--lh-titulo)}
+.caixa>h2.flb{margin:0;font-weight:var(--fw-enfase);line-height:var(--lh-titulo)}
 .campforms .caixa[hidden]{display:none}
 .entre{justify-content:space-between}
 .centro-v{align-items:center}
@@ -179,10 +180,12 @@ body.offline header.top::before{content:"Sem conexão";position:absolute;left:50
 
 /* ---------- configuracoes: menu ao lado na tela larga ---------- */
 .ajgrade{display:grid;grid-template-columns:1fr;gap:var(--s-5);margin-top:var(--s-4)}
-@media (min-width:1000px){
+.ajgrupo+.ajgrupo{margin-top:var(--s-4)}
+.ajgt{margin:0 0 var(--s-2);color:var(--fg2)}
+@media (min-width:901px){
   .ajgrade{grid-template-columns:15rem minmax(0,1fr);align-items:start}
-  .ajmenu{position:sticky;top:calc(var(--hh,3.5rem) + var(--s-4))}
-  .ajmenu .mesanav{flex-direction:column;flex-wrap:nowrap;border-bottom:0;border-right:1px solid var(--line);padding:0 var(--s-3) 0 0;margin:0}
+  .ajmenu{position:sticky;top:calc(var(--hh,3.5rem) + var(--s-4));border-right:1px solid var(--line);padding-right:var(--s-3)}
+  .ajmenu .mesanav{flex-direction:column;flex-wrap:nowrap;border-bottom:0;padding:0;margin:0}
   .ajmenu .mesanav button{justify-content:flex-start;text-align:left;white-space:normal}
 }
 .cvform{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,10rem),1fr));gap:var(--s-3);align-items:end}
@@ -199,11 +202,11 @@ body.offline header.top::before{content:"Sem conexão";position:absolute;left:50
 .campo-medio{max-width:22rem}
 /* o voltar so existe no celular; na tela larga o menu fica sempre ao lado */
 .ajgrade>.ajvolta{justify-self:start;display:none}
-@media (min-width:1000px){ .ajgrade>.ajmenu{grid-column:1} .ajgrade>.ajbody{grid-column:2} }
-@media (max-width:999px){
+@media (min-width:901px){ .ajgrade>.ajmenu{grid-column:1} .ajgrade>.ajbody{grid-column:2} }
+@media (max-width:900px){
   .ajgrade.so-lista .ajmenu .mesanav{flex-direction:column;flex-wrap:nowrap;overflow:visible;border:0;margin:0;padding:0;gap:0}
   .ajgrade.so-lista .ajmenu .mesanav button{justify-content:space-between;min-height:var(--alvo);padding:0 var(--s-3);border-radius:0;
-    border:0;border-bottom:1px solid var(--line);font-size:var(--fs-4);font-weight:600;white-space:normal;text-align:left}
+    border:0;border-bottom:1px solid var(--line);font-size:var(--fs-4);font-weight:var(--fw-enfase);white-space:normal;text-align:left}
   .ajgrade.so-lista .ajmenu .mesanav button::after{content:"›";color:var(--fg3);font-size:var(--fs-5)}
   .ajgrade.so-lista .ajbody{display:none}
   .ajgrade.com-secao .ajmenu{display:none}

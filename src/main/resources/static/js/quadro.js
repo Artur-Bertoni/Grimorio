@@ -2,7 +2,7 @@
 "use strict";
 
 /* ---------- CANVAS ---------- */
-var CV={z:.62,x:10,y:10,init:false};
+var CV={z:.62,x:10,y:10,init:false,auto:{}};
 /* quanto a raiz cresceu em relacao aos 16px: o quadro e desenhado em px e compensa no zoom */
 function escalaRaiz(){ return (Number.parseFloat(getComputedStyle(document.documentElement).fontSize)||16)/16; }
 function initCanvas(s){
@@ -14,12 +14,30 @@ function initCanvas(s){
     cv.style.transform=tr; svg.style.transform=tr;
     cv.classList.add("mexendo"); clearTimeout(mexT);
     mexT=setTimeout(function(){ cv.classList.remove("mexendo"); },180); }
+  /* territorios automaticos (tposAuto), na ordem: cada um desce ate ficar 24px abaixo do que ja
+     esta assentado e bate com ele. Antes o segundo nascia em y fixo e o rotulo cobria o primeiro. */
+  function desempilha(){
+    var folga=24, assentados=[];
+    CV.auto={};
+    s.territorios.forEach(function(t,i){ if(!tposAuto(s,i)){ var m=cv.querySelector('.terr[data-terr="'+CSS.escape(t.id)+'"]'); if(m)assentados.push(m); } });
+    s.territorios.forEach(function(t,i){
+      if(!tposAuto(s,i))return;
+      var no=cv.querySelector('.terr[data-terr="'+CSS.escape(t.id)+'"]'); if(!no)return;
+      var d=tposPadrao(i), p={x:d.x,y:d.y}, w=no.offsetWidth, h=no.offsetHeight, voltas=s.territorios.length;
+      while(voltas-->0){
+        var bateu=assentados.find(function(o){ return p.x<o.offsetLeft+o.offsetWidth+folga&&p.x+w+folga>o.offsetLeft&&p.y<o.offsetTop+o.offsetHeight+folga&&p.y+h+folga>o.offsetTop; });
+        if(!bateu)break;
+        p.y=bateu.offsetTop+bateu.offsetHeight+folga;
+      }
+      CV.auto[t.id]=p; no.style.left=p.x+"px"; no.style.top=p.y+"px"; assentados.push(no);
+    });
+  }
   /* a curva que liga um territorio ao seguinte; o desenho esta em componentes/quadro.html */
   function links(){ var ps=s.territorios.map(function(t,i){var p=tpos(s,i);return {x:p.x+122,y:p.y+40};}),curvas=[];
     for(var i=0;i<ps.length-1;i++){ var A=ps[i],B=ps[i+1],mx=(A.x+B.x)/2;
       curvas.push("M"+A.x+" "+A.y+" C "+mx+" "+A.y+", "+mx+" "+B.y+", "+B.x+" "+B.y); }
     svg.innerHTML=htmlDe("t-quadro-ligacoes",{curvas:curvas}); }
-  links(); apply();
+  desempilha(); links(); apply();
   var drag=null, supClick=false, linha=null;
   /* Ao soltar: encaixa numa grade de 16px e, se cair por cima de outro territorio, desce ate
      ficar 24px abaixo dele. O mapa da sessao nunca fica com um rotulo sobre a borda do vizinho. */

@@ -3,7 +3,7 @@
 Painel de mesa para RPG, agnóstico de sistema, com backend em Java.
 Cada pessoa sobe a própria instância, cria campanhas e convida a mesa.
 
-Java 25 · Spring Boot 4.1 · PostgreSQL (ou H2 local) · front em HTML/JS puro, sem framework.
+Java 25 · Spring Boot 4.2 · PostgreSQL (ou H2 local) · front em HTML/JS puro, sem framework.
 
 ## O que ele faz
 
@@ -109,6 +109,7 @@ Build do jar: `mvn -DskipTests package` → `target/grimorio.jar`.
 | `MIDIA_DIR` | `/data/midia` no Docker, `./dados/midia` fora | PDFs, áudio, imagens e índices |
 | `PORT` | `8080` | o Railway injeta sozinho |
 | `DB_POOL` | `5` | conexões do pool |
+| `URL_PUBLICA` | `https://` + `RAILWAY_PUBLIC_DOMAIN` | endereço que vai no link de redefinir senha. No Railway não precisa: ele já define o domínio. Fora dele, defina, senão o link sai do cabeçalho Host do pedido (e o log avisa) |
 
 ## Modelo
 

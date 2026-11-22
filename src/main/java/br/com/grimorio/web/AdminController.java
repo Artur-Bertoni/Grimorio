@@ -2,22 +2,27 @@ package br.com.grimorio.web;
 
 import br.com.grimorio.model.Usuario;
 import br.com.grimorio.repo.CampanhaRepo;
-import br.com.grimorio.repo.ChamadoRepo;
 import br.com.grimorio.repo.MembroRepo;
 import br.com.grimorio.service.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.sql.DataSource;
-import java.lang.management.ManagementFactory;
-import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.*;
 
-/** Painel do administrador da instancia. Rota inteira exige papel ADMIN. */
+/** Contas, campanhas e configuracao da instancia. A rota inteira passa por AdminAutorizacao;
+ *  armazenamento e saude moram em AdminSistemaController. */
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+
+    /* nomes dos campos do formulario de configuracao, lidos e gravados pela tela */
+    private static final String IA_MODELO = "iaModelo";
+    private static final String EMAIL_PROVEDOR = "emailProvedor";
+    private static final String EMAIL_CHAVE = "emailChave";
+    private static final String SMTP_SENHA = "smtpSenha";
+    private static final String REGISTRO_ABERTO = "registroAberto";
+    private static final String MAPA_LIBERADO = "mapaLiberado";
+
 
     private final UsuarioService usuarios;
     private final ConfigService config;
@@ -25,29 +30,22 @@ public class AdminController {
     private final CampanhaRepo campanhas;
     private final MembroRepo membros;
     private final SuporteService suporte;
-    private final MidiaService midia;
-    private final ChamadoRepo chamados;
-    private final DataSource banco;
-    private final br.com.grimorio.config.AppProps props;
 
     public AdminController(UsuarioService usuarios, ConfigService config, IaService ia,
-                           CampanhaRepo campanhas, MembroRepo membros, SuporteService suporte,
-                           MidiaService midia, ChamadoRepo chamados, DataSource banco,
-                           br.com.grimorio.config.AppProps props) {
-        this.suporte = suporte;
-        this.midia = midia;
-        this.chamados = chamados;
-        this.banco = banco;
-        this.props = props;
+                           CampanhaRepo campanhas, MembroRepo membros, SuporteService suporte) {
         this.usuarios = usuarios;
         this.config = config;
         this.ia = ia;
         this.campanhas = campanhas;
         this.membros = membros;
+        this.suporte = suporte;
     }
 
     @GetMapping("/usuarios")
     public List<Map<String, Object>> listar() {
+        /* uma contagem agrupada em vez de uma consulta por conta (era N+1) */
+        Map<Long, Long> porConta = new HashMap<>();
+        for (Object[] l : membros.campanhasPorUsuario()) porConta.put((Long) l[0], (Long) l[1]);
         List<Map<String, Object>> out = new ArrayList<>();
         for (Usuario u : usuarios.todos()) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -56,7 +54,7 @@ public class AdminController {
             m.put("nome", u.getNome());
             m.put("admin", u.isAdmin());
             m.put("ativo", u.isAtivo());
-            m.put("campanhas", membros.findByUsuarioId(u.getId()).size());
+            m.put("campanhas", porConta.getOrDefault(u.getId(), 0L).intValue());
             out.add(m);
         }
         return out;
@@ -86,45 +84,9 @@ public class AdminController {
     }
 
     @DeleteMapping("/usuarios/{id}")
-    public ResponseEntity<?> remover(@PathVariable Long id) {
+    public ResponseEntity<Void> remover(@PathVariable Long id) {
         usuarios.remover(id);
         return ResponseEntity.noContent().build();
-    }
-
-    /** Armazenamento e saude do servidor, para o painel de Administracao. */
-    @GetMapping("/sistema")
-    public Map<String, Object> sistema() {
-        Map<Long, String> nomes = new HashMap<>();
-        campanhas.findAll().forEach(c -> nomes.put(c.getId(), c.getNome()));
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("armazenamento", midia.estadoArmazenamento(nomes));
-        Map<String, Object> s = new LinkedHashMap<>();
-        String nomeBanco;
-        try (var c = banco.getConnection()) {
-            var md = c.getMetaData();
-            nomeBanco = md.getDatabaseProductName() + " " + md.getDatabaseProductVersion().split(" ")[0];
-        } catch (Exception e) {
-            nomeBanco = "indisponível (" + e.getMessage() + ")";
-        }
-        s.put("banco", nomeBanco);
-        s.put("midiaDir", Paths.get(props.getMidiaDir()).toAbsolutePath().normalize().toString());
-        s.put("java", System.getProperty("java.version"));
-        Runtime rt = Runtime.getRuntime();
-        s.put("memoriaUsada", rt.totalMemory() - rt.freeMemory());
-        s.put("memoriaMax", rt.maxMemory());
-        s.put("noArDesde", Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime()).toEpochMilli());
-        s.put("contas", usuarios.todos().size());
-        s.put("campanhas", nomes.size());
-        s.put("suporteNaoEnviado", chamados.countByEnviadoFalse());
-        m.put("sistema", s);
-        return m;
-    }
-
-    /** Junta agora as copias iguais do volume (o boot ja faz isso; serve para depois de subir
-     *  arquivos direto no volume). */
-    @PostMapping("/armazenamento/juntar")
-    public Map<String, Object> juntar() {
-        return Map.of("liberado", midia.desduplicarVolume());
     }
 
     @GetMapping("/campanhas")
@@ -153,51 +115,52 @@ public class AdminController {
         m.put("smtpUsuario", config.get(SuporteService.SMTP_USUARIO, ""));
         m.put("smtpRemetente", config.get(SuporteService.SMTP_REMETENTE, ""));
         m.put("smtpSenhaSalva", !config.get(SuporteService.SMTP_SENHA, "").isBlank());
-        m.put("emailProvedor", suporte.provedor());
+        m.put(EMAIL_PROVEDOR, suporte.provedor());
         m.put("emailChaveSalva", !config.get(SuporteService.EMAIL_CHAVE, "").isBlank());
         m.put("emailConfigurado", suporte.envioConfigurado());
         m.put("iaConfigurada", ia.configurada());
-        m.put("iaModelo", config.get(ConfigService.IA_MODELO, IaService.MODELO_PADRAO));
-        m.put("registroAberto", config.registroAberto());
-        m.put("mapaLiberado", config.mapaLiberado());
+        m.put(IA_MODELO, config.get(ConfigService.IA_MODELO, IaService.MODELO_PADRAO));
+        m.put(REGISTRO_ABERTO, config.registroAberto());
+        m.put(MAPA_LIBERADO, config.mapaLiberado());
         return m;
     }
 
+    /** So o que veio no corpo muda: a tela manda uma secao por vez. */
     @PutMapping("/config")
     public Map<String, Object> gravarConfig(@RequestBody Map<String, String> body) {
-        if (body.containsKey("iaApiKey")) {
-            String k = body.get("iaApiKey");
-            config.set(ConfigService.IA_CHAVE, k == null ? "" : k.trim());
-        }
-        if (body.containsKey("iaModelo")) {
-            String m = body.get("iaModelo");
-            config.set(ConfigService.IA_MODELO,
-                    m == null || m.isBlank() ? IaService.MODELO_PADRAO : m.trim());
-        }
+        if (body.containsKey("iaApiKey")) config.set(ConfigService.IA_CHAVE, aparado(body.get("iaApiKey")));
+        /* modelo vazio fica vazio: gravar o padrao por extenso congelava a instancia nele, e a troca
+           do padrao numa versao nova nao chegava a quem so salvou o formulario */
+        if (body.containsKey(IA_MODELO)) config.set(ConfigService.IA_MODELO, aparado(body.get(IA_MODELO)));
+        gravarEmail(body);
+        if (body.containsKey(REGISTRO_ABERTO)) config.set(ConfigService.REGISTRO_ABERTO, umOuZero(body.get(REGISTRO_ABERTO)));
+        if (body.containsKey(MAPA_LIBERADO)) config.set(ConfigService.MAPA_LIBERADO, umOuZero(body.get(MAPA_LIBERADO)));
+        return Map.of("ok", true);
+    }
+
+    private void gravarEmail(Map<String, String> body) {
         for (String[] k : new String[][]{{"suporteEmail", SuporteService.DESTINO}, {"smtpHost", SuporteService.SMTP_HOST},
                 {"smtpPorta", SuporteService.SMTP_PORTA}, {"smtpUsuario", SuporteService.SMTP_USUARIO},
                 {"smtpRemetente", SuporteService.SMTP_REMETENTE}}) {
-            if (body.containsKey(k[0])) config.set(k[1], body.get(k[0]) == null ? "" : body.get(k[0]).trim());
+            if (body.containsKey(k[0])) config.set(k[1], aparado(body.get(k[0])));
         }
-        if (body.containsKey("emailProvedor")) {
-            String p = body.get("emailProvedor") == null ? "" : body.get("emailProvedor").trim().toLowerCase();
+        if (body.containsKey(EMAIL_PROVEDOR)) {
+            String p = aparado(body.get(EMAIL_PROVEDOR)).toLowerCase(Locale.ROOT);
             if (!SuporteService.PROVEDORES.contains(p)) throw new IllegalArgumentException("provedor de e-mail desconhecido");
             config.set(SuporteService.EMAIL_PROVEDOR, p);
         }
         /* chave e senha vazias mantem a que esta salva: o campo nunca vem preenchido do servidor */
-        if (body.containsKey("emailChave") && body.get("emailChave") != null && !body.get("emailChave").isBlank())
-            config.set(SuporteService.EMAIL_CHAVE, body.get("emailChave").trim());
-        if (body.containsKey("smtpSenha") && body.get("smtpSenha") != null && !body.get("smtpSenha").isEmpty())
-            config.set(SuporteService.SMTP_SENHA, body.get("smtpSenha"));
-        if (body.containsKey("registroAberto")) {
-            config.set(ConfigService.REGISTRO_ABERTO,
-                    "true".equalsIgnoreCase(body.get("registroAberto"))
-                            || "1".equals(body.get("registroAberto")) ? "1" : "0");
-        }
-        if (body.containsKey("mapaLiberado")) {
-            config.set(ConfigService.MAPA_LIBERADO,
-                    "true".equalsIgnoreCase(body.get("mapaLiberado")) || "1".equals(body.get("mapaLiberado")) ? "1" : "0");
-        }
-        return Map.of("ok", true);
+        String chave = body.get(EMAIL_CHAVE);
+        if (chave != null && !chave.isBlank()) config.set(SuporteService.EMAIL_CHAVE, chave.trim());
+        String senha = body.get(SMTP_SENHA);
+        if (senha != null && !senha.isEmpty()) config.set(SuporteService.SMTP_SENHA, senha);
+    }
+
+    private static String aparado(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private static String umOuZero(String s) {
+        return "true".equalsIgnoreCase(s) || "1".equals(s) ? "1" : "0";
     }
 }

@@ -11,12 +11,7 @@
 <link rel="icon" href="/icones/icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icones/180.png">
 <link rel="stylesheet" href="/vendor/fontes.css">
-<script>
-/* privacidade e termos sao abertos sem conta: vestem o ultimo tema usado neste aparelho, como o login */
-try{ var p=JSON.parse(localStorage.getItem("grim_pele")||"null");
-  if(p&&p.v){ var r=document.documentElement; for(var k in p.v)r.style.setProperty("--"+k,p.v[k]); r.style.setProperty("color-scheme",p.esquema||"dark"); }
-}catch(error_){ /* sem armazenamento: fica o tema padrao */ }
-</script>
+<script src="/publico/tema.js"></script>
 <style>
 :root{--bg:#0a0708;--bg2:#130d0f;--line2:#48313a;--fg:#ece4d9;--fg2:#b7a9a2;--fg3:#8f817d;--gold:#c9a227;--gold2:#e8c45a;--blood2:#e5455a;
 --disp:"Cinzel",Georgia,serif;--body:"Spectral",Georgia,serif;--ui:"Barlow Condensed","Arial Narrow",sans-serif;color-scheme:dark}
@@ -43,31 +38,7 @@ footer{max-width:46rem;margin:1.25rem auto 0;display:flex;gap:.5rem 1.25rem;flex
   <div id="texto" aria-live="polite"><p>Carregando…</p></div>
   <p class="nota" id="nota" hidden>Este é o texto padrão do Grimório. Quem administra esta instância pode trocá-lo em Administração › Textos legais.</p>
 </main>
-<footer><span>© <span id="ano"></span> Grimório · Todos os direitos reservados</span><a href="/privacidade">Privacidade</a><a href="/termos">Termos de uso</a></footer>
-<script>
-(function(){
-  "use strict";
-  document.title=(/termos/.test(location.pathname)?"Termos de uso":"Privacidade")+" · Grimório";
-  var chave=/termos/.test(location.pathname)||/[?&]t=termos/.test(location.search)?"termos":"privacidade";
-  var outro=document.getElementById("outro");
-  outro.href=chave==="termos"?"/privacidade":"/termos";
-  outro.textContent=chave==="termos"?"Privacidade":"Termos de uso";
-  document.getElementById("ano").textContent=new Date().getFullYear();
-  var caixa=document.getElementById("texto");
-  fetch("/api/publico/texto/"+chave,{credentials:"same-origin"}).then(function(r){
-    if(!r.ok)throw new Error(String(r.status)); return r.json(); }).then(function(j){
-    var tit=j.titulo||(chave==="termos"?"Termos de uso":"Privacidade");
-    document.getElementById("tit").textContent=tit;
-    document.title=tit+" · Grimório";
-    if(!String(j.texto||"").trim())throw new Error("vazio");
-    caixa.textContent="";
-    /* paragrafos separados por linha em branco; texto entra como texto, nunca como HTML */
-    String(j.texto||"").split(/\n\s*\n/).forEach(function(par){
-      var p=document.createElement("p"); p.textContent=par.trim(); if(p.textContent)caixa.appendChild(p); });
-    document.getElementById("nota").hidden=!j.padrao;
-  }).catch(function(){ caixa.innerHTML=""; var p=document.createElement("p");
-    p.textContent="Não consegui carregar o texto agora. Tente de novo em instantes."; caixa.appendChild(p); });
-})();
-</script>
+<footer><a href="/privacidade">Privacidade</a><a href="/termos">Termos de uso</a></footer>
+<script src="/publico/legal.js"></script>
 </body>
 </html>

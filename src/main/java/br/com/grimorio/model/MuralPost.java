@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "mural_post")
+/* o mural le os 200 mais novos da campanha: sem o indice, varria e ordenava a tabela inteira */
+@Table(name = "mural_post", indexes = @Index(name = "ix_mural_campanha", columnList = "campanha_id, criado_em"))
 public class MuralPost {
 
     @Id

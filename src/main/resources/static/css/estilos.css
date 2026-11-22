@@ -71,7 +71,7 @@ html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(3n+1){ro
 html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(3n+2){rotate:.4deg}
 html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):nth-child(4n){rotate:-.25deg}
 html[data-estilo="investigacao"] :is(.ccard,.cad,.pc,.evcard):hover{rotate:0deg}
-html[data-estilo="investigacao"] .chip{border-radius:var(--r-xs);border-width:1.5px;font-family:var(--disp);letter-spacing:.05em;rotate:-1.2deg}
+html[data-estilo="investigacao"] .chip{border-radius:var(--r-xs);border-width:1.5px;font-family:var(--disp);letter-spacing:var(--tr-fino);rotate:-1.2deg}
 html[data-estilo="investigacao"] h1.page{text-shadow:none;letter-spacing:.03em}
 html[data-estilo="investigacao"] h1.page::after{
   background:linear-gradient(var(--gold),var(--gold)) left/1.2rem 100% no-repeat,

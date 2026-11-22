@@ -12,10 +12,13 @@
   --fs-5:1.25rem;
   --fs-6:1.625rem;
   --fs-7:clamp(1.875rem,4.6vw,2.75rem);
-  /* altura de linha: titulo, interface, texto */
-  --lh-titulo:1.15; --lh-ui:1.35; --lh-texto:1.6;
-  /* caixa alta so em rotulo curto: dois espacamentos */
-  --tr-caixa:.1em; --tr-caixa-larga:.2em;
+  /* altura de linha: titulo, interface, texto, e a solida (1) de quem ocupa uma linha so (chip, icone) */
+  --lh-titulo:1.15; --lh-ui:1.35; --lh-texto:1.6; --lh-solida:1;
+  /* espacamento de letra: o fino abre um pouco titulo e nome; a caixa alta (so em rotulo curto) usa os outros dois */
+  --tr-fino:.04em; --tr-caixa:.1em; --tr-caixa-larga:.2em;
+  /* peso: texto, enfase e titulo. As fontes carregadas tem so alguns pesos (vendor/fontes.css): 500
+     cai no mesmo arquivo de 400 no Barlow, e 700 e 800 no mesmo arquivo em cada familia de titulo */
+  --fw-texto:400; --fw-enfase:600; --fw-titulo:800;
 
   /* espaco: base de 4px */
   --s-1:.25rem; --s-2:.5rem; --s-3:.75rem; --s-4:1rem;
@@ -52,6 +55,15 @@
   /* base das sombras; a intensidade de cada uma vem de --sh, que o esquema claro troca */
   --sombra:#000;
 
+  /* Pontos de quebra: so quatro, e sempre por "ate N px" (max-width:Npx; o lado de cima e
+     min-width:N+1px). Custom property nao entra em @media, entao a escala mora neste comentario:
+       360   celular estreito (topo apertado)
+       600   celular (uma coluna, janelas em tela cheia)
+       900   tablet e celular deitado (abas na barra de baixo, barra de jogo da sessao,
+             Configuracoes em lista, painel do mapa como gaveta). O JS usa o mesmo: innerWidth<=900
+       1280  notebook (rotulos do topo viram so icone)
+     Antes eram 13 cortes (1100, 1000, 999, 899, 860, 760, 561, 560, 520...), e entre eles o layout
+     mudava em degraus que ninguem desenhou. Tela nova escolhe um destes. */
   /* altura da barra de abas do celular; 0 quando ela nao existe */
   --barra-h:0px;
 }

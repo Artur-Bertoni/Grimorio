@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "midia", indexes = @Index(name = "ix_midia_hash", columnList = "hash"))
+@Table(name = "midia", indexes = {
+        @Index(name = "ix_midia_hash", columnList = "hash"),
+        /* a Biblioteca lista por campanha e tipo; o catalogo e de todas as campanhas da instancia */
+        @Index(name = "ix_midia_campanha", columnList = "campanha_id, tipo")})
 public class Midia {
 
     public enum Tipo { PDF, AUDIO, IMG }

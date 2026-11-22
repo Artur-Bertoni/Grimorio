@@ -1,0 +1,95 @@
+# Os dois roteiros que ja existiam, rodando a cada push e pull request na main.
+# - api: sobe o jar de verdade numa pasta vazia (instancia sem contas) e bate nas rotas, duas vezes:
+#   com o H2 local e com um Postgres de verdade (o banco de producao). As armadilhas do ddl-auto
+#   (coluna NOT NULL sem DEFAULT, CHECK de enum) so aparecem no Postgres.
+# - tela: o stub em Node e o roteiro de Playwright no Chrome que ja vem no runner.
+# Nenhum dos dois precisa de segredo nem de servico externo.
+name: testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        banco: [h2, postgres]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: pg
+          POSTGRES_DB: grim
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Empacotar
+        run: mvn -B -DskipTests package
+      - name: Subir o jar numa pasta vazia
+        run: |
+          mkdir -p "$RUNNER_TEMP/instancia"
+          cd "$RUNNER_TEMP/instancia"
+          if [ "${{ matrix.banco }}" = "postgres" ]; then export DATABASE_URL=postgresql://postgres:pg@localhost:5432/grim; fi
+          PORT=8123 nohup java -jar "$GITHUB_WORKSPACE/target/grimorio.jar" > "$RUNNER_TEMP/grimorio.log" 2>&1 &
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:8123/api/ping > /dev/null && exit 0
+            sleep 1
+          done
+          echo "o jar nao subiu em 90 s"; cat "$RUNNER_TEMP/grimorio.log"; exit 1
+      - name: Teste de API
+        run: BASE=http://127.0.0.1:8123 node scripts/teste-api/teste.mjs
+      # coluna nova sem DEFAULT ou CHECK desatualizado nao derrubam o boot: so deixam erro de DDL no log
+      - name: Nenhum erro de esquema no boot
+        run: |
+          if grep -E "Error executing DDL|GenerationTarget encountered exception" "$RUNNER_TEMP/grimorio.log"; then exit 1; fi
+      - name: Log do servidor
+        if: failure()
+        run: cat "$RUNNER_TEMP/grimorio.log"
+
+  tela:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: scripts/teste-front
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/teste-front/package-lock.json
+      - run: npm ci
+      - name: Subir o stub
+        run: |
+          nohup node stub.mjs > "$RUNNER_TEMP/stub.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8099/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "o stub nao subiu"; cat "$RUNNER_TEMP/stub.log"; exit 1
+      - name: Teste de tela
+        run: NAVEGADOR=$(command -v google-chrome) node teste.mjs

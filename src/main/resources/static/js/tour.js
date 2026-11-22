@@ -267,7 +267,6 @@ function guiaMapaMestre(){
   ];
 }
 function guiaTopoMestre(){
-  /* parte da tela inicial: no mapa e no quadro o rodape do suporte some */
   var ir=tourIr("home");
   return [
     {ir:ir,a:"#btnBusca",t:"Buscar",x:"Procura de uma vez na "+vmin("campanha")+", na consulta rápida e nas páginas dos livros. Abre com / ou Ctrl+K; os filtros escolhem livros e assuntos, e Enter abre o resultado."},
@@ -276,7 +275,7 @@ function guiaTopoMestre(){
     {ir:ir,a:"#btnDados",t:"Dados",x:"Clique num dado ou escreva a rolagem: 2d6+3, 2d20kh1 (fica o maior), 4d6dl1 (sai o menor). Quem sorteia é o servidor. Você escolhe se a "+vmin("mesa")+" vê cada rolagem sua, e Pedir teste manda um pedido aos "+vmin("jogadores")+"."},
     {ir:ir,a:"#btnRol",t:"Rolagens da "+vmin("mesa"),x:"Um painel solto com as rolagens de todo mundo e os pedidos de teste, com um campo para rolar dali. Abre, fecha, move e muda de tamanho."},
     {ir:ir,a:"#btnAjustes",t:"Configurações",x:"A "+vmin("campanha")+" (capa, tema sugerido, pacote), mesa e convites, vocabulário, "+vmin("referencia")+", busca, aparência, privacidade, guias e a sua conta."},
-    {ir:ir,a:"#rdSup",t:"Suporte",x:"No rodapé de qualquer página: escreva o que aconteceu, e a mensagem vai para quem cuida deste Grimório."}
+    {ir:ir,a:"#btnAjustes",t:"Suporte",x:"Em Configurações › Suporte: escreva o que aconteceu, e a mensagem vai para quem cuida deste Grimório. Fora de uma "+vmin("campanha")+", o link também fica no rodapé."}
   ];
 }
 function guiaResumos(){
@@ -354,7 +353,6 @@ function guiaMapaJogador(){
   ];
 }
 function guiaTopoJogador(){
-  /* parte da tela inicial: no mapa e no quadro o rodape do suporte some */
   var ir=irMesa("resumos");
   var m=vmin("mestre");
   return [
@@ -363,7 +361,7 @@ function guiaTopoJogador(){
     {ir:ir,a:"#btnRol",t:"Rolagens da "+vmin("mesa"),x:"Um painel solto com as rolagens que você pode ver e os pedidos de teste. Abre, fecha, move e muda de tamanho."},
     {ir:ir,t:"Pedidos de teste",x:"Quando o "+m+" pedir um teste, aparece um aviso no topo com o botão Rolar, e o resultado vai direto para ele."},
     {ir:ir,a:"#btnAjustes",t:"Configurações",x:"O tema da página (o sugerido pelo "+m+" vem marcado), sons e animações, privacidade, os guias e a sua conta."},
-    {ir:ir,a:"#rdSup",t:"Suporte",x:"No rodapé de qualquer página: escreva o que aconteceu, e a mensagem vai para quem cuida deste Grimório."}
+    {ir:ir,a:"#btnAjustes",t:"Suporte",x:"Em Configurações › Suporte: escreva o que aconteceu, e a mensagem vai para quem cuida deste Grimório. Fora de uma "+vmin("campanha")+", o link também fica no rodapé."}
   ];
 }
 

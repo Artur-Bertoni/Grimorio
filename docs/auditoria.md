@@ -96,6 +96,12 @@ sem isso.
 
 ## Pendências conhecidas (o que um próximo passo pode atacar)
 
+**Rodada 4 (21/11/2026)**: front e backend auditados e, no mesmo dia, tudo aplicado (Parte 3 de
+`docs/auditoria-rodada-4.md`). Escalas novas: breakpoints 360/600/900/1280, `--lh-*`, `--tr-*`,
+`--fw-*`. Depois, as decisões do dono também
+entraram (barras da sessão escondem ao rolar, última sessão no cartão, `MapaService` e `MidiaService`
+divididos, Spring Boot 4.2). O `unsafe-eval` fica, por decisão do dono: sai só trocando o motor de template.
+
 - **N-27, efeitos que repintam**: a maré do Abismo (`mask-position`) e o LED do Neon (`--ang`
   num gradiente cônico) só rodam no hover, numa área pequena. Converter para composição pura
   (`transform`/`opacity` em camada própria) mudaria o desenho; só faça se o dono autorizar.
