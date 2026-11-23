@@ -238,7 +238,10 @@ function rotaMapa(M, p, b, req, res) {
     if (M === 'GET') { envia(res, 200, lista.filter(x => mestre || x.ativo).map(x => mapaJson(x, mestre))); return true; }
     if (M === 'POST' && mestre) {
       const novo = { id: ++MAPA_SEQ, nome: b.nome || 'Mapa sem nome', imagem: b.imagem || '', largura: b.imagem ? 1400 : 2100, altura: b.imagem ? 980 : 1400,
-        grid: { tipo: 'quadrado', tam: 70, ox: 0, oy: 0, opac: 0.35, escala: 1.5, unidade: 'm', diagonal: '121' }, regras: { quem: 'dono' }, ativo: false, ordem: lista.length, seq: 0, cenaId: '', els: [] };
+        grid: { tipo: 'quadrado', tam: 70, ox: 0, oy: 0, opac: 0.35, escala: 1.5, unidade: 'm', diagonal: '121', ...(b.grid || {}) }, regras: { quem: 'dono', ...(b.regras || {}) }, ativo: false, ordem: lista.length, seq: 0, cenaId: '', els: [] };
+      /* molde: os elementos nascem junto com o mapa, como no servidor */
+      (b.elementos || []).forEach((x, i) => novo.els.push({ id: ++MAPA_SEQ, tipo: x.tipo || 'TOKEN', camada: x.camada || (x.tipo === 'DESENHO' ? 'decoracao' : x.tipo === 'TOKEN' || !x.tipo ? 'personagens' : 'cenario'),
+        dono: 0, visivel: x.tipo === 'PAREDE' || x.visivel !== false, bloqueado: false, ordem: i, dados: { ...(x.dados || {}) } }));
       lista.push(novo); envia(res, 200, mapaJson(novo, true)); return true;
     }
     envia(res, 403, { erro: 'so o mestre', codigo: 'proibido' }); return true;

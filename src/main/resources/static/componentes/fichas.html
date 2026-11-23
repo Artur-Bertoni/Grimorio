@@ -2,9 +2,23 @@
 
 <template id="t-fichas">
   <p class="lead"><span v-if="mestre" data-solta>Você vê as fichas de todo mundo. Cada {{ vmin('jogador') }} vê só as dele.</span><span v-else data-solta>Só você e o {{ vmin('mestre') }} veem as suas fichas.</span></p>
-  <div class="addrow"><button class="btn" id="fxNova">+ ficha</button><button class="btn sec" id="fxPdf">Importar de PDF</button><input type="file" id="fxArq" accept="application/pdf,.pdf" hidden><button v-if="mestre" class="btn sec" id="fxModelo">Modelo da ficha</button></div>
+  <div class="addrow"><button class="btn" id="fxNova">+ ficha</button><button class="btn sec" id="fxPdf">Importar de PDF</button><input type="file" id="fxArq" accept="application/pdf,.pdf" hidden><button v-if="mestre" class="btn sec" id="fxModelo">Modelo da ficha</button><button v-if="mestre" class="btn sec" id="fxLivros">Montar pelos livros</button></div>
   <p class="sm muted m0 mt-2">O PDF é lido no seu navegador{{ ia ? ' e a IA organiza os campos' : '' }}. Funciona melhor com ficha preenchível; PDF que é só foto escaneada não tem texto para ler.</p>
   <div id="fxList" class="cadgrid mt-4"><p class="empty">Carregando…</p></div>
+</template>
+
+<!-- Ficha pelos livros (js/fichas-livros.js): o que a leitura dos PDFs achou, para o mestre conferir.
+     secoes [{sec, campos:[{i, rot, onde, tipoRot, on}]}]; paginas e livros: o que foi lido; formula e dica: a rolagem sugerida -->
+<template id="t-ficha-livros">
+  <p class="sm muted m0">Li {{ paginas }} páginas de {{ livros }} {{ livros === 1 ? 'livro' : 'livros' }} da Biblioteca. Desmarque o que não serve; o resto você ajusta depois no modelo.</p>
+  <p v-if="!secoes.length" class="empty">Não achei campos de {{ vmin('ficha') }} nesses livros. Confira os termos da busca: o sistema pode chamar as coisas por outro nome.</p>
+  <fieldset v-for="s in secoes" class="flsec"><legend class="frotx">{{ s.sec }}</legend>
+    <label v-for="c in s.campos" class="flcampo"><input type="checkbox" :data-fl="c.i" v-attr:checked="c.on ? true : null"><span class="cresce">{{ c.rot }}<span class="muted sm"> · {{ c.tipoRot }}</span></span><span v-if="c.onde" class="flonde">{{ c.onde }}</span></label>
+  </fieldset>
+  <div class="form"><label><span class="frotx">Rolagem ao clicar num número</span><input class="inp" id="flFormula" v-attr:value="formula" autocomplete="off" aria-describedby="flFormulaD"><span class="dica" id="flFormulaD">{{ dica }}</span></label></div>
+  <div class="linha mt-3"><button type="button" class="btn" id="flModelo">Usar como modelo da {{ vmin('campanha') }}</button>
+    <button type="button" class="btn sec" id="flFicha">Criar uma {{ vmin('ficha') }} com isso</button>
+    <button type="button" class="btn fant" id="flTermos">Termos da busca</button></div>
 </template>
 
 <!-- fichas: [{id, nome, dono (vazio quando nao precisa aparecer), campos, barras:[{rot, val, max}]}] -->

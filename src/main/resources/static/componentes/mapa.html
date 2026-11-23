@@ -6,6 +6,29 @@
   <p v-else class="empty">{{ vazio }}</p>
 </template>
 
+<!-- Novo mapa: a grade em branco, a imagem do mestre e os moldes (js/mapa-moldes.js). filtros [{v, rot, on}];
+     moldes [{id, nome, desc, estilos ("fantasia moderno")}]: a previa de cada um o JS pinta no canvas depois -->
+<template id="t-mapa-moldes">
+  <p class="sm muted m0">Um molde já vem com chão, paredes, portas, móveis e {{ vmin('tokens') }} de exemplo, e tudo pode ser editado. Os {{ Vm('npcs') }} nascem escondidos dos {{ vmin('jogadores') }}.</p>
+  <div class="fchips" role="group" aria-label="Filtrar os moldes por estilo"><button v-for="f in filtros" type="button" class="fchip" :data-mm-filtro="f.v" :aria-pressed="String(f.on)">{{ f.rot }}</button></div>
+  <ul class="mmgal">
+    <li><button type="button" class="mmcard" data-mm="branco"><span class="mmprev mmsem" aria-hidden="true">+</span><span class="mmtx"><b>Grade em branco</b><span>30 por 20 casas, sem nada. Você desenha do zero.</span></span></button></li>
+    <li><button type="button" class="mmcard" data-mm="imagem"><span class="mmprev mmsem" aria-hidden="true">↑</span><span class="mmtx"><b>Enviar uma imagem</b><span>Um {{ vmin('mapa') }} que você já tem. A grade se ajusta depois.</span></span></button></li>
+    <li v-for="m in moldes" :data-mm-estilos="m.estilos"><button type="button" class="mmcard" :data-mm="m.id"><canvas class="mmprev" :data-mm-prev="m.id" aria-hidden="true"></canvas><span class="mmtx"><b>{{ m.nome }}</b><span>{{ m.desc }}</span></span></button></li>
+  </ul>
+</template>
+
+<!-- Molde escolhido: a previa grande, outra versao do mesmo molde e o nome. nome: o do molde; resumo: o que ele traz -->
+<template id="t-mapa-molde">
+  <div class="mmpasso">
+    <canvas class="mmgrande" id="mmGrande" role="img" :aria-label="'Prévia do ' + vmin('mapa') + ' ' + nome"></canvas>
+    <p class="sm muted m0" id="mmResumo">{{ resumo }}</p>
+    <div class="form"><label><span class="frotx">Nome<span class="obrig" aria-hidden="true">*</span></span><input class="inp" id="mmNome" v-attr:value="nome" maxlength="120" aria-required="true" autocomplete="off"></label></div>
+    <div class="linha"><button type="button" class="btn" id="mmCria">Criar o {{ vmin('mapa') }}</button>
+      <button type="button" class="btn sec" id="mmOutro">Gerar outro</button></div>
+  </div>
+</template>
+
 <!-- historico de movimentos: linhas [{texto, quando, desfeito, pode, seq}]; vazio: o texto quando nao ha nenhuma -->
 <template id="t-mapa-historico">
   <ol v-if="linhas.length" class="mplista"><li v-for="h in linhas" :class="'mpitem mphlin' + (h.desfeito ? ' desfeito' : '')"><span class="cresce">{{ h.texto }}<span class="muted sm"> · {{ h.quando }}</span></span><span v-if="h.desfeito" class="chip">Desfeito</span><button v-if="h.pode" type="button" class="btn sec m" :data-mp-desfaz="h.seq">Desfazer</button></li></ol>

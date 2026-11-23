@@ -253,6 +253,13 @@ decisões e o que cada fase entregou: `docs/plano-tabletop.md`. A aba fica atrá
 é administrador até o dono liberar (`mapa.liberado`). O pacote leva os mapas (`MapaPacote`: entram desligados e
 sem dono nem ficha); modelos de campanha nunca os levam. Imagem de mapa não sai pela mídia para o jogador, só em
 pedaços cortados pela névoa (`MapaTiles`).
+**Moldes de mapa** (`js/mapa-moldes.js`): "Novo mapa" abre uma galeria de geradores (masmorra, taverna, nave…). Cada
+um monta uma planta em casas com semente (a prévia, o "Gerar outro" e o mapa criado saem iguais); as paredes saem das
+divisas entre zonas. O chão é pintado no navegador e enviado como imagem (o repositório não carrega arte); paredes,
+portas, móveis que barram, marcações e tokens vão em `elementos` no `POST /mapas`, gravados na mesma transação do mapa.
+
+**Ficha pelos livros** (`js/fichas-livros.js`, só o mestre): lê o índice de busca que o mestre já recebe e monta um
+esboço de ficha sem IA, guiado pelos termos da campanha (`D.campanha.fichaBusca`, editáveis; sem eles vale `FL_PADRAO`).
 
 ## Separação mestre/jogador
 

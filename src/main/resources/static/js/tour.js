@@ -242,7 +242,7 @@ function guiaMesaMestre(){
 function guiaMapaMestre(){
   var ir=tourIr("mapa"), mp=vmin("mapa"), j=vmin("jogadores"), tk=vmin("token");
   if(!MP.lista.length)return [
-    {a:"#mpNovo",ir:ir,t:"O primeiro "+mp,x:"Envie a imagem de um "+mp+" ou comece por uma grade em branco."},
+    {a:"#mpNovo",ir:ir,t:"O primeiro "+mp,x:"Comece por um molde pronto (masmorra, taverna, nave…), já com paredes, móveis e "+vmin("tokens")+", por uma grade em branco ou pela imagem de um "+mp+"."},
     {ir:ir,t:"O que dá para fazer",x:vmin("tokens")+" ligados a fichas e NPCs, régua e áreas, desenhos, paredes e portas, névoa manual ou pela visão dos personagens, e iniciativa ligada ao "+vmin("turno")+". Depois de criar o primeiro, abra este guia de novo pelo botão ?."}];
   var painel=tourIr("mapa",function(){ MP.painel=true; });
   return [

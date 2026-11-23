@@ -212,3 +212,12 @@ body.offline header.top::before{content:"Sem conexão";position:absolute;left:50
   .ajgrade.com-secao .ajmenu{display:none}
   .ajgrade.com-secao>.ajvolta{display:inline-flex}
 }
+
+/* Ficha pelos livros: um campo por linha, com a página de onde saiu à direita */
+.flsec{border:1px solid var(--line);border-radius:var(--r);padding:var(--s-2) var(--s-3);margin:var(--s-3) 0 0;min-width:0}
+.flsec legend{padding:0 var(--s-1)}
+.flcampo{display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-p);padding:var(--s-1) 0;color:var(--fg);cursor:pointer}
+.flcampo+.flcampo{border-top:1px solid var(--line)}
+.flcampo input{margin:0;accent-color:var(--gold)}
+.flonde{flex:0 0 auto;font-size:var(--fs-2);color:var(--fg3)}
+@media (max-width:600px){ .flcampo{flex-wrap:wrap} .flonde{flex-basis:100%;padding-left:var(--s-5)} }

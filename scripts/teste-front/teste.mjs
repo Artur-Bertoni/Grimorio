@@ -205,6 +205,8 @@ await pg.locator('#tabs .tab[data-aba="mapa"]').click();
 await espera(900);
 ok(/#\/c\/1\/mapa$/.test(pg.url()) && await pg.locator('#mpNovo').isVisible(), 'aba Mapa tem endereco e, sem mapa, oferece criar o primeiro: ' + pg.url());
 await pg.locator('#mpNovo').click(); await espera(350);
+ok(await pg.locator('.ov .mmgal').isVisible() && (await pg.locator('.ov [data-mm]').count()) === 17, 'criar o primeiro mapa abre a galeria: grade em branco, imagem e os 15 moldes');
+await pg.locator('.ov [data-mm="branco"]').click(); await espera(350);
 await pg.locator('.ov [data-f="nome"]').fill('Masmorra');
 await salvar(); await espera(900);
 const mid = await pg.evaluate(() => MP.id);
@@ -438,6 +440,31 @@ ok((await pg.locator(".ov .cenasheet").count()) === 0 && await pg.evaluate(a => 
 await ctx.request.put(B + "/api/c/" + ligada.cid + "/mapas/" + ligada.mid, { data: { cenaId: "" } });
 await pg.evaluate(() => mpAbrir(MP.id));
 await espera(500);
+
+titulo('mapa: moldes prontos (mestre)');
+await pg.evaluate(() => { MM_FILTRO = 'todos'; mpNovoMapa(); }); await espera(1500);
+ok(await pg.locator('.ov [data-mm-prev]').evaluateAll(cs => cs.length === 15 && cs.every(c => c.width > 50)), 'a galeria pinta a previa de cada um dos 15 moldes');
+await foto('13a-mapa-moldes');
+await pg.locator('.ov [data-mm-filtro="scifi"]').click(); await espera(200);
+ok(await pg.locator('.ov .mmgal li:not([hidden])').count() === 6 && await pg.locator('.ov [data-mm="nave"]').isVisible() && !(await pg.locator('.ov [data-mm="taverna"]').isVisible()),
+  'o filtro Ficcao cientifica deixa so os moldes dela (e a grade e a imagem)');
+await pg.locator('.ov [data-mm-filtro="todos"]').click();
+await pg.locator('.ov [data-mm="masmorra"]').click(); await espera(600);
+const prev1 = await pg.locator('#mmGrande').evaluate(c => c.toDataURL().length);
+await pg.locator('#mmOutro').click(); await espera(300);
+const prev2 = await pg.locator('#mmGrande').evaluate(c => c.toDataURL().length);
+ok(prev1 > 1000 && prev1 !== prev2, 'Gerar outro sorteia outra planta na previa');
+ok(await pg.locator('.ov [data-back]').isVisible(), 'a previa do molde tem Voltar para a galeria');
+await pg.locator('#mmNome').fill('Cripta');
+await pg.locator('#mmCria').click(); await espera(3000);
+const md = await pg.evaluate(() => ({ nome: MP.mapa && MP.mapa.nome, img: MP.mapa && MP.mapa.imagem, fog: MP.mapa && MP.mapa.regras.fog,
+  paredes: MP.els.filter(e => e.tipo === 'PAREDE').length, portas: MP.els.filter(e => e.tipo === 'PAREDE' && e.dados.kind === 'porta').length,
+  ocultos: MP.els.filter(e => e.tipo === 'TOKEN' && !e.visivel).length, pjs: MP.els.filter(e => e.tipo === 'TOKEN' && e.visivel && /^Personagem [1-4]$/.test(e.dados.nome)).length }));
+ok(md.nome === 'Cripta' && (md.img || '').startsWith('img/'), 'o molde cria o mapa com a imagem do chao enviada: ' + JSON.stringify(md));
+ok(md.paredes > 20 && md.portas > 2, 'o molde ja traz paredes e portas: ' + md.paredes + ' paredes, ' + md.portas + ' portas');
+ok(md.ocultos >= 3 && md.pjs === 4, 'o molde traz NPCs escondidos e os 4 lugares dos personagens');
+ok(md.fog === 'visao', 'o mapa do molde nasce com a nevoa pela visao');
+await foto('13b-mapa-molde');
 
 titulo('mapa: paredes, visao e nevoa (mestre)');
 await pg.evaluate(() => mpCriaMapa({ nome: 'Paredes' })); await espera(1500);
@@ -1408,6 +1435,36 @@ const lia = JSON.parse((fichas.find(f => f.nome === 'Lia') || { json: '{"campos"
 ok(lia.some(c => /forca/i.test(c.rot) && c.tipo === 'num' && c.val === '3'), 'numero do PDF vira campo de rolar');
 ok(lia.some(c => /vida/i.test(c.rot) && c.tipo === 'barra' && c.val === '7' && c.max === '10'), 'atual/maximo do PDF vira barra');
 ok(lia.some(c => /conceito/i.test(c.rot) && c.sec === 'Identidade'), 'rotulo que existe no modelo cai na secao do modelo');
+/* ficha pelos livros: um livro simulado no indice, so neste trecho */
+const livro = { docs: [{ id: 'lb', abrev: 'LB', nome: 'Livro Basico', paginas: 40 }], pages: [
+  { d: 'lb', p: 10, s: 'Personagem', t: ['Criando seu personagem', 'Os atributos são: Força, Agilidade, Intelecto, Presença e Vigor.'].join('\n') },
+  { d: 'lb', p: 11, s: 'Atributos', t: ['Atributos', 'Força', 'Agilidade', 'Intelecto', 'Presença', 'Vigor', 'Seus Pontos de Vida (PV) iniciais são 20 + Vigor.'].join('\n') },
+  { d: 'lb', p: 20, s: 'Perícias', t: ['Perícias', 'Acrobacia (Agi)', 'Atletismo (For)', 'Ciências (Int)', 'Diplomacia (Pre)', 'Furtividade (Agi)', 'Luta (For)', 'Pontaria (Agi)', '', 'Role 1d20 e some o bônus.'].join('\n') },
+  { d: 'lb', p: 21, s: 'Perícias', t: 'Acrobacia (Agi): você se equilibra. Luta (For) e Pontaria (Agi) servem no combate. Role 1d20.' },
+  { d: 'lb', p: 30, s: 'Combate', t: 'A Defesa é 10 + Agilidade. Seus PV caem com dano. Role 1d20+2.' },
+  { d: 'lb', p: 31, s: 'Combate', t: 'Quando seus PV chegam a 0 você cai. A Defesa sobe com escudo. 1d20.' },
+  { d: 'lb', p: 32, s: 'Combate', t: 'Recuperar PV. Defesa. 1d20.' }] };
+await pg.route('**/api/c/1/indice', r => r.fulfill({ json: livro }));
+await pg.evaluate(() => { IDX = null; IDXp = null; window.__modeloAntes = JSON.stringify({ m: MESA.fichaModelo, f: MESA.fichaFormula }); });
+await pg.locator('#fxLivros').click(); await espera(1500);
+const lidos = await pg.locator('.ov .flcampo').allInnerTexts();
+ok(lidos.some(x => /Agilidade/.test(x)) && lidos.some(x => /Acrobacia/.test(x)) && lidos.some(x => x.includes('Pontos de vida (PV)')) && lidos.some(x => /Defesa/.test(x)),
+  'Montar pelos livros acha atributos, pericias, recursos e combate no texto dos PDFs: ' + lidos.length + ' campos');
+ok(await pg.locator('#flFormula').inputValue() === '1d20+{v}', 'e sugere a rolagem pelo dado que os livros mais usam');
+await foto('14b-ficha-livros');
+await pg.locator('.ov .flcampo', { hasText: 'Furtividade' }).locator('input').uncheck();
+await pg.locator('#flModelo').click(); await espera(800);
+const mod = await pg.evaluate(() => MESA.fichaModelo);
+ok(mod.some(c => c.rot === 'Agilidade' && c.sec === 'Atributos' && c.tipo === 'num') && !mod.some(c => c.rot === 'Furtividade') && mod.some(c => /Pontos de vida/i.test(c.rot) && c.tipo === 'barra'),
+  'Usar como modelo grava so os campos marcados, com secao e tipo');
+await pg.locator('#flFicha').click(); await espera(800);
+await pg.locator('.ov [data-f="nome"]').fill('Bruma'); await salvar(); await espera(900);
+fichas = await (await ctx.request.get(B + '/api/c/1/fichas')).json();
+const bruma = JSON.parse((fichas.find(f => f.nome === 'Bruma') || { json: '{"campos":[]}' }).json).campos;
+ok(bruma.some(c => c.rot === 'Acrobacia' && c.sec === 'Perícias'), 'Criar uma ficha com isso cria a ficha com os campos achados');
+await pg.unroute('**/api/c/1/indice');
+await pg.evaluate(() => { const a = JSON.parse(window.__modeloAntes); MESA.fichaModelo = a.m; MESA.fichaFormula = a.f; salvarMesa(); IDX = null; IDXp = null; });
+await espera(800);
 const pdfImg = await (await ctx.request.get(B + '/__ficha-imagem.pdf')).body();
 await pg.evaluate(() => { window.__toasts = []; new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
   if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document.body, { childList: true, subtree: true }); });

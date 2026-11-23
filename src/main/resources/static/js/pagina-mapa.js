@@ -73,17 +73,19 @@ function mpItemDesenho(e){
   var d=e.dados||{};
   return {id:e.id,nome:(MP_NOME_FORMA[d.forma]||"Desenho")+(d.rotulo?" · "+d.rotulo:""),sel:mpEhSel(e.id),trancado:mpTrancado(e),oculto:e.visivel===false};
 }
+function mpEhDesenho(e){ return e.tipo==="DESENHO"; }
+function mpContaNaCamada(e){ return e.tipo==="TOKEN"||e.tipo==="DESENHO"; }
 function mpDadosDoPainel(){
-  var sels=mpSelecionados(), tem=function(e){ return e.tipo==="DESENHO"; }, daCamada=function(e){ return e.tipo==="TOKEN"||e.tipo==="DESENHO"; };
+  var sels=mpSelecionados();
   var paredes=MP.els.filter(function(e){ return e.tipo==="PAREDE"; }), areas=mpFogDoMapa();
   return {gm:GM,polling:mpModoTempoReal()==="polling",
     mapas:GM?MP.lista.map(function(m){ return {id:m.id,nome:m.nome,ativo:!!m.ativo,aberto:String(m.id)===String(MP.id)}; }):[],
     camadas:MP_CAMADAS.map(function(c){
-      return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return daCamada(e)&&mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
+      return {id:c,nome:mpCamadaNome(c),n:MP.els.filter(function(e){ return mpContaNaCamada(e)&&mpCamadaDe(e)===c; }).length,oculta:mpCamadaOculta(c),trancada:mpCamadaTrancada(c)}; }),
     nSel:sels.length,tudoTrancado:sels.length>0&&sels.every(function(e){ return e.bloqueado; }),
     tudoVisivel:sels.every(function(e){ return e.visivel!==false; }),
     abre:mpSecoes(),cores:MP_CORES,estilo:MP.estilo,temArea:!!MP.area&&!!mpAreaForma(MP.area),
-    desenhos:MP.els.filter(tem).map(mpItemDesenho),
+    desenhos:MP.els.filter(mpEhDesenho).map(mpItemDesenho),
     fog:mpFogModo(),fogMemoria:!!MP.mapa?.regras?.fogMemoria,visaoPadrao:mpVisaoPadraoDoMapa(),fogModos:MP_FOG_MODOS,pincel:mpPincel(),pontas:MP_PONTAS,fogFormas:MP_FORMAS_FOG,fogForma:MP.fogForma,fogRevela:MP.fogRevela!==false,comoJogador:MP.comoJogador,
     paredeKinds:MP_PAREDES,paredeKind:MP.paredeKind,paredes:paredes.map(mpItemParede),areas:areas.map(mpItemArea),
     tokens:MP.els.filter(function(e){ return e.tipo==="TOKEN"&&!mpOculto(e); }).map(mpItemToken)};
@@ -97,8 +99,8 @@ function mpMenuMais(b){
   var segue=mpSegueVez(), itens=[{v:"hist",rot:"Histórico",dica:GM?"Tudo o que foi feito, e desfazer":"O que você fez, e desfazer",perigo:false,desligado:false}];
   if(GM){ itens.unshift({v:"encaixe",rot:mpEncaixando()?"Encaixar na grade: ligado":"Encaixar na grade: desligado",dica:"Vale para todos ao soltar; Alt inverte só para você",perigo:false,desligado:false}); }
   if(GM){ itens.push({v:"turno",rot:"Novo "+vmin("turno"),dica:"Zera o deslocamento gasto de todos",perigo:false,desligado:false}); }
-  itens.push({v:"segue",rot:segue?"Parar de seguir a vez":"Seguir a vez",dica:"A tela vai até o "+vmin("token")+" de quem tem a vez",perigo:false,desligado:false});
-  itens.push({v:"atalhos",rot:"Atalhos e gestos",dica:"Tecla ?",perigo:false,desligado:false});
+  itens.push({v:"segue",rot:segue?"Parar de seguir a vez":"Seguir a vez",dica:"A tela vai até o "+vmin("token")+" de quem tem a vez",perigo:false,desligado:false},
+    {v:"atalhos",rot:"Atalhos e gestos",dica:"Tecla ?",perigo:false,desligado:false});
   menuSolto(b,htmlDe("t-menu",{titulo:"Mais ações do "+vmin("mapa"),itens:itens}),function(i){
     var v=i.dataset.v;
     if(v==="encaixe"){ mpTrocaEncaixe(); }
@@ -220,8 +222,10 @@ function mpLigaPainelVisao(p){
   var fm=$("#mpFogModo",p); if(fm){ fm.onchange=function(){ mpSalvaFog(fm.value); }; }
   var fme=$("#mpFogMemoria",p); if(fme){ fme.onchange=function(){ mpSalvaFog(null,{fogMemoria:fme.checked}); }; }
   var fes=$("#mpFogEsquece",p); if(fes){ fes.onclick=function(){
-    confirmar("Todo mundo volta a ver só o que está no campo de visão, e o que já foi explorado some.",{titulo:"Esquecer o que foi explorado?",sim:"Esquecer"}).then(function(sim){
-      if(sim){ mpSalvaFog(null,{fogMemoria:true,fogVer:(MP.mapa?.regras?.fogVer||0)+1}).then(function(){ toast("Explorado esquecido","ok"); }); } }); }; }
+    confirmar("Todo mundo volta a ver só o que está no campo de visão, e o que já foi explorado some.",{titulo:"Esquecer o que foi explorado?",sim:"Esquecer"})
+      .then(function(sim){ return sim?mpSalvaFog(null,{fogMemoria:true,fogVer:(MP.mapa?.regras?.fogVer||0)+1}):false; })
+      .then(function(feito){ if(feito!==false){ toast("Explorado esquecido","ok"); } })
+      .catch(function(){ /* o aviso ja saiu em mpGrava */ }); }; }
   var fvp=$("#mpVisaoPadrao",p); if(fvp){ fvp.onchange=function(){
     var n=Math.min(100,Math.max(1,Number(fvp.value)||MP_VISAO_PADRAO)); fvp.value=n; mpSalvaFog(null,{visaoPadrao:n}); }; }
   var fc=$("#mpFogComo",p); if(fc){ fc.onchange=function(){ MP.comoJogador=fc.checked; mpDesenha(); mpPintaPainel(); }; }
@@ -248,21 +252,106 @@ function mpReguaModo(modo){
   $$("[data-mp-rmodo]").forEach(function(b){ var on=b.dataset.mpRmodo===modo; b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); });
   mpDesenha();
 }
+function mpOpMenu(v,rot,dica){ return {v:v,rot:rot,dica:dica,perigo:false,desligado:false}; }
 function mpMenuArea(ancora){
-  var op=function(v,rot,dica){ return {v:v,rot:rot,dica:dica,perigo:false,desligado:false}; };
   menuSolto(ancora,htmlDe("t-menu",{titulo:"Medir uma área",itens:[
-    op("a-cone","Cone","A largura no fim é igual ao comprimento"),
-    op("a-circulo","Círculo","Do centro até onde você arrastar"),
-    op("a-linha","Linha","Uma casa de largura")]}),
+    mpOpMenu("a-cone","Cone","A largura no fim é igual ao comprimento"),
+    mpOpMenu("a-circulo","Círculo","Do centro até onde você arrastar"),
+    mpOpMenu("a-linha","Linha","Uma casa de largura")]}),
   function(it){ MP.areaTipo=it.dataset.v; mpFerramenta(it.dataset.v); });
 }
 
 /* ---------- mapa ---------- */
+/* Novo mapa comeca por uma galeria: os moldes (js/mapa-moldes.js), a grade em branco e a imagem que o
+   mestre ja tem. Cada molde guarda a semente da previa, para o cartao, a previa grande e o mapa criado
+   sairem iguais; "Gerar outro" troca a semente. */
+var MM_SEM={}, MM_FILTRO="todos";
 function mpNovoMapa(){
+  var ov=overlay("Novo "+vmin("mapa"),htmlDe("t-mapa-moldes",{
+    filtros:MM_FILTROS.map(function(f){ return {v:f[0],rot:f[1],on:f[0]===MM_FILTRO}; }),
+    moldes:MM_MOLDES.map(function(m){ return {id:m.id,nome:m.nome,desc:m.desc,estilos:m.estilos.join(" ")}; })}),{wide:true});
+  function filtra(){
+    $$("[data-mm-filtro]",ov).forEach(function(b){ b.setAttribute("aria-pressed",String(b.dataset.mmFiltro===MM_FILTRO)); });
+    $$("[data-mm-estilos]",ov).forEach(function(li){ li.hidden=MM_FILTRO!=="todos"&&!li.dataset.mmEstilos.split(" ").includes(MM_FILTRO); });
+  }
+  $$("[data-mm-filtro]",ov).forEach(function(b){ b.onclick=function(){ MM_FILTRO=b.dataset.mmFiltro; filtra(); }; });
+  filtra();
+  $$("[data-mm]",ov).forEach(function(b){ b.onclick=function(){
+    var k=b.dataset.mm;
+    ov.close();
+    if(k==="branco"){ mpNovoMapaBranco(); }
+    else if(k==="imagem"){ mpNovoMapaImagem(); }
+    else { mpAbreMolde(MM_MOLDES.find(function(m){ return m.id===k; })); }
+  }; });
+  /* uma previa por vez, para a janela abrir na hora e os cartoes irem se pintando */
+  var cvs=$$("[data-mm-prev]",ov), i=0, dpr=Math.min(2,globalThis.devicePixelRatio||1);
+  (function proxima(){
+    if(i>=cvs.length||!document.body.contains(ov)){ return; }
+    var cv=cvs[i++], m=MM_MOLDES.find(function(x){ return x.id===cv.dataset.mmPrev; });
+    if(!MM_SEM[m.id]){ MM_SEM[m.id]=mmSementeNova(); }
+    var p=mmGera(m,MM_SEM[m.id]);
+    mmPinta(cv,p,(300*dpr)/(p.cols*MM_T),true);
+    setTimeout(proxima,0);
+  })();
+}
+function mpNovoMapaBranco(){
+  formulario("Novo "+vmin("mapa")+" em branco",[
+    {k:"nome",rot:"Nome",obrig:true,ph:"Taverna, masmorra, cidade…",dica:"Nasce com 30 por 20 casas. O tamanho muda depois, no lápis do "+vmin("mapa")+"."}
+  ],{nome:""},{rotSalvar:"Criar",back:mpNovoMapa,salvar:function(c){
+    mpCriaMapa({nome:c.nome}).catch(function(){ /* o aviso ja saiu em mpGrava */ });
+  }});
+}
+function mpResumoMolde(p){
+  var els=mmElementos(p), n=function(f){ return els.filter(f).length; };
+  var portas=n(function(e){ return e.tipo==="PAREDE"&&e.dados.kind==="porta"; }), npcs=n(function(e){ return e.tipo==="TOKEN"&&!e.visivel; });
+  return portas+" portas, "+npcs+" "+Vm(npcs===1?"npc":"npcs")+" escondidos dos "+vmin("jogadores")+" e 4 lugares para "+vmin("personagens")+
+    ". A névoa começa pela visão: ligue cada "+vmin("personagem")+" a uma "+vmin("ficha")+" ou a um "+vmin("jogador")+" no formulário do "+vmin("token")+".";
+}
+function mpAbreMolde(m){
+  if(!m){ return; }
+  if(!MM_SEM[m.id]){ MM_SEM[m.id]=mmSementeNova(); }
+  var p=mmGera(m,MM_SEM[m.id]);
+  var ov=overlay("Molde · "+m.nome,htmlDe("t-mapa-molde",{nome:m.nome,resumo:mpResumoMolde(p)}),{wide:true,back:mpNovoMapa,foco:"#mmNome"});
+  var cv=$("#mmGrande",ov), dpr=Math.min(2,globalThis.devicePixelRatio||1);
+  function pinta(){ mmPinta(cv,p,Math.min(1,(900*dpr)/(p.cols*MM_T)),true); $("#mmResumo",ov).textContent=mpResumoMolde(p); }
+  pinta();
+  $("#mmOutro",ov).onclick=function(){ MM_SEM[m.id]=mmSementeNova(); p=mmGera(m,MM_SEM[m.id]); pinta(); };
+  var cria=$("#mmCria",ov), nome=$("#mmNome",ov);
+  cria.onclick=function(){
+    var n=nome.value.trim();
+    if(!n){ nome.focus(); toast("Dê um nome ao "+vmin("mapa")+".","aviso"); return; }
+    cria.disabled=true; $("#mmOutro",ov).disabled=true; cria.textContent="Criando…";
+    mpCriaDoMolde(p,n).then(function(){
+      ov.close();
+      toast(Vm("mapa")+" criado. Os "+Vm("npcs")+" estão escondidos; os "+vmin("personagens")+" esperam a "+vmin("ficha")+" de cada um.","ok");
+    }).catch(function(e){
+      cria.disabled=false; $("#mmOutro",ov).disabled=false; cria.textContent="Criar o "+vmin("mapa");
+      if(e?.status!==507){ toast(e?.message||"não consegui criar o "+vmin("mapa"),"erro"); }
+    });
+  };
+}
+/* a imagem do chao e pintada aqui e vai para a Biblioteca; paredes, moveis que barram e tokens vao como elementos do mapa */
+function mpCriaDoMolde(p,nome){
+  var cv=document.createElement("canvas");
+  mmPinta(cv,p,1,false);
+  return new Promise(function(ok,falha){
+    cv.toBlob(function(b){ if(b){ ok(b); } else { falha(new Error("não consegui desenhar o "+vmin("mapa"))); } },"image/webp",0.86);
+  }).then(function(b){
+    var ext=b.type==="image/webp"?"webp":"png", fd=new FormData();
+    fd.append("nome",nome);
+    fd.append("arquivo",new File([b],(norm(nome).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"mapa")+"."+ext,{type:b.type}));
+    return upload(cAPI("/midia/img"),fd);
+  }).then(function(r){
+    if(!r?.arquivo){ throw new Error("a imagem do "+vmin("mapa")+" não chegou ao servidor"); }
+    return mpCriaMapa({nome:nome,imagem:r.arquivo,grid:{tipo:"quadrado",tam:MM_T,ox:0,oy:0,opac:0.25},
+      regras:{fog:"visao"},elementos:mmElementos(p)});
+  });
+}
+function mpNovoMapaImagem(){
   formulario("Novo "+vmin("mapa"),[
     {k:"nome",rot:"Nome",obrig:true,ph:"Taverna, masmorra, cidade…"},
     {k:"imagem",rot:"Imagem do "+vmin("mapa"),tipo:"img",dica:"Sem imagem, o "+vmin("mapa")+" nasce em branco, com 30 por 20 casas."}
-  ],{nome:"",imagem:""},{rotSalvar:"Criar",salvar:function(c){
+  ],{nome:"",imagem:""},{rotSalvar:"Criar",back:mpNovoMapa,salvar:function(c){
     mpCriaMapa({nome:c.nome,imagem:c.imagem||""}).catch(function(){ /* o aviso ja saiu em mpGrava */ });
   }});
 }
@@ -387,11 +476,10 @@ function mpTokenDeNpc(){
   mpEscolhe("Escolher o "+vmin("npc"),npcs.map(function(n){ return {id:n.id,nome:n.nome||Vm("npc"),sub:"",img:n.img?IMG(n.img,"mini"):""}; }),
     "Nenhum "+vmin("npc")+" no elenco ainda.").then(function(id){
     var n=npcs.find(function(x){ return String(x.id)===String(id); });
-    if(!n){ return; }
-    mpCriaElemento({visivel:false,camada:"npcs",dados:{...mpMeioDaTela(),nome:n.nome||Vm("npc"),img:n.img||"",npcId:n.id,elencoId:String(n.id)}})
-      .then(function(){ toast(Vm("token")+" posto escondido. Mostre aos "+vmin("jogadores")+" no formulário dele.","ok"); })
-      .catch(function(){ /* aviso em mpGrava */ });
-  });
+    if(!n){ return false; }
+    return mpCriaElemento({visivel:false,camada:"npcs",dados:{...mpMeioDaTela(),nome:n.nome||Vm("npc"),img:n.img||"",npcId:n.id,elencoId:String(n.id)}});
+  }).then(function(posto){ if(posto!==false){ toast(Vm("token")+" posto escondido. Mostre aos "+vmin("jogadores")+" no formulário dele.","ok"); } })
+    .catch(function(){ /* aviso em mpGrava */ });
 }
 /* Quem e a vez de cada token se decide na iniciativa: a entrada da ordem aponta para o token (Token no mapa). */
 var MP_TAMANHOS=[["0.5","Meia casa"],["1","1 casa"],["2","2 × 2"],["3","3 × 3"],["4","4 × 4"]];
@@ -579,6 +667,9 @@ function mpLinhaHistorico(h){
 }
 /* O mestre ve o que todos fizeram; o jogador, so o que fez (o servidor corta). Cada linha propria
    que ainda vale tem o botao de desfazer aquela ação. */
+function mpDesfazDaLista(seq,recarrega){
+  mpDesfaz(seq).then(function(r){ if(r){ recarrega(); } }).catch(function(e){ toast(e?.message||"não consegui desfazer","erro"); });
+}
 function mpAbreHistorico(){
   if(!MP.id){ return; }
   var mid=MP.id, ov=overlay(GM?"Histórico do "+vmin("mapa"):"Seus movimentos",'<div class="mphist"></div>');
@@ -586,8 +677,7 @@ function mpAbreHistorico(){
   function carrega(){
     return api(mpAPI("/"+mid+"/historico?limite=80")).then(function(l){
       alvo.innerHTML=htmlDe("t-mapa-historico",{linhas:(l||[]).map(mpLinhaHistorico),vazio:"Nada aconteceu neste "+vmin("mapa")+" ainda."});
-      $$("[data-mp-desfaz]",alvo).forEach(function(b){ b.onclick=function(){
-        mpDesfaz(b.dataset.mpDesfaz).then(function(r){ if(r){ carrega(); } }); }; });
+      $$("[data-mp-desfaz]",alvo).forEach(function(b){ b.onclick=function(){ mpDesfazDaLista(b.dataset.mpDesfaz,carrega); }; });
     }).catch(function(e){ alvo.textContent=e?.message||"não consegui ler o histórico"; });
   }
   carrega();

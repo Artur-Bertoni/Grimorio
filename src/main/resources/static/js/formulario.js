@@ -17,7 +17,7 @@ function comDesfazer(msg,acao){
 function restauraGuiaEMesa(guia,mesa){ D=guia; MESA=mesa; } // NOSONAR: atribui as globais declaradas em nucleo.js
 
 function pget(o,p){
-  for(var k of String(p).split(".")){ if(o==null)return undefined; o=o[k]; }
+  for(var k of String(p).split(".")){ if(o==null){ return undefined; } o=o[k]; }
   return o;
 }
 function pset(o,p,v){
@@ -29,7 +29,7 @@ function pset(o,p,v){
    zero e um valor que a pessoa nao digitou */
 var LEITOR_DE_CAMPO={
   check:function(n){ return n.checked; },
-  num:function(n){ if(n.value==="")return null; var x=Number(n.value); return Number.isFinite(x)?x:null; },
+  num:function(n){ if(n.value===""){ return null; } var x=Number(n.value); return Number.isFinite(x)?x:null; },
   linhas:function(n){ return String(n.value||"").split("\n").map(function(x){ return x.trim(); }).filter(Boolean); }
 };
 
@@ -88,11 +88,11 @@ function formulario(titulo,campos,valor,o){
   function ligaImagens(){
     $$("[data-pk]",ov).forEach(function(b){ b.onclick=function(){
       colher(); var p=b.dataset.pk;
-      escolherImagem(pget(w,p)||"").then(function(rel){ if(rel===null)return; pset(w,p,rel); repinta(); }); }; });
+      escolherImagem(pget(w,p)||"").then(function(rel){ if(rel!==null){ pset(w,p,rel); repinta(); } }); }; });
     $$("[data-pkx]",ov).forEach(function(b){ b.onclick=function(){ colher(); pset(w,b.dataset.pkx,""); repinta(); }; });
     $$("[data-pka]",ov).forEach(function(b){ b.onclick=function(){
       colher(); var p=b.dataset.pka;
-      escolherImagem("").then(function(rel){ if(!rel)return; lista(p).push(rel); repinta(); }); }; });
+      escolherImagem("").then(function(rel){ if(rel){ lista(p).push(rel); repinta(); } }); }; });
   }
   function ligaGrupos(){
     $$("[data-addr]",ov).forEach(function(b){ b.onclick=function(){
@@ -103,7 +103,7 @@ function formulario(titulo,campos,valor,o){
       lista(pr[0]).splice(+pr[1],1); repinta(); }; });
   }
   function liga(){
-    $("[data-ok]",ov).onclick=function(){ colher(); if(!valida())return; fechando=true; ov.close(); o.salvar(w); };
+    $("[data-ok]",ov).onclick=function(){ colher(); if(!valida()){ return; } fechando=true; ov.close(); o.salvar(w); };
     /* o erro sai do campo assim que ele deixa de estar vazio */
     $$("[data-f]",ov).forEach(function(n){ n.addEventListener("input",function(){
       if(n.getAttribute("aria-invalid")==="true"&&String(n.value).trim())marcaErro(n,""); }); });
@@ -138,7 +138,7 @@ function formulario(titulo,campos,valor,o){
     anunciar(n===1?"Um campo precisa de atenção.":n+" campos precisam de atenção.",true);
     return false;
   }
-  ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{wide:!!o.wide,firme:true,foco:false});
+  ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{wide:!!o.wide,firme:true,foco:false,back:o.back});
   /* compacto: campos mais baixos e em colunas mais estreitas, para formularios longos (o do token) */
   if(o.compacto){ ov.querySelector(".form")?.classList.add("compacto"); }
   var fecha=ov.close;

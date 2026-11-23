@@ -345,7 +345,7 @@ console.log("\n=== mapa (tabletop) ===");
   ok(r.s === 200 && r.d.igual === true && !r.d.elementos, "polling com o seq atual devolve so o seq", r.d);
   /* a imagem do mapa: o jogador nao recebe o caminho, nem a baixa pela midia; so em pedacos */
   r = await jogador.get(`/api/c/${cid}/mapas/${mid}`);
-  ok(!("imagem" in r.d.mapa) && r.d.vista?.modo === "nenhum" && r.d.vista.tiles?.cols === 8 && r.d.vista.tiles.lins === 1 && r.d.vista.tiles.v.every(v => /f$/.test(v)) && !r.d.vista.png,
+  ok(!("imagem" in r.d.mapa) && r.d.vista?.modo === "nenhum" && r.d.vista.tiles?.cols === 8 && r.d.vista.tiles.lins === 1 && r.d.vista.tiles.v.every(v => v.endsWith("f")) && !r.d.vista.png,
     "o jogador recebe a vista (sem nevoa: todos os pedacos inteiros) e nao o caminho da imagem", { mapa: r.d.mapa, vista: r.d.vista });
   const v0 = r.d.vista.tiles.v[0];
   r = await jogador.get(`/api/c/${cid}/mapas/${mid}/tile/0/0?v=${encodeURIComponent(v0)}`);
@@ -355,7 +355,7 @@ console.log("\n=== mapa (tabletop) ===");
   r = await jogador.get(`/api/c/${cid}/mapas/${mid}/tile/9/0`);
   ok(r.s === 404, "pedaco fora da imagem responde 404", r.s);
   for (const q of ["", "?mini=1", "?mapa=1"]) {
-    r = await jogador.get(`/midia/c${cid}/${img}${q}`);
+    r = await jogador.get(`/midia/c${cid}/${img}${q}`); // NOSONAR: o teste pede um de cada vez de proposito (a ordem e o estado do servidor importam)
     ok(r.s === 403, "a imagem do mapa nao sai pela midia para o jogador" + (q ? " (" + q + ")" : ""), r.s);
   }
   r = await jogador.get(`/midia/c${cid}/img/.mini/${img.slice(4)}.jpg`);
@@ -421,6 +421,34 @@ console.log("\n=== mapa (tabletop) ===");
   ok(r.d?.length === 0, "e ele sai da lista", r.d);
   r = await mestre.del(`/api/c/${cid}/midia/${imgId}`);
   ok(r.s === 204 || r.s === 200, "a imagem do mapa sai da biblioteca (as contagens adiante nao a esperam)", r.s);
+}
+
+console.log("\n=== mapa: molde (os elementos nascem com o mapa) ===");
+{
+  const els = [
+    { tipo: "PAREDE", dados: { kind: "parede", pts: [[0, 0], [700, 0]] } },
+    { tipo: "PAREDE", dados: { kind: "porta", pts: [[700, 0], [770, 0]] } },
+    { tipo: "DESENHO", visivel: false, dados: { forma: "marca", pts: [[105, 105]], cor: "sangue", rotulo: "Armadilha" } },
+    { tipo: "TOKEN", visivel: false, camada: "npcs", dados: { nome: "Goblin 1", x: 175, y: 175, tam: 1 } },
+    { tipo: "TOKEN", camada: "personagens", dados: { nome: "Personagem 1", x: 35, y: 35, tam: 1 } }
+  ];
+  let r = await mestre.post(`/api/c/${cid}/mapas`, { nome: "Cripta", largura: 2100, altura: 1400, regras: { fog: "visao" }, elementos: els });
+  ok(r.s === 200 && r.d.regras?.fog === "visao", "cria o mapa do molde com a nevoa pela visao", r.d);
+  const mm = r.d.id;
+  r = await mestre.get(`/api/c/${cid}/mapas/${mm}`);
+  const es = r.d?.elementos || [];
+  ok(es.length === 5 && es.filter(e => e.tipo === "PAREDE").length === 2 && es.some(e => e.tipo === "PAREDE" && e.dados.kind === "porta" && e.dados.aberta === false),
+    "paredes e porta do molde nascem com o mapa", es);
+  ok(es.some(e => e.tipo === "TOKEN" && e.dados.nome === "Goblin 1" && e.visivel === false && e.camada === "npcs") && es.some(e => e.tipo === "DESENHO" && e.visivel === false),
+    "NPC e marcacao do molde nascem escondidos", es);
+  r = await mestre.post(`/api/c/${cid}/mapas`, { nome: "Torto", elementos: [{ tipo: "PAREDE", dados: { kind: "parede", pts: [[0, 0], [70, 0]] } }, { tipo: "DESENHO", dados: { forma: "nada" } }] });
+  ok(r.s === 400, "elemento torto no molde recusa o pedido", r.s);
+  r = await mestre.get(`/api/c/${cid}/mapas`);
+  ok(r.d?.length === 1 && !r.d.some(m => m.nome === "Torto"), "e nao sobra mapa pela metade", r.d);
+  r = await jogador.post(`/api/c/${cid}/mapas`, { nome: "Do jogador", elementos: els });
+  ok(r.s === 403, "jogador nao cria mapa com molde", r.s);
+  r = await mestre.del(`/api/c/${cid}/mapas/${mm}`);
+  ok(r.s === 204 || r.s === 200, "apaga o mapa do molde", r.s);
 }
 
 console.log("\n=== mapa: movimento (deslocamento, desfazer, historico) ===");
@@ -538,14 +566,14 @@ console.log("\n=== mapa: movimento (deslocamento, desfazer, historico) ===");
   ok(r.s === 200 && r.d.dados.usado === 1, "na vez dele o jogador move e gasta", r.d);
   r = await jogador.post(`${M}/${mid}/desfazer`, {});
   ok(r.s === 200 && r.d.el.dados.x === 35, "e desfaz na propria vez", r.d);
-  r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
+  await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 105, y: 35 } });
   r = await mestre.put(`${M}/turno`, ordem(2, "Guarda"));
   ok(r.d.novo === true && r.d.rodada === 2, "a ordem que da a volta e um turno novo", r.d);
   r = await jogador.get(`${M}/${mid}`);
   ok(r.d.elementos.find(e => e.id === t).dados.usado === 0 && r.d.elementos.find(e => e.id === t).esperaVez === true, "o turno novo zera o gasto, mas libera so quem tem a vez");
   r = await mestre.get(`${M}/${mid}/historico?limite=5`);
   ok(r.d.some(l => l.operacao === "turno"), "o turno novo entra no historico");
-  r = await mestre.put(`${M}/turno`, { ativo: false, ini: null });
+  await mestre.put(`${M}/turno`, { ativo: false, ini: null });
   r = await jogador.put(`${M}/${mid}/elementos/${t}`, { dados: { x: 175, y: 35 } });
   ok(r.s === 200, "sem iniciativa em andamento o jogador volta a mover quando quiser", r.s);
 
@@ -819,7 +847,7 @@ console.log("\n=== mapa: paredes, rota, visao e nevoa ===");
   let idsJ = r.d.elementos.map(e => e.id);
   ok(idsJ.includes(tC) && idsJ.includes(tPerto) && !idsJ.includes(tAtras) && !idsJ.includes(tLonge), "o jogador recebe o proprio token e o que ele ve; atras da parede e longe demais, nao", idsJ);
   ok(idsJ.includes(dPerto) && !idsJ.includes(dLonge), "desenho so chega onde o jogador ve", idsJ);
-  ok(r.d.vista.modo === "visao" && /^data:image\/png;base64,/.test(r.d.vista.png) && r.d.vista.cel === 5 && r.d.vista.cols === 420, "a vista traz a mascara da nevoa (casas de 5 px)", { ...r.d.vista, png: r.d.vista.png?.slice(0, 30) });
+  ok(r.d.vista.modo === "visao" && r.d.vista.png?.startsWith("data:image/png;base64,") && r.d.vista.cel === 5 && r.d.vista.cols === 420, "a vista traz a mascara da nevoa (casas de 5 px)", { ...r.d.vista, png: r.d.vista.png?.slice(0, 30) });
   const tl = r.d.vista.tiles;
   ok(tl?.cols === 5 && tl.lins === 3 && tl.v[0] && !tl.v[4] && !tl.v[14], "so os pedacos perto do que ele ve tem versao", tl?.v);
   r = await jogador.get(`${M}/${mid}/tile/4/0`);
@@ -832,7 +860,7 @@ console.log("\n=== mapa: paredes, rota, visao e nevoa ===");
   r = await mestre.get(`${M}/${mid}/tile/0/1`);
   ok(r.bruto.length > recortado, "e com menos imagem do que o do mestre (o coberto vem preto)", { jogador: recortado, mestre: r.bruto.length });
   for (const q of ["", "?mini=1"]) {
-    r = await jogador.get(`/midia/c${cid}/${imgP}${q}`);
+    r = await jogador.get(`/midia/c${cid}/${imgP}${q}`); // NOSONAR: o teste pede um de cada vez de proposito (a ordem e o estado do servidor importam)
     ok(r.s === 403, "a imagem inteira nao sai pela midia" + (q ? " (miniatura)" : ""), r.s);
   }
   /* a rota que o servidor cobraria, para a tela do jogador desenhar sem receber as paredes */
@@ -875,14 +903,14 @@ console.log("\n=== mapa: paredes, rota, visao e nevoa ===");
   r = await jogador.get(`${M}/${mid}`);
   ok(!r.d.vista.tiles.v[5], "esquecer o explorado (versao nova) fecha o que nao se ve agora", r.d.vista.tiles.v);
   await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "visao", fogMemoria: false } });
-  r = await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "manual" } });
+  await mestre.put(`${M}/${mid}`, { regras: { quem: "dono", limite: "aviso", fog: "manual" } });
   r = await jogador.get(`${M}/${mid}`);
   ok(r.d.elementos.every(e => e.id === tC) && r.d.vista.tiles.v.every(v => !v), "nevoa manual sem area: o jogador nao ve nada alem do proprio token", { els: r.d.elementos.map(e => e.id), v: r.d.vista.tiles.v });
   await mestre.post(`${M}/${mid}/elementos`, { tipo: "FOG", dados: { forma: "retangulo", pts: [[0, 0], [700, 700]], revela: true } });
   r = await jogador.get(`${M}/${mid}`);
   idsJ = r.d.elementos.map(e => e.id);
   ok(idsJ.includes(tPerto) && r.d.vista.tiles.v[0] && !r.d.vista.tiles.v[4], "a area revelada abre a imagem e mostra quem esta nela", { idsJ, v: r.d.vista.tiles.v });
-  for (const id of [tPerto, tAtras, tLonge, dPerto, dLonge]) await mestre.del(`${M}/${mid}/elementos/${id}`);
+  for (const id of [tPerto, tAtras, tLonge, dPerto, dLonge]) await mestre.del(`${M}/${mid}/elementos/${id}`); // NOSONAR: o teste pede um de cada vez de proposito (a ordem e o estado do servidor importam)
   await mestre.put(`${M}/${mid}`, { imagem: "", largura: 2100, altura: 1400, regras: { quem: "dono", limite: "aviso", fog: "visao", fogMemoria: false, fogVer: 0 } });
   await mestre.del(`/api/c/${cid}/midia/${imgPId}`);
   await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 105, y: 525 } });
@@ -920,7 +948,7 @@ console.log("\n=== mapa: paredes, rota, visao e nevoa ===");
   r = await mestre.put(`${M}/${mid}/elementos/${tC}`, { dados: { x: 1100, y: 1150 } });
   ok(r.s === 200, "o mestre nunca e barrado pelas paredes", r.s);
   /* desfazer e historico entendem parede */
-  r = await mestre.del(`${M}/${mid}/elementos/${wP}`);
+  await mestre.del(`${M}/${mid}/elementos/${wP}`);
   r = await mestre.post(`${M}/${mid}/desfazer`, {});
   ok(r.s === 200 && r.d.el?.tipo === "PAREDE" && r.d.el.dados.pts.length === 2, "desfazer a remocao recria a parede como parede", r.d);
   r = await mestre.get(`${M}/${mid}/historico?limite=200`);
@@ -1039,7 +1067,7 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(tipos === "DESENHO,PAREDE,TOKEN" && detNovo.elementos.find(e => e.tipo === "PAREDE").dados.kind === "porta" && doNovo.largura === 1400, "token, parede e desenho chegam, com o tamanho do mapa", { tipos, l: doNovo.largura });
   let tokensImportados = 0, ligacoes = 0;
   for (const m of r.d) {
-    const det = (await mestre.get(`/api/c/${novo}/mapas/${m.id}`)).d;
+    const det = (await mestre.get(`/api/c/${novo}/mapas/${m.id}`)).d; // NOSONAR: o teste pede um de cada vez de proposito (a ordem e o estado do servidor importam)
     for (const e of det.elementos || []) {
       if (e.tipo === "TOKEN") tokensImportados++;
       if (e.dono !== 0 || "fichaId" in (e.dados || {}) || "usado" in (e.dados || {})) ligacoes++;
@@ -1048,7 +1076,7 @@ console.log("\n=== pacote: exportar e importar ===");
   ok(tokensImportados >= 1 && ligacoes === 0, "os tokens vem sem dono, sem ficha e sem gasto de turno", { tokensImportados, ligacoes });
   r = await jogador.get(`/api/c/${novo}/mapas`);
   ok(r.s === 403 || (r.s === 200 && r.d.length === 0), "quem nao e da campanha nova nao ve os mapas", r.s);
-  r = await mestre.req("POST", `/api/c/${novo}/pacote`, undefined, { form: forma("arquivo", zip, "p.zip", "application/zip", { substituir: "true" }) });
+  await mestre.req("POST", `/api/c/${novo}/pacote`, undefined, { form: forma("arquivo", zip, "p.zip", "application/zip", { substituir: "true" }) });
   r = await mestre.get(`/api/c/${novo}/mapas`);
   ok(r.d.length === doMestre.length, "importar o mesmo pacote de novo nao duplica os mapas", r.d.length);
   /* com um mapa e um token dentro: apagar a campanha leva as tabelas do tabletop junto */

@@ -72,6 +72,8 @@ public class MapaService {
         /** so valem num mapa sem imagem (com imagem, o tamanho e o dela) */
         public Integer largura;
         public Integer altura;
+        /** so ao criar: o que um molde ja traz (paredes, desenhos, tokens), gravado junto com o mapa */
+        public List<CorpoElemento> elementos;
     }
 
     /** O turno da iniciativa como o navegador do mestre o informa; {@code ini} e o espelho publico da ordem, repassado aos jogadores. */
@@ -273,7 +275,15 @@ public class MapaService {
         m.setOrdem((int) mapas.countByCampanhaId(cid));
         aplicaMapa(m, c, cid);
         if (m.getLargura() <= 0) { m.setLargura(LADO_PADRAO_L); m.setAltura(LADO_PADRAO_A); }
-        Mapa salvo = tx.execute(s -> mapas.save(m));
+        List<CorpoElemento> trazidos = c == null || c.elementos == null ? List.of() : c.elementos;
+        if (trazidos.size() > MAX_ELEMENTOS) throw new IllegalArgumentException("elementos demais neste mapa");
+        /* o mapa e o que o molde traz nascem juntos: se um elemento vier torto, nao sobra mapa pela metade */
+        Mapa salvo = tx.execute(s -> {
+            Mapa novo = mapas.save(m);
+            int ordem = 0;
+            for (CorpoElemento e : trazidos) elementos.save(novoElemento(cid, novo, e, ordem++));
+            return novo;
+        });
         avisos().publicaLista(cid);
         return base().mapaJson(Objects.requireNonNull(salvo), true);
     }
@@ -347,18 +357,7 @@ public class MapaService {
         MapaFeito f = feito(base().travado(mid, () -> tx.execute(s -> {
             Mapa m = base().doMestre(cid, mid);
             if (elementos.countByMapaId(mid) >= MAX_ELEMENTOS) throw new IllegalArgumentException("elementos demais neste mapa");
-            MapaElemento x = new MapaElemento();
-            x.setMapaId(mid);
-            x.setCampanhaId(cid);
-            MapaElemento.Tipo t = tipo(c.tipo);
-            x.setTipo(t);
-            ObjectNode d = dadosDoTipo(t, om.createObjectNode(), c.dados, m);
-            x.setCamada(MapaRegras.camada(c.camada, camadaPadrao(t, d)));
-            x.setDono(t == MapaElemento.Tipo.TOKEN ? donoInicial(cid, c, d) : 0);
-            if (c.bloqueado != null) x.setBloqueado(c.bloqueado);
-            if (c.visivel != null && !MapaBase.sempreVisivel(t)) x.setVisivel(c.visivel);
-            x.setOrdem((int) elementos.countByMapaId(mid));
-            x.setDados(om.writeValueAsString(d));
+            MapaElemento x = novoElemento(cid, m, c, (int) elementos.countByMapaId(mid));
             elementos.save(x);
             m.setSeq(m.getSeq() + 1);
             mapas.save(m);
@@ -591,6 +590,24 @@ public class MapaService {
         if ("frente".equals(quer)) return todos.getLast().getOrdem() + 1;
         if ("tras".equals(quer)) return todos.getFirst().getOrdem() - 1;
         return atual;
+    }
+
+    /** Um elemento novo, ainda sem gravar: os dados passam pelas regras do tipo, como em qualquer criacao. */
+    private MapaElemento novoElemento(long cid, Mapa m, CorpoElemento c, int ordem) {
+        if (c == null) throw new IllegalArgumentException("elemento vazio");
+        MapaElemento x = new MapaElemento();
+        x.setMapaId(m.getId());
+        x.setCampanhaId(cid);
+        MapaElemento.Tipo t = tipo(c.tipo);
+        x.setTipo(t);
+        ObjectNode d = dadosDoTipo(t, om.createObjectNode(), c.dados, m);
+        x.setCamada(MapaRegras.camada(c.camada, camadaPadrao(t, d)));
+        x.setDono(t == MapaElemento.Tipo.TOKEN ? donoInicial(cid, c, d) : 0);
+        if (c.bloqueado != null) x.setBloqueado(c.bloqueado);
+        if (c.visivel != null && !MapaBase.sempreVisivel(t)) x.setVisivel(c.visivel);
+        x.setOrdem(ordem);
+        x.setDados(om.writeValueAsString(d));
+        return x;
     }
 
     private static MapaFeito feito(MapaFeito f) {
