@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Armazenamento e saude da instancia, na Administracao. A rota /api/admin/** passa por AdminAutorizacao. */
+/** Armazenamento e saude do servidor, na Administracao. A rota /api/admin/** passa por AdminAutorizacao. */
 @RestController
 @RequestMapping("/api/admin")
 public class AdminSistemaController {

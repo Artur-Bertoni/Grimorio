@@ -461,9 +461,9 @@ function fichaDaIa(r){
   return {nome:String(o.nome||"").trim(),campos:(o.campos||[]).map(fichaCampoLimpo).filter(function(x){ return x.rot; })};
 }
 /* PDF que e so imagem (escaneado, ou ficha que e toda arte): as paginas vao desenhadas para a IA,
-   que le o que esta impresso. Sem IA nesta instancia nao ha como ler. */
+   que le o que esta impresso. Sem IA neste servidor nao ha como ler. */
 function importarFichaImagem(lido,arq){
-  if(!IACFG){ toast("Esse PDF é só imagem. Para ler ficha escaneada ou desenhada, a IA precisa estar configurada nesta instância."); return Promise.resolve(); }
+  if(!IACFG){ toast("Esse PDF é só imagem. Para ler ficha escaneada ou desenhada, a IA precisa estar configurada."); return Promise.resolve(); }
   toast("O PDF é só imagem: a IA está lendo as páginas…");
   var lida=null;
   return paginasEmImagem(lido.doc,3)

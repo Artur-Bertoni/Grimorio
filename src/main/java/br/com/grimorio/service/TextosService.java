@@ -6,8 +6,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * Textos de privacidade e de termos de uso da instancia. Cada instancia e de quem a sobe, entao
- * o texto e do administrador (Administracao › Textos legais); sem nada gravado vale o padrao
+ * Textos de privacidade e de termos de uso. O texto e da administracao (Administracao › Textos legais); sem nada gravado vale o padrao
  * abaixo, que descreve o que o Grimorio de fato guarda.
  */
 @Service
@@ -23,7 +22,7 @@ public class TextosService {
 
     private static final Map<String, String> PADRAO = Map.of(
             PRIVACIDADE, """
-                Os dados ficam no servidor desta instância e não são vendidos nem enviados a terceiros.
+                Os dados ficam no servidor do Grimório e não são vendidos nem enviados a terceiros.
 
                 O que é guardado: o login, o nome que aparece para a mesa, a senha (só como hash, nunca em texto) e, se você informar, um e-mail para recuperar a senha. Também ficam guardados o conteúdo das campanhas em que você participa: guia, mesa, fichas, anotações, recados do mural, rolagens de dados e os arquivos enviados.
 
@@ -33,9 +32,9 @@ public class TextosService {
 
                 Inteligência artificial: se quem administra configurar a IA, as perguntas feitas a ela e os trechos de livros usados como contexto são enviados ao provedor da IA para gerar a resposta.
 
-                Para pedir uma cópia ou a remoção dos seus dados, fale com quem administra esta instância pelo botão "Falar com o suporte", no rodapé de qualquer página.""",
+                Para pedir uma cópia ou a remoção dos seus dados, fale com a administração pelo botão "Falar com o suporte", no rodapé de qualquer página.""",
             TERMOS, """
-                O Grimório é um painel para mesas de RPG. Ao usar esta instância você concorda com estes termos, definidos por quem a administra.
+                O Grimório é um painel para mesas de RPG. Ao usar o Grimório você concorda com estes termos.
 
                 Conteúdo: você é responsável pelo que envia (textos, imagens, PDFs, áudios). Envie só o que você tem direito de usar. Livros e materiais protegidos ficam visíveis apenas para as pessoas da campanha, como decidir quem mestra.
 

@@ -12,11 +12,11 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /**
  * Conta tentativas numa janela de tempo e diz quando alguem passou do limite. Serve ao login
  * (senha errada), ao cadastro e ao "esqueci a senha": sem isso, um script testava senhas sem
- * parar contra qualquer conta. A conta fica na memoria de proposito: a instancia e unica, e
+ * parar contra qualquer conta. A conta fica na memoria de proposito: o servidor e unico, e
  * perder a contagem num reinicio so devolve algumas tentativas a quem ja estava travado.
  *
  * Cada uso tem o seu nome ({@code "login:conta"}, {@code "login-ip:1.2.3.4"}...), entao uma
- * instancia so atende a todos sem misturar as contagens.
+ * servidor so atende a todos sem misturar as contagens.
  */
 @Component
 public class Freio {

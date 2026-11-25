@@ -28,7 +28,7 @@ public class IaController {
         Papel papel = camp.exigeMembro(cid, atual.id());
         if (!ia.configurada())
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("erro", "a chave da API nao foi configurada nesta instancia"));
+                    .body(Map.of("erro", "a chave da API nao foi configurada"));
         try {
             p.mestre = (papel == Papel.MESTRE);
             return ResponseEntity.ok(Map.of("texto", ia.responder(p)));

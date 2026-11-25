@@ -1,13 +1,13 @@
 # Grimório
 
-Painel de mesa de RPG, agnóstico de sistema. Uma instância serve várias campanhas e
+Painel de mesa de RPG, agnóstico de sistema. O app serve várias campanhas e
 vários mestres. Spring Boot 4.2 / Java 25 no backend, HTML + JS puro no front,
 PostgreSQL em produção e H2 em arquivo no local, deploy no Railway por Dockerfile.
 
 A 4ª rodada (front e backend auditados, e depois tudo o que era código aplicado) está em
 `docs/auditoria-rodada-4.md`.
 
-O `README.md` é para quem vai subir uma instância. Este arquivo é para quem mexe no
+O `README.md` apresenta o projeto e como subi-lo. Este arquivo é para quem mexe no
 código: é o que não dá para descobrir lendo os arquivos, e principalmente o que já
 quebrou em produção. `docs/decisoes.md` guarda o histórico: de onde o projeto veio,
 o que foi decidido e por quê, e o que já foi tentado e descartado. Leia quando
@@ -28,7 +28,7 @@ mvn spring-boot:run         # sobe em http://localhost:8080
 
 Sem `DATABASE_URL` ele cai para H2 em arquivo dentro de `./dados`. Nenhuma conta é
 criada no boot: abra o site e clique em **Criar uma conta**, e a primeira vira a
-administradora da instância.
+administradora do sistema.
 
 Não existe suíte JUnit. O que existe (teste de API contra o jar de verdade e teste de tela) é descrito em "Como testar".
 
@@ -225,7 +225,7 @@ segundo plano, as cópias iguais que ficaram de antes. Duas regras seguram isso:
 - Volume que não aceita hard link cai para cópia comum, com aviso no log; nada quebra, só
   não economiza.
   O boot testa o volume e escreve no log se ele aceita hard link. Isso só aparece para o
-  administrador da instância (Administração › Armazenamento, via `/api/admin/sistema`); nada
+  administrador do sistema (Administração › Armazenamento, via `/api/admin/sistema`); nada
   sobre compartilhamento ou espaço economizado aparece para mestre ou jogador.
 - PDF repetido não é reprocessado: `IndexadorPdf.copiarIndiceDoGemeo()` copia o índice de busca da cópia
   já indexada, trocando sigla, nome e `publico` para a campanha que recebe.
@@ -301,7 +301,7 @@ tela:
 - Ficha (`/api/c/{cid}/fichas`): o jogador só enxerga as suas; ficha de outra pessoa
   responde 404, não 403. O mestre vê e edita todas.
   O pacote leva as fichas; na importação elas entram em nome de quem importou, com o dono
-  antigo entre parênteses no nome, porque as contas de outra instância não existem aqui.
+  antigo entre parênteses no nome, porque as contas de outro servidor não existem aqui.
 - `/api/admin/**` passa por `AdminAutorizacao`, que lê `admin` e `ativo` no banco a cada pedido.
   Não use `hasRole("ADMIN")`: o papel da sessão é montado no login e a sessão dura 30 dias, então
   promover ou rebaixar alguém (pela tela ou direto no banco) só valia depois de um novo login.
@@ -383,7 +383,7 @@ dependência, é egress, não o `pom.xml`.
 
 - **Código e comentários em português**, sem acento em identificador Java. Comentário
   explica *por que*, não *o que*: o que o código faz já está no código.
-- **Nada de texto fixo de Ordem Paranormal, nem de qualquer sistema.** O app é
+- **Nada de texto fixo de nenhum sistema de RPG.** O app é
   universal. Rótulo que o mestre possa querer trocar passa por `V("chave")` /
   `Vm("chave")`, o vocabulário configurável. Estrutura de campanha é toda opcional:
   `normalizaCampanha()` preenche o que faltar, e uma campanha em branco abre numa tela
@@ -585,7 +585,7 @@ Cuidado ao conferir texto com `innerText`: ele devolve o texto já com o
 
 **Teste de API (`scripts/teste-api/teste.mjs`)**: bate no jar de verdade, sem stub: cadastro e senha, login e
 CSRF, guia com versão, separação mestre/jogador (guia, mídia, PDF, índice, ficha, admin, rolagem fechada),
-upload, PDF no PDFBox, pacote (exportar e importar) e suporte. Precisa de uma instância **sem contas** e
+upload, PDF no PDFBox, pacote (exportar e importar) e suporte. Precisa de um servidor **sem contas** e
 de um `java` do JDK 25 (o do PATH pode ser mais velho que o do Maven):
 
 ```bash

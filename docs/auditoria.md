@@ -50,7 +50,7 @@ sem isso.
 - **Endereço por hash** (`#/c/1/elenco`), não por caminho: o jar só serve arquivos e `/api`.
 - **Entraram a pedido**: recuperação de senha por e-mail, privacidade e termos editáveis,
   contagem de uso anônima e própria (sem serviço externo, sem cookie novo, por isso sem banner),
-  404 com tema, ícones e prévia de convite. **Não** há sitemap (instância privada, `noindex`).
+  404 com tema, ícones e prévia de convite. **Não** há sitemap (app de acesso restrito, `noindex`).
 - Dourado é do **primário**. Alternância ligada, filtro ativo e afins usam fundo `--bg4` e um
   segundo sinal (traço, visto, `aria-pressed`), nunca dourado.
 
@@ -59,7 +59,7 @@ sem isso.
 1. `node --check` em todo JS tocado, e rodar `scripts/teste-front` (stub + `teste.mjs`). Ele
    falha em contraste, cor solta, abas cortadas, rolagem lateral, diálogo e endereço.
 2. Mexeu em controller, segurança, entidade ou dependência: rode também o teste de API contra o
-   jar de verdade (instância **sem contas**, `$JAVA_HOME/bin/java`).
+   jar de verdade (servidor **sem contas**, `$JAVA_HOME/bin/java`).
 3. **Olhe a tela** em pelo menos três larguras: celular (390), notebook (1366) e tela larga
    (2000 ou mais). O teste automático não avalia se ficou bom, e já deixou passar defeito visível.
 4. Estado **em repouso** e estado **vazio** também: o ponto de gravação aparecia parado sem

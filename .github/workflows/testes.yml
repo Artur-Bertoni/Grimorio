@@ -1,5 +1,5 @@
 # Os dois roteiros que ja existiam, rodando a cada push e pull request na main.
-# - api: sobe o jar de verdade numa pasta vazia (instancia sem contas) e bate nas rotas, duas vezes:
+# - api: sobe o jar de verdade numa pasta vazia (servidor sem contas) e bate nas rotas, duas vezes:
 #   com o H2 local e com um Postgres de verdade (o banco de producao). As armadilhas do ddl-auto
 #   (coluna NOT NULL sem DEFAULT, CHECK de enum) so aparecem no Postgres.
 # - tela: o stub em Node e o roteiro de Playwright no Chrome que ja vem no runner.
@@ -50,8 +50,8 @@ jobs:
         run: mvn -B -DskipTests package
       - name: Subir o jar numa pasta vazia
         run: |
-          mkdir -p "$RUNNER_TEMP/instancia"
-          cd "$RUNNER_TEMP/instancia"
+          mkdir -p "$RUNNER_TEMP/servidor"
+          cd "$RUNNER_TEMP/servidor"
           if [ "${{ matrix.banco }}" = "postgres" ]; then export DATABASE_URL=postgresql://postgres:pg@localhost:5432/grim; fi
           PORT=8123 nohup java -jar "$GITHUB_WORKSPACE/target/grimorio.jar" > "$RUNNER_TEMP/grimorio.log" 2>&1 &
           for i in $(seq 1 90); do

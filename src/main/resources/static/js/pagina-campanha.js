@@ -96,7 +96,7 @@ function hydrateCampanhas(v){
         return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
       .catch(function(e){ go.disabled=false; go.removeAttribute("aria-busy"); go.textContent="Criar campanha"; toast(mensagemDeErro(e),"erro"); }); };
 }
-/* Como começar: em branco, de um modelo da instância ou de um pacote. Os modelos chegam depois
+/* Como começar: em branco, de um modelo ou de um pacote. Os modelos chegam depois
    da tela (vêm do servidor). O modelo é uma estrutura, não uma campanha: o nome continua o que a
    pessoa digitar (o servidor põe esse nome no guia). Só o sistema, se o modelo tiver um, entra no
    campo vazio; trocar de modelo troca de novo só o que ninguém digitou por cima. */

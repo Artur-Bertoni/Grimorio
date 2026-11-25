@@ -18,7 +18,7 @@ public class AppProps {
 
 
     /**
-     * Endereco publico da instancia (https://grimorio.exemplo.com), usado nos links que saem por
+     * Endereco publico do servidor (https://grimorio.exemplo.com), usado nos links que saem por
      * e-mail. Vazio cai para o RAILWAY_PUBLIC_DOMAIN, que o Railway define sozinho, e so entao para
      * o endereco do pedido. Montar o link pelo cabecalho Host deixava qualquer um pedir a
      * redefinicao da senha alheia com Host: site-do-atacante e receber o token pelo clique da vitima.

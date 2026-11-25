@@ -125,7 +125,7 @@
   $("esqueci").onclick=function(){ limpaErros(f); mostra("esq");
     $("esqTexto").textContent=porEmail
       ? "Escreva o seu login ou o e-mail da conta. Se ele estiver cadastrado, chega um link para escolher uma senha nova."
-      : "Esta instância não envia e-mail. Peça para quem administra o Grimório trocar a sua senha em Administração › Contas, ou fale com quem mestra a sua mesa.";
+      : "O envio de e-mail não está ativo. Peça à administração do Grimório para trocar a sua senha em Administração › Contas, ou fale com quem mestra a sua mesa.";
     $("esqConta").value=$("login").value; $("esqB").hidden=!porEmail; $("esqConta").parentNode.querySelector("label[for=esqConta]").hidden=!porEmail; $("esqConta").hidden=!porEmail;
     (porEmail?$("esqConta"):$("esqVolta")).focus(); };
   $("esqVolta").onclick=function(){ limpaErros($("fEsq")); mostra("f"); $("login").focus(); };

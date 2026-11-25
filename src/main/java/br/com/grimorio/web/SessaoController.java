@@ -31,9 +31,7 @@ public class SessaoController {
     private static final String LOGIN = "login";
 
     private final Freio freio;
-    /* Decidir se e a primeira conta e cria-la andam juntos: dois cadastros no mesmo instante numa
-       instancia vazia viravam dois administradores (e o segundo passava pela porta do primeiro). A
-       instancia e unica, entao uma trava na memoria basta; criar() faz o commit antes de soltar. */
+    /* Decidir se e a primeira conta e cria-la andam juntos: dois cadastros no mesmo instante num servidor vazio viravam dois administradores (e o segundo passava pela porta do primeiro). O servidor e unico, entao uma trava na memoria basta; criar() faz o commit antes de soltar. */
     private final ReentrantLock primeiraConta = new ReentrantLock();
 
     public SessaoController(Atual atual, ConfigService config, UsuarioService usuarios,
@@ -126,7 +124,7 @@ public class SessaoController {
 
     /**
      * Cria conta. So funciona com registro aberto, ou com um convite valido
-     * em maos, ou quando a instancia ainda nao tem nenhum usuario.
+     * em maos, ou quando o servidor ainda nao tem nenhum usuario.
      */
     @PostMapping("/registrar")
     public ResponseEntity<Object> registrar(@RequestBody NovoCadastro c, HttpServletRequest req) {
@@ -145,7 +143,7 @@ public class SessaoController {
             if (!primeiro && !config.registroAberto() && !(temConvite && campanhas.conviteValido(c.convite)))
                 return ResponseEntity.status(403).body(Map.of("erro", temConvite
                         ? "esse convite não existe mais ou já foi usado; peça outro a quem mestra"
-                        : "esta instância não aceita cadastro aberto", "codigo", "proibido"));
+                        : "o cadastro está fechado no momento", "codigo", "proibido"));
             u = usuarios.criar(c.login, c.nome, c.senha, primeiro);
         } finally {
             primeiraConta.unlock();

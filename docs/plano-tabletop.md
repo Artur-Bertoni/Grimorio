@@ -10,7 +10,7 @@ no fim**: o que ficou pronto, o que mudou em relação ao plano e o que a próxi
 ## ⚠️ WIP: a aba Mapa está bloqueada (não tire sem ordem do dono)
 
 Enquanto o tabletop não estiver **inteiro pronto** (todas as fases abaixo), a aba "Mapa" mostra um
-grande aviso "WIP" no lugar do mapa para **todo mundo, menos quem é administrador da instância**
+grande aviso "WIP" no lugar do mapa para **todo mundo, menos quem é administrador do sistema**
 (o admin usa a aba livremente, para testar). O dono commita o trabalho parcial com isso ligado.
 
 - O interruptor agora é uma opção da administração (Administração › Mapa (tabletop) › "Liberar a aba
@@ -98,8 +98,7 @@ colunas enum registradas em `AjusteEsquema`; ver armadilhas 1 e 2 do CLAUDE.md):
 
 **Tempo real.** SSE (`SseEmitter`) para o servidor empurrar, POST de operações pequenas
 (`mover token 12 → x,y`) para o cliente enviar. Cada operação ganha um `seq`. Se o SSE cair, o
-cliente cai para polling por `?desde=seq`. Sem WebSocket (complica CSRF e Spring Security; a
-instância é única no Railway). Heartbeat para o proxy não derrubar a conexão.
+cliente cai para polling por `?desde=seq`. Sem WebSocket (complica CSRF e Spring Security; o servidor é único no Railway). Heartbeat para o proxy não derrubar a conexão.
 
 **Separação mestre/jogador.** O corte é no servidor: token oculto, parede, NPC escondido, fog e
 tiles não revelados nunca saem para o jogador. Rota nova que devolve conteúdo: pergunte "um jogador
@@ -401,7 +400,7 @@ Para a 4b, "a parte do servidor da Fase 4: tiles só nas partes reveladas e vis�
   - ⚠ O "ver como os jogadores veem" do mestre segue calculado no navegador dele, com a memória dele no `localStorage`; ele não vê a memória que cada jogador tem no servidor.
 
   *Avisos para a próxima fase.*
-  - **Pacote (fase 5)**: `mapa_explorado` não precisa ir no pacote (é estado de jogo de cada conta, e as contas não existem na outra instância). Imagem de mapa importada passa pelo mesmo bloqueio, porque ele olha a coluna `mapa.imagem`.
+  - **Pacote (fase 5)**: `mapa_explorado` não precisa ir no pacote (é estado de jogo de cada conta, e as contas não existem na outro servidor). Imagem de mapa importada passa pelo mesmo bloqueio, porque ele olha a coluna `mapa.imagem`.
   - **Desempenho**: o corte de um mapa de 4096 px leva ~1 s na primeira vez e guarda ~5 MB na memória; a vista é refeita por jogador a cada `seq` (um token arrastado pelo mestre faz cada jogador refazer a conta e reler o estado). Com muitos jogadores e mapa enorme, medir antes de mudar; se pesar, a pirâmide de tiles da fase 5 entra em `MapaTiles` sem mexer no corte.
   - **Passo de tour** (fase 5): a névoa do jogador não tem controle novo; o do mestre continua o painel "Paredes e névoa".
   - No stub do teste de tela a máscara é toda aberta e a visão é uma conta por alto (círculo e cruzamento de parede); quem confere o corte de verdade é o teste de API. **Não verificado**: a névoa do jogador com o servidor de verdade num navegador (só no stub), Postgres (a tabela nova só rodou em H2), Safari, aparelho real, mapa com transparência.

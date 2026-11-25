@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * A tela de login com o endereco da instancia nos metadados de previa. O link de convite e
+ * A tela de login com o endereco do servidor nos metadados de previa. O link de convite e
  * compartilhado em chat, e quem monta a previa (WhatsApp, Discord, Telegram) so aceita imagem
  * com endereco absoluto, que o HTML estatico nao tem como saber.
  */

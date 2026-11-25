@@ -3,10 +3,10 @@
 
 /* ---------- PAGINA DE AJUSTES (no lugar do menu "...") ---------- */
 /* Cada secao diz de quem e (o terceiro item): mudar algo da campanha afeta a mesa, o que e da
-   pessoa vale so para ela, e o da instancia vale para todo mundo neste servidor. O menu mostra os
+   pessoa vale so para ela, e o do servidor vale para todo mundo neste servidor. O menu mostra os
    tres grupos com rotulo, para ninguem alterar no lugar errado. */
-var GRUPOS_AJUSTE=["campanha","voce","instancia"];
-function tituloGrupoAjuste(g){ return g==="campanha"?"Esta "+vmin("campanha"):(g==="voce"?"Você":"Instância"); }
+var GRUPOS_AJUSTE=["campanha","voce","sistema"];
+function tituloGrupoAjuste(g){ return g==="campanha"?"Esta "+vmin("campanha"):(g==="voce"?"Você":"Sistema"); }
 function secoesAjustes(){
   var l=[];
   if(GM&&CID)l.push(["campanha",Vm("campanha"),"campanha"],["mesa","Mesa e convites","campanha"],["vocab","Vocabulário","campanha"],
@@ -14,7 +14,7 @@ function secoesAjustes(){
   l.push(["aparencia","Aparência","voce"],["privacidade","Privacidade e acessibilidade","voce"]);
   if(CID)l.push(["guias","Guias","voce"]);
   l.push(["conta","Conta","voce"],["suporte","Suporte","voce"]);
-  if(ADMIN)l.push(["admin","Administração","instancia"],["textos","Textos legais","instancia"],["uso","Uso","instancia"]);
+  if(ADMIN)l.push(["admin","Administração","sistema"],["textos","Textos legais","sistema"],["uso","Uso","sistema"]);
   return l;
 }
 function menuAjustes(l){
@@ -275,8 +275,8 @@ function campoSecreto(inp,salvo){
 }
 function segredoDe(inp){ return inp.value===MASCARA?null:inp.value; }
 function abrirAdmin(back,mk){
-  if(!ADMIN){ toast("Só o administrador da instância"); return; }
-  var ov=(mk||overlay)("Administração da instância",htmlDe("t-admin",{minhas:(CAMPANHAS||[]).filter(function(c){ return c.papel==="MESTRE"; })}),{wide:true,back:back});
+  if(!ADMIN){ toast("Só a administração"); return; }
+  var ov=(mk||overlay)("Administração",htmlDe("t-admin",{minhas:(CAMPANHAS||[]).filter(function(c){ return c.papel==="MESTRE"; })}),{wide:true,back:back});
 
   api("/api/admin/config").then(function(c){
     $("#iaKst",ov).textContent=c.iaConfigurada?"Chave salva.":"Nenhuma chave salva ainda.";
@@ -357,7 +357,7 @@ function abrirAdmin(back,mk){
             {method:"PUT",body:{admin:b.dataset.v==="true"}})
           .then(usuarios).catch(function(e){toast(mensagemDeErro(e),"erro");}); }; });
       $$("[data-ur]",ov).forEach(function(b){ b.onclick=function(){
-        confirmar("A pessoa perde o acesso a esta instância. As campanhas que só ela mestrava ficam sem mestre.",{titulo:"Remover essa conta?",sim:"Remover a conta"}).then(function(sim){
+        confirmar("A pessoa perde o acesso ao Grimório. As campanhas que só ela mestrava ficam sem mestre.",{titulo:"Remover essa conta?",sim:"Remover a conta"}).then(function(sim){
           if(!sim)return;
           api("/api/admin/usuarios/"+b.dataset.ur,{method:"DELETE"})
             .then(usuarios).catch(function(e){toast(mensagemDeErro(e),"erro");}); }); }; });

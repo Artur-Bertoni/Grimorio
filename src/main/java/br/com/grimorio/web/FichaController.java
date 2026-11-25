@@ -148,13 +148,13 @@ public class FichaController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Texto tirado de um PDF de ficha vira campos. So quando a instancia tem a IA configurada;
+    /** Texto tirado de um PDF de ficha vira campos. So quando o servidor tem a IA configurada;
      *  sem ela, o navegador monta a ficha sozinho com o que conseguir ler. */
     @PostMapping("/importar")
     public ResponseEntity<?> importar(@PathVariable Long cid, @RequestBody CorpoTexto c) {
         camp.exigeMembro(cid, atual.id());
         if (!ia.configurada())
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("erro", "sem IA nesta instancia"));
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("erro", "a IA nao esta configurada"));
         try {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(ia.estruturarFicha(c.texto, c.imagens));
         } catch (IllegalArgumentException e) {

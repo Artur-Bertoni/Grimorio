@@ -33,9 +33,11 @@ Java 25 · Spring Boot 4.2 · PostgreSQL (H2 em arquivo no local) · front em HT
 - Guias interativos por aba, atalhos de teclado, endereço por tela (hash) e layout responsivo
   com barra de abas no celular.
 - Contas com recuperação de senha por e-mail (SMTP opcional), suporte pela própria tela,
-  termos e privacidade editáveis, administração da instância.
+  termos e privacidade editáveis, administração do sistema.
 
-O repositório não carrega campanha, livro nem arte: o conteúdo entra pelo painel ou por pacote.
+O repositório não carrega livro nem arte. Em `modelos-de-campanha/` estão quatro modelos de
+estrutura (aventura de uma sessão, estrutura completa, exploração e investigação), sem conteúdo
+de nenhum sistema; o restante entra pelo painel ou por pacote.
 
 ## Separação mestre/jogador
 
@@ -59,8 +61,8 @@ de tentativas, sessão persistente) estão em [CLAUDE.md](CLAUDE.md).
 5. **Settings → Volumes**: volume montado em **`/data`** (PDFs, áudio, imagens, índices e modelos).
 6. **Settings → Networking → Generate Domain**.
 
-Não há login de bootstrap: abra o site, clique em **Criar uma conta**, e a primeira conta da
-instância vira a administradora.
+Não há login de bootstrap: abra o site, clique em **Criar uma conta**, e a primeira conta criada
+vira a administradora.
 
 ## Rodar na máquina
 
@@ -84,7 +86,7 @@ Abre em http://localhost:8080. Para gerar o jar: `mvn -DskipTests package` → `
 ### Pacote e modelos de campanha
 
 - **Configurações → Campanha → Exportar/Importar pacote**: zip com guia, mesa, fichas, mapas, livros,
-  trilha, imagens e índices de busca. Importa em qualquer instância sem reenviar arquivos.
+  trilha, imagens e índices de busca. Importa em qualquer servidor sem reenviar arquivos.
 - **Administração → Modelos de campanha**: a administração cadastra estruturas prontas (pacote
   enviado ou campanha existente). Quem cria uma campanha escolhe um em "Como começar" e recebe uma
   cópia. Ficam em `/data/modelos`.
@@ -124,7 +126,7 @@ Administração e ficam na tabela `config`.
 ## Modelo de dados
 
 ```
-Usuario      conta na instância; admin administra a instância inteira
+Usuario      conta no servidor; admin administra o servidor inteiro
 Campanha     uma mesa; dono, sistema, tema
 Membro       liga usuário e campanha com papel MESTRE ou JOGADOR
 Convite      token de entrada, com papel, usos e validade
@@ -136,7 +138,7 @@ Rolagem      dados rolados no servidor; pedidos de teste do mestre
 Ficha        ficha de personagem (JSON) com dono
 Mapa         mapa, elementos (token, desenho, parede, névoa) e histórico
 Chamado      mensagens de suporte
-Config       ajustes da instância
+Config       ajustes do servidor
 ```
 
 ## Endpoints
@@ -151,7 +153,7 @@ Config       ajustes da instância
 | `/api/c/{id}/mesa` · `/indice` · `/mural` · `/notas` · `/ia` · `/rolagens` · `/fichas` · `/mapas` · `/eventos` | membro (escrita da mesa: mestre) |
 | `/api/c/{id}/midia/**` · `/pacote` · `/modelo/{modelo}` | mestre |
 | `/api/modelos` · `/api/modelos/{id}/capa` | qualquer conta (lista e capa) |
-| `/api/admin/**` | administrador da instância |
+| `/api/admin/**` | administrador do sistema |
 | `/midia/c{id}/**` | conforme `MidiaAutorizacao` |
 
 ## Testes
@@ -173,3 +175,13 @@ docs/                            auditorias, decisões e plano do mapa
 ```
 
 Guia para quem mexe no código: [CLAUDE.md](CLAUDE.md).
+
+## Licença
+
+Código-fonte disponível sob a [PolyForm Noncommercial 1.0.0](LICENSE): pode ser lido, estudado,
+modificado e usado para fins não comerciais, como a sua mesa de jogo. Uso comercial, incluindo
+oferecer o app como serviço, não está incluído. Para isso, entre em contato: artur_b_santos@hotmail.com.
+
+Não se trata de open source no sentido da OSI. As bibliotecas e fontes em `static/vendor/`
+(pdf.js, petite-vue, Almendra, Barlow Condensed, Cinzel, Cormorant Garamond, Oxanium, Special Elite
+e Spectral) seguem as licenças originais de cada uma, incluídas ao lado dos arquivos.

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 /** Mensagem para o suporte. Fica no banco sempre, mesmo quando o e-mail nao sai:
- *  instancia sem SMTP configurado nao pode perder a reclamacao de ninguem. */
+ *  servidor sem SMTP configurado nao pode perder a reclamacao de ninguem. */
 @Entity
 @Table(name = "chamado")
 public class Chamado {

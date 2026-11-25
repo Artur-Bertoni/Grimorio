@@ -73,7 +73,7 @@ class MapaBase {
 
     // ---------- trava e leitura ----------
 
-    /** Uma operacao por vez em cada mapa (a instancia e unica, entao a trava pode ficar na memoria). */
+    /** Uma operacao por vez em cada mapa (o servidor e unico, entao a trava pode ficar na memoria). */
     <T> T travado(long mid, Supplier<T> f) {
         Object t = travas.computeIfAbsent(mid, k -> new Object());
         synchronized (t) {

@@ -87,7 +87,7 @@ public class SuporteService {
 
         String motivo = null;
         if (!envioConfigurado()) {
-            motivo = "o envio de e-mail não está configurado nesta instância";
+            motivo = "o envio de e-mail não está configurado";
         } else {
             try {
                 enviar(destino(), c.getContato(), "[Grimório] " + a, corpo(c));
@@ -126,7 +126,7 @@ public class SuporteService {
 
     /** E-mail de sistema para uma pessoa (o link de redefinir senha), pelo mesmo provedor do suporte. */
     public void enviarPara(String para, String assunto, String corpo) throws Exception {
-        if (!envioConfigurado()) throw new IllegalStateException("o envio de e-mail não está configurado nesta instância");
+        if (!envioConfigurado()) throw new IllegalStateException("o envio de e-mail não está configurado");
         enviar(para, null, assunto, corpo);
     }
 

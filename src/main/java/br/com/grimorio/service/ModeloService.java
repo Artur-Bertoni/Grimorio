@@ -27,7 +27,7 @@ import java.util.zip.ZipFile;
  * campanha, para comecar com algo pronto em vez da folha em branco.
  *
  * O repositorio nao carrega campanha nenhuma: quem cadastra os modelos e a administracao da
- * instancia, enviando um pacote ou salvando como modelo uma campanha que ela mestra. Cada
+ * servidor, enviando um pacote ou salvando como modelo uma campanha que ela mestra. Cada
  * modelo ocupa tres arquivos em {volume}/modelos, fora de /midia (nada aqui e servido direto):
  *
  *   {id}.zip     o pacote, no mesmo formato do Exportar pacote

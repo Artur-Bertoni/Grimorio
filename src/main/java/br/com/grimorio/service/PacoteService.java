@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 import java.util.zip.*;
 
 /**
- * Pacote de campanha: um zip com tudo que a campanha tem, para ela sair de uma instancia (ou
+ * Pacote de campanha: um zip com tudo que a campanha tem, para ela sair de um servidor (ou
  * de uma conta) e entrar em outra igual, sem ninguem precisar enviar arquivo de novo.
  *
  *   campanha.json            dados da campanha, guia, mesa, fichas e o catalogo de midia
@@ -301,7 +301,7 @@ public class PacoteService {
             }
         }
 
-        /* Os donos das fichas sao contas de outra instancia: aqui ninguem e "o mesmo jogador".
+        /* Os donos das fichas sao contas de outro servidor: aqui ninguem e "o mesmo jogador".
            Elas entram em nome de quem importou (o mestre), com o dono antigo anotado no nome,
            e o mestre repassa como quiser. Reimportar o mesmo pacote nao duplica: ficha com o
            mesmo nome ja existente fica como esta. */

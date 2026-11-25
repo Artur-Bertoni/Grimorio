@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * O elo e o id do proprio token: a entrada da ordem escolhe o token (formulario da iniciativa). Token que
  * nenhuma entrada aponta, ou apontado por quem nao esta na ordem, continua livre, senao quem ficou de fora travaria para sempre.
  *
- * Fica na tabela {@code config} (uma chave por campanha) e em memoria: a instancia e unica.
+ * Fica na tabela {@code config} (uma chave por campanha) e em memoria: o servidor e unico.
  */
 @Component
 public class MapaTurnos {

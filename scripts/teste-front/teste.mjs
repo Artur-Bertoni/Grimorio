@@ -1059,7 +1059,7 @@ ok((await pg.locator('#ajBody h2').first().innerText()).trim() === secs[0].trim(
 ok(/^configurações$/i.test((await pg.locator('h1.page').innerText()).trim()) && /configurações/i.test(await pg.locator('#btnAjustes').innerText()), 'a area se chama Configuracoes');
 ok(!(await pg.locator('#rodape').isVisible()), 'dentro da campanha nao ha rodape: o suporte fica em Configuracoes');
 const grupos = await pg.locator('.ajmenu .ajgt').allInnerTexts();
-ok(grupos.length === 3 && /esta campanha/i.test(grupos[0]) && /você/i.test(grupos[1]) && /instância/i.test(grupos[2]), 'o menu de Configuracoes tem os tres grupos de escopo: ' + grupos.join(' | '));
+ok(grupos.length === 3 && /esta campanha/i.test(grupos[0]) && /você/i.test(grupos[1]) && /sistema/i.test(grupos[2]), 'o menu de Configuracoes tem os tres grupos de escopo: ' + grupos.join(' | '));
 await foto('09-ajustes');
 await pg.locator('[data-aj="suporte"]').click();
 await espera(300);
@@ -1551,7 +1551,7 @@ ok(await pg.locator('#btnAjustes').isVisible() && !(await pg.locator('#btnBusca'
 titulo('criar campanha: como começar');
 await pg.click('#ncAbreCriar');
 await espera(500);
-ok((await pg.locator('input[name=ncOrigem]').count()) === 3, 'como comecar: em branco, o modelo da instancia e pacote');
+ok((await pg.locator('input[name=ncOrigem]').count()) === 3, 'como comecar: em branco, o modelo do servidor e pacote');
 ok(await pg.locator('#ncOrigens input[value=branco]').isChecked(), 'em branco vem marcado');
 await pg.locator('.origem img').waitFor();
 ok(await pg.locator('.origem img').evaluate(i => i.complete && i.naturalWidth > 0), 'o cartao do modelo mostra a capa');

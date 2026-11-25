@@ -22,7 +22,7 @@ import java.util.Set;
  * {@code campanha.json} (campo "mapas") e le de volta. A imagem de cada mapa ja viaja em {@code img/}.
  *
  * Fica de fora, de proposito: o historico e a memoria do explorado (estado de jogo de contas que nao
- * existem na outra instancia) e o que liga o token a uma conta ou a uma ficha (os ids nao valem la).
+ * existem na outro servidor) e o que liga o token a uma conta ou a uma ficha (os ids nao valem la).
  * O mapa entra sempre desativado, para o jogador nunca ver um mapa que o mestre ainda nao conferiu.
  */
 @Service
@@ -33,7 +33,7 @@ public class MapaPacote {
     private static final int MAX_DADOS = 4000;
     private static final int LADO_MIN = 200;
     private static final int LADO_MAX = 16000;
-    /* o que so faz sentido na instancia de origem: ficha, conta e o gasto do turno */
+    /* o que so faz sentido no servidor de origem: ficha, conta e o gasto do turno */
     private static final List<String> SO_DA_ORIGEM = List.of("fichaId", "vinculo", "vidaCampo", "visaoFicha", "usado");
 
     private final MapaRepo mapas;

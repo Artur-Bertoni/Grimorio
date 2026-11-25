@@ -616,7 +616,7 @@ http.createServer(async (req, res) => {
         return envia(res, 200, f);
       }
       if (/^\/api\/c\/\d+\/fichas\/importar$/.test(p)) {
-        if (!ST.perfil.iaConfigurada) return envia(res, 503, { erro: 'sem IA nesta instancia' });
+        if (!ST.perfil.iaConfigurada) return envia(res, 503, { erro: 'a IA nao esta configurada' });
         ST.ultImport = { imagens: (b.imagens || []).length, tam: ((b.imagens || [])[0] || '').length, texto: (b.texto || '').length };
         return envia(res, 200, { nome: 'Da imagem', campos: [{ sec: 'Atributos', rot: 'AGI', tipo: 'num', val: '' }, { sec: 'Atributos', rot: 'FOR', tipo: 'num', val: '' },
           { sec: 'Recursos', rot: 'PV', tipo: 'barra', val: '', max: '' }] });
@@ -624,7 +624,7 @@ http.createServer(async (req, res) => {
       if ((m = p.match(/^\/__ia\/(\d)$/))) { ST.perfil.iaConfigurada = m[1] === '1'; return envia(res, 200, { ok: true }); }
       if (p === '/api/suporte') {
         ST.suporte.push(b);
-        return envia(res, 200, { id: ST.suporte.length, enviado: false, motivo: 'o envio de e-mail não está configurado nesta instância' });
+        return envia(res, 200, { id: ST.suporte.length, enviado: false, motivo: 'o envio de e-mail não está configurado' });
       }
       if ((m = p.match(/^\/__cheio\/(\d)$/))) { ST.cheio = m[1] === '1'; return envia(res, 200, { ok: true }); }
       if (p === '/api/admin/armazenamento/juntar') return envia(res, 200, { liberado: 0 });

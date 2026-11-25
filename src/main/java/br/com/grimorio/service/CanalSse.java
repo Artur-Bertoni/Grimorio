@@ -35,7 +35,7 @@ import java.util.function.BiFunction;
  * limite de escrita. A ordem dos eventos de cada pessoa continua garantida. Quem acumula eventos
  * demais sem conseguir receber e desligado (a tela reconecta e rele o estado).
  *
- * Instancia unica (Railway), entao a lista de inscritos mora so na memoria.
+ * Servidor unica (Railway), entao a lista de inscritos mora so na memoria.
  */
 public abstract class CanalSse {
 

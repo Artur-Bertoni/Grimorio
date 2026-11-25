@@ -2,7 +2,7 @@
 // Sobe o jar numa pasta vazia e aponte BASE para ele:
 //   PORT=8123 java -jar target/grimorio.jar     (numa pasta sem ./dados)
 //   BASE=http://127.0.0.1:8123 node scripts/teste-api/teste.mjs
-// Precisa de uma instancia SEM contas: a primeira conta criada aqui vira a administradora.
+// Precisa de um servidor SEM contas: a primeira conta criada aqui vira a administradora.
 // So usa o Node (fetch nativo); guarda o cookie de sessao e o token CSRF de cada "pessoa".
 const B = process.env.BASE || "http://127.0.0.1:8123";
 let falhas = 0, total = 0;

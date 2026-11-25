@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
-/** Contas, campanhas e configuracao da instancia. A rota inteira passa por AdminAutorizacao;
+/** Contas, campanhas e configuracao do servidor. A rota inteira passa por AdminAutorizacao;
  *  armazenamento e saude moram em AdminSistemaController. */
 @RestController
 @RequestMapping("/api/admin")
@@ -129,7 +129,7 @@ public class AdminController {
     @PutMapping("/config")
     public Map<String, Object> gravarConfig(@RequestBody Map<String, String> body) {
         if (body.containsKey("iaApiKey")) config.set(ConfigService.IA_CHAVE, aparado(body.get("iaApiKey")));
-        /* modelo vazio fica vazio: gravar o padrao por extenso congelava a instancia nele, e a troca
+        /* modelo vazio fica vazio: gravar o padrao por extenso congelava o servidor nele, e a troca
            do padrao numa versao nova nao chegava a quem so salvou o formulario */
         if (body.containsKey(IA_MODELO)) config.set(ConfigService.IA_MODELO, aparado(body.get(IA_MODELO)));
         gravarEmail(body);

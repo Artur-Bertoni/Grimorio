@@ -12,7 +12,7 @@ import jakarta.persistence.UniqueConstraint;
 
 /**
  * Contagem de uso, anonima e agregada: quantas vezes um evento ("tela:elenco", "rolagem")
- * aconteceu num dia, na instancia toda. Nao guarda quem, nem campanha, nem endereco: so o
+ * aconteceu num dia, no servidor todo. Nao guarda quem, nem campanha, nem endereco: so o
  * numero. E o que o administrador ve em Administracao › Uso, e nada sai do servidor.
  */
 @Entity

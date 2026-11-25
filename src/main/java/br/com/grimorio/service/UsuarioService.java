@@ -202,7 +202,7 @@ public class UsuarioService implements UserDetailsService {
     public void admin(Long id, boolean admin) {
         Usuario u = buscar(id);
         if (!admin && repo.countByAdminTrue() <= 1 && u.isAdmin())
-            throw new IllegalArgumentException("a instancia precisa de ao menos um administrador");
+            throw new IllegalArgumentException("o sistema precisa de ao menos um administrador");
         u.setAdmin(admin);
         repo.save(u);
     }

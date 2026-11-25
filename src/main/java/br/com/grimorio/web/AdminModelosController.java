@@ -29,7 +29,7 @@ public class AdminModelosController {
         return modelos.salvarDoEnvio(arquivo);
     }
 
-    /* Mesmo sendo admin, so vira modelo campanha que a pessoa mestra: administrar a instancia
+    /* Mesmo sendo admin, so vira modelo campanha que a pessoa mestra: administrar o servidor
        nao da direito de copiar o conteudo da mesa dos outros. */
     @PostMapping("/campanha/{cid}")
     public Map<String, Object> daCampanha(@PathVariable Long cid) throws IOException {

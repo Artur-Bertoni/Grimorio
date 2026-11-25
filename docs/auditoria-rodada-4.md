@@ -42,7 +42,7 @@ marcar cena (15px visível) tem área de toque de 25px no mouse e 35px no toque 
 | Alvo < 24px (reais) | chips-botão de 23px (Liberar, Jogadores não veem, Cena 1), "Avançado" com 22px |
 | Foco visível no Tab | presente em todas as paradas; "Pular para o conteúdo" existe |
 | `lang`, `title` por tela | `pt-BR`; título por tela no formato "Tela · Campanha · Grimório" |
-| `description` | a mesma em todas as telas (instância privada, `noindex`) |
+| `description` | a mesma em todas as telas (app de acesso restrito, `noindex`) |
 
 ### Inventário do CSS
 
@@ -132,12 +132,12 @@ Severidade: **P0** crítico, **P1** alto, **P2** médio, **P3** baixo.
 - **Categoria:** arquitetura da informação
 - **Descrição:** a mesma lista plana tem o que é **da campanha** (Campanha, Mesa e convites,
   Vocabulário, Consulta rápida, Busca), o que é **da pessoa** (Aparência, Privacidade e
-  acessibilidade, Guias, Conta, Suporte) e o que é **da instância** (Administração, Textos legais,
+  acessibilidade, Guias, Conta, Suporte) e o que é **do sistema** (Administração, Textos legais,
   Uso), sem cabeçalho de grupo.
-- **Impacto:** o mestre não sabe se mudar algo afeta só ele, a mesa ou a instância inteira; o
+- **Impacto:** o mestre não sabe se mudar algo afeta só ele, a mesa ou o servidor inteiro; o
   administrador acha a Administração no meio das preferências pessoais.
 - **Severidade:** P1
-- **Recomendação:** três grupos com rótulo curto ("Esta campanha", "Você", "Instância") na mesma
+- **Recomendação:** três grupos com rótulo curto ("Esta campanha", "Você", "Sistema") na mesma
   lista, inclusive na versão de celular (lista de seções). Sem mudar rotas.
 - **Justificativa:** o modelo mental de escopo (Linear: Workspace / My account; Notion: Workspace /
   My settings) evita alteração no lugar errado, que é o erro mais caro de uma tela de ajustes.
@@ -301,11 +301,11 @@ Severidade: **P0** crítico, **P1** alto, **P2** médio, **P3** baixo.
 - **Recomendação:** os dois como `.ibtn` do mesmo tamanho.
 - **Justificativa:** elementos com o mesmo papel recebem o mesmo tratamento.
 
-### F-18 · Rodapé de site comercial dentro de instância privada
+### F-18 · Rodapé de site comercial dentro de app de acesso restrito
 - **Página / rota:** lista de campanhas, roteiro da sessão, login
 - **Componente:** rodapé "© 2026 Grimório · Todos os direitos reservados"
 - **Categoria:** UX writing
-- **Descrição:** uma instância privada de mesa com um aviso de direitos reservados no rodapé de
+- **Descrição:** uma app de acesso restrito de mesa com um aviso de direitos reservados no rodapé de
   telas de trabalho.
 - **Impacto:** ruído; ocupa a área inferior do roteiro.
 - **Severidade:** P3
@@ -382,11 +382,11 @@ Severidade: **P0** crítico, **P1** alto, **P2** médio, **P3** baixo.
 | Página 404 própria | ✅ com tema e caminho de volta (`paginas/404.html`, servida pelo `TratadorDeErros`) |
 | CTA acima da dobra | ✅ em todas as telas medidas; ⚠️ "+ cena" fraco (F-08) |
 | Meta title por página | ✅ por tela, no formato "Tela · Campanha · Grimório" |
-| Meta description por página | ⚠️ uma só para o app inteiro; sem impacto (instância privada, `noindex`) |
+| Meta description por página | ⚠️ uma só para o app inteiro; sem impacto (app de acesso restrito, `noindex`) |
 | Imagem Open Graph | ✅ só no login, que é o que vai em link de convite (`previa.png`); ⚠️ 199 KB, cabe em metade |
 | Conjunto de favicon | ✅ ico 48, svg, 180, 192, 512 e 512 com máscara, manifest |
 | robots.txt | ✅ |
-| sitemap.xml | ⛔ de propósito (instância privada, `noindex`; decisão registrada) |
+| sitemap.xml | ⛔ de propósito (app de acesso restrito, `noindex`; decisão registrada) |
 | `alt` em toda imagem | ✅ 0 sem `alt` nas 198 medições |
 | Breakpoints de celular | ✅ funcionam; ⚠️ 13 cortes (F-04) |
 | CTA fixo no celular | ✅ barra de jogo da sessão (Liberar), barra de abas |
@@ -403,7 +403,7 @@ Severidade: **P0** crítico, **P1** alto, **P2** médio, **P3** baixo.
 
 # Parte 2: backend (auditado, corrigido e testado)
 
-A proposta do Grimório pesa em cada decisão: **uma instância serve várias mesas e vários
+A proposta do Grimório pesa em cada decisão: **o app serve várias mesas e vários
 mestres**, então uma conta mal protegida expõe campanhas de outras pessoas; a mesa é **tempo real**
 (rolagem, turno, mapa), então custo por pedido importa; e o **jogador está no celular**, então cada
 byte da abertura importa.
@@ -431,7 +431,7 @@ byte da abertura importa.
 - **Descrição:** com o cadastro aberto desligado, o controller só olhava se o campo `convite` vinha
   preenchido. **Confirmado no jar:** sem convite, 403; com `"convite":"inventado"`, a conta
   `intruso3` foi criada e só a entrada na campanha falhou.
-- **Impacto:** a administração fecha o cadastro para manter a instância privada, e qualquer um
+- **Impacto:** a administração fecha o cadastro para manter a app de acesso restrito, e qualquer um
   criava conta mesmo assim, com acesso a tudo que é de conta logada (modelos de campanha, IA,
   suporte, armazenamento ao criar campanha).
 - **Correção:** `CampanhaService.conviteValido()` é conferido **antes** de criar a conta; a recusa
@@ -541,7 +541,7 @@ byte da abertura importa.
   violência de ficção é o falso positivo típico de uma mesa de RPG, e assim o servidor tenta outro
   modelo em vez de recusar. Para desligar, basta escolher em Administração um modelo fora dessa
   lista. O campo de modelo vazio na Administração agora grava vazio (antes gravava o padrão por
-  extenso e congelava a instância nele).
+  extenso e congelava o servidor nele).
 - **Não testado contra a API de verdade** (não há chave nesta máquina). A forma do pedido segue a
   referência da API; vale uma pergunta de teste pela tela depois do deploy.
 
@@ -562,16 +562,16 @@ byte da abertura importa.
 | B-18 | Envio do SSE do mapa numa thread só: um cliente com a conexão travada segura os outros até o tempo limite de escrita | P2 | trocar por fila por inscrito muda o desenho de `MapaEventos`; medir antes com mesa cheia |
 | B-19 | `MapaService` com 1.426 linhas e `MidiaService` com 868 | P3 | refatoração grande; cada passo com os dois testes |
 | B-20 | Nenhum teste automático rodando em CI | P2 | os dois roteiros existem; falta o GitHub Actions rodar a cada push |
-| B-21 | Primeira conta vira administradora sem trava contra dois cadastros simultâneos numa instância vazia | P3 | janela de segundos no primeiro boot |
+| B-21 | Primeira conta vira administradora sem trava contra dois cadastros simultâneos num servidor vazio | P3 | janela de segundos no primeiro boot |
 | B-22 | `aceitarConvite` sem trava: dois aceites simultâneos podem passar do limite de usos | P3 | efeito: um uso a mais |
 | B-23 | Mídia com `max-age` de 30 dias: imagem trocada no mesmo caminho fica velha no navegador | P3 | trocar o nome na troca, ou ETag |
 | B-24 | Testar as colunas e índices novos contra Postgres | P1 | o Docker precisa ser aberto à mão nesta máquina |
 
 ## O que foi testado
 
-- **Teste de API** (`scripts/teste-api/teste.mjs`) contra o jar novo, instância sem contas:
+- **Teste de API** (`scripts/teste-api/teste.mjs`) contra o jar novo, servidor sem contas:
   **368 de 368**.
-- **Roteiro próprio de provas** contra o jar, instância limpa: 24 de 24. Cobre: cache com 304,
+- **Roteiro próprio de provas** contra o jar, servidor limpo: 24 de 24. Cobre: cache com 304,
   cabeçalhos, convite inventado recusado e convite real aceito, 400/405/400, versão da mesa, teto
   das anotações, freio (a sexta senha errada é barrada, `Retry-After`, outra conta segue
   entrando), conta desativada derrubada no pedido seguinte, cookie de lembrar gravado.
@@ -723,7 +723,7 @@ a tabela do fim diz o que **não** foi feito.
 | F-02 | O pdf.js sai do `index.html` e só desce na primeira abertura de PDF: `carregaPdfjs()` em `js/pdf.js` (`import()` dinâmico, worker apontado). Leitor de PDF e importação de ficha esperam por ele. |
 | F-03 | Enquadrar o mapa desconta a coluna de ferramentas (`mpLarguraDasFerramentas`); na abertura, o jogador com token é centralizado nele (`mpCentralizaNoMeu`). Conferido em 390 e 1366. |
 | F-04 | 13 cortes viram 4: 360, 600, 900, 1280, sempre `max-width`, com a escala comentada em `tokens.css`. O JS segue o mesmo (`innerWidth<=900`). Configurações vira lista até 900 (era 1000) e a barra de jogo da sessão aparece até 900 (era 860), junto da barra de abas. |
-| F-05 | Configurações em três grupos com rótulo: Esta campanha, Você, Instância (`menuAjustes`), também na lista do celular. Rotas iguais. |
+| F-05 | Configurações em três grupos com rótulo: Esta campanha, Você, Sistema (`menuAjustes`), também na lista do celular. Rotas iguais. |
 | F-06, F-07 | Roteiro usa o mesmo cabeçalho compacto do Quadro (voltar, título, ?, chip da sessão, progresso, ações à direita). O resumo da sessão desce para o topo da coluna de cenas. |
 | F-08 | Sessão sem cena: estado vazio com o primário "Criar a primeira cena". Com cenas: `.btn.sec.m` "+ Cena" no fim da lista. |
 | F-09 | Território que ninguém arrastou é automático: depois de medido desce até ficar 24px abaixo do de cima (`desempilha`, não gravado, acompanha o crescimento). Guias antigos com a posição padrão gravada contam como automáticos. |
@@ -754,8 +754,8 @@ a tabela do fim diz o que **não** foi feito.
 
 ## Testado
 
-- **Teste de API** contra o jar novo, instância vazia: **368 de 368**, e o boot sem erro de DDL.
-- **Provas novas** contra o jar (instância vazia): **17 de 17**. Dois cadastros simultâneos geram um
+- **Teste de API** contra o jar novo, servidor vazio: **368 de 368**, e o boot sem erro de DDL.
+- **Provas novas** contra o jar (servidor vazio): **17 de 17**. Dois cadastros simultâneos geram um
   administrador; não membro recebe 403 no fluxo; membro recebe `ola`; rolagem fechada do mestre não
   avisa o jogador; aberta e pedido de teste avisam sem o resultado; rolagem do jogador avisa o mestre;
   gravar a mesa avisa com a versão nova; gravar o guia não avisa; dois aceites de um convite de um
@@ -779,7 +779,7 @@ a tabela do fim diz o que **não** foi feito.
 | — | Spring Boot 4.2.0 | Subiu de 4.1.3 (junto: Framework 7.1, Security 7.2, Hibernate 7.4, Tomcat 11.0.27, H2 2.5). Das mudanças das notas de versão (RestTemplate, `pathmatch`, SSL bundle, starters AMQP, Pulsar) o projeto não usa nenhuma. O H2 2.5 abre um banco gravado pelo 2.4 sem migração. |
 | B-24, local | — | Continua no CI (Postgres 17). Vale olhar o primeiro run do Actions. |
 
-Testado depois disso: teste de API contra o jar na 4.2.0, instância vazia, **368 de 368** e boot sem erro; prova
+Testado depois disso: teste de API contra o jar na 4.2.0, servidor vazio, **368 de 368** e boot sem erro; prova
 da sessão no cartão contra o jar, **11 de 11** (guia sem sessão, próxima, última, jogador só com a mesa,
 mestre e jogador vendo cada um a sua); teste de tela **0 falhas, 0 erros de página**, com as conferências
 novas (cartão com a sessão e a palavra da campanha; barras saindo ao rolar para baixo e voltando ao rolar

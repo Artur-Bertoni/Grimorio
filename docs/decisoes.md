@@ -6,7 +6,7 @@ arquitetura e o que já foi tentado e descartado.
 
 ## De onde veio
 
-Nasceu como painel de uma campanha só, a Hexatombe, de Ordem Paranormal, hospedada num
+Nasceu como painel de uma campanha só, de um sistema específico, hospedada num
 artifact do Claude. O artifact dependia de APIs próprias do ambiente e da File System Access
 API do navegador. Virar app de verdade significou trocar cada uma por um endpoint:
 
@@ -28,11 +28,9 @@ O commit `bd87157` é a última versão de campanha única, para quem precisar v
 
 ## A universalização
 
-O app era todo Ordem Paranormal: classes `br.com.hexatombe`, texto de livro transcrito dentro
-do jar, imagens de campanha em `static/img/`, índices de busca embutidos. Dois problemas: só um
-mestre específico conseguiria usar, e o repositório carregava texto transcrito de livro
-publicado e arte de campanha. Publicar isso num repositório universal é problema jurídico, não
-de organização.
+O app era preso a uma campanha e a um sistema: classes com o nome dela, textos e imagens da
+campanha dentro do jar, índices de busca embutidos. Dois problemas: só um mestre específico
+conseguiria usar, e conteúdo de terceiros não pode morar num repositório universal.
 
 A saída foi separar **motor** de **conteúdo**. O repositório ficou sem texto de livro, sem arte
 e sem lógica de sistema. A campanha virou um **pacote** (um zip, `PacoteService`) que leva tudo
@@ -53,15 +51,15 @@ automática.
 ## Multi-campanha e contas
 
 A versão de campanha única tinha login por variável de ambiente e um usuário criado no primeiro
-boot. Isso não escala para uma instância que serve várias mesas, e obriga quem sobe o app a
+boot. Isso não escala para um servidor que serve várias mesas, e obriga quem sobe o app a
 mexer em painel de infraestrutura antes de conseguir entrar.
 
 Virou self-service: nenhuma variável de login, nenhuma conta gerada no boot, tela de **Criar
-uma conta** no próprio site, e a primeira conta criada vira a administradora da instância.
+uma conta** no próprio site, e a primeira conta criada vira a administradora do sistema.
 Entrar numa campanha de outra pessoa é por link de convite com token, papel, número de usos e
 validade. O login entende `?convite=` e preserva o token até depois do cadastro, para o link
 funcionar para quem ainda não tem conta. Cadastro aberto é o padrão (`config.registroAberto`),
-desligável na Administração; instância pessoal exposta na internet provavelmente quer desligar.
+desligável na Administração; em um servidor exposto na internet a administração provavelmente quer desligar.
 
 ## Escolhas de infraestrutura
 
@@ -196,8 +194,7 @@ Decisões do dono: a névoa é segurança real (o servidor corta o mapa em peda�
 vários mapas por campanha, um ativo; diagonal configurável; token de ficha, NPC ou avulso; jogador move só o
 dele; desfazer por pessoa; o mapa vai no pacote e **não** nos modelos. Descartado: WebSocket (CSRF e Security),
 mapa dentro do guia (regravaria o documento a cada arrasto), nome como elo da iniciativa (virou id do token).
-No pacote o mapa entra desligado e sem o que depende de conta ou ficha, porque esses ids não existem na outra
-instância. O que cada fase entregou e os avisos estão em `docs/plano-tabletop.md`.
+No pacote o mapa entra desligado e sem o que depende de conta ou ficha, porque esses ids não existem na outro servidor. O que cada fase entregou e os avisos estão em `docs/plano-tabletop.md`.
 
 ## O que ficou de fora
 

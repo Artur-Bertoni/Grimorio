@@ -5,7 +5,7 @@ import java.time.Instant;
 
 /**
  * Documento JSON grande de uma campanha: "guia" (so do mestre) e "mesa"
- * (visivel a todos). Substitui a tabela doc, que era de instancia unica.
+ * (visivel a todos). Substitui a tabela doc, que era de campanha unica.
  */
 @Entity
 @Table(name = "documento",

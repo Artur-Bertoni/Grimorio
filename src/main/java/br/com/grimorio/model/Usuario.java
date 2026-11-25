@@ -20,7 +20,7 @@ public class Usuario {
     @Column(name = "senha_hash", nullable = false, length = 100)
     private String senhaHash;
 
-    /* Papel global, de quando a instancia tinha uma campanha so. Hoje o papel e por campanha
+    /* Papel global, de quando o servidor tinha uma campanha so. Hoje o papel e por campanha
        (Membro) e ninguem le este campo. Ele fica porque a coluna existe NOT NULL nos bancos em
        uso: tirar o campo faria qualquer cadastro novo falhar no insert. */
     @Enumerated(EnumType.STRING)
@@ -28,7 +28,7 @@ public class Usuario {
     private Papel papel = Papel.JOGADOR;
 
     /**
-     * Administrador da instancia: mexe em usuarios, chave da IA e registro.
+     * Administrador do servidor: mexe em usuarios, chave da IA e registro.
      * O columnDefinition tem DEFAULT de proposito: sem ele o Postgres recusa
      * adicionar uma coluna NOT NULL numa tabela que ja tem linhas.
      */

@@ -16,6 +16,12 @@
     <version>1.0.0</version>
     <name>Grimorio</name>
     <description>Grimorio: painel de mesa para RPG, agnostico de sistema</description>
+    <licenses>
+        <license>
+            <name>PolyForm Noncommercial License 1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+        </license>
+    </licenses>
 
     <properties>
         <java.version>25</java.version>

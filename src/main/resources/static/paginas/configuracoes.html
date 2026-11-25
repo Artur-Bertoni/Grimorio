@@ -6,7 +6,7 @@
   <div :class="'ajgrade' + (lista ? ' so-lista' : ' com-secao')"><button v-if="!lista" type="button" class="backb ajvolta" id="ajVolta">‹ Todas as configurações</button><div class="ajmenu" v-html="abas"></div><div id="ajBody" class="ajbody" role="region" aria-live="polite" aria-label="Seção de configurações"></div></div>
 </template>
 
-<!-- o menu de Configuracoes em grupos por escopo: esta campanha, voce, instancia -->
+<!-- o menu de Configuracoes em grupos por escopo: esta campanha, voce, servidor -->
 <template id="t-ajmenu">
   <div v-for="g in grupos" class="ajgrupo"><p class="eyebrow ajgt" aria-hidden="true">{{ g.titulo }}</p><span data-solta v-html="g.nav"></span></div>
 </template>
@@ -20,16 +20,16 @@
 <template id="t-aj-privacidade">
   <h2 class="sec mb-3">Privacidade e acessibilidade</h2>
   <div class="form">
-    <label class="ck"><input type="checkbox" id="pvMetricas" v-attr:checked="metricas">Contar meu uso de forma anônima<span class="dica">O servidor soma quantas vezes cada tela é aberta por dia, sem guardar quem abriu, para quem administra saber o que é usado. Nada sai desta instância.</span></label>
+    <label class="ck"><input type="checkbox" id="pvMetricas" v-attr:checked="metricas">Contar meu uso de forma anônima<span class="dica">O servidor soma quantas vezes cada tela é aberta por dia, sem guardar quem abriu, para quem administra saber o que é usado. Nada sai do servidor do Grimório.</span></label>
     <label class="ck"><input type="checkbox" id="pvAtalhos" v-attr:checked="atalhos">Atalhos de uma tecla (a tecla / abre a busca)<span class="dica">Desligue se você usa leitor de tela, ditado ou acesso por voz: tecla solta pode disparar sem querer. Ctrl+K continua abrindo a busca.</span></label>
   </div>
-  <p class="sm muted mt-4">Estas escolhas valem neste aparelho. Leia a <a class="dourado" href="/privacidade" target="_blank" rel="noopener">política de privacidade</a> e os <a class="dourado" href="/termos" target="_blank" rel="noopener">termos de uso</a> desta instância.</p>
+  <p class="sm muted mt-4">Estas escolhas valem neste aparelho. Leia a <a class="dourado" href="/privacidade" target="_blank" rel="noopener">política de privacidade</a> e os <a class="dourado" href="/termos" target="_blank" rel="noopener">termos de uso</a>.</p>
 </template>
 
 <!-- administracao: textos de privacidade e de termos -->
 <template id="t-aj-textos">
   <h2 class="sec mb-3">Textos legais</h2>
-  <p class="lead">Cada instância é de quem a administra. Escreva aqui a política de privacidade e os termos de uso que valem nesta. Vazio volta ao texto padrão do Grimório. Parágrafos são separados por uma linha em branco.</p>
+  <p class="lead">Escreva aqui a política de privacidade e os termos de uso do Grimório. Vazio volta ao texto padrão. Parágrafos são separados por uma linha em branco.</p>
   <div class="form">
     <label>Privacidade<textarea id="txPriv" rows="12" aria-describedby="txPrivD"></textarea><span class="dica" id="txPrivD">Aparece em /privacidade, aberto a qualquer pessoa.</span></label>
     <label>Termos de uso<textarea id="txTerm" rows="12" aria-describedby="txTermD"></textarea><span class="dica" id="txTermD">Aparece em /termos, aberto a qualquer pessoa.</span></label>
@@ -137,7 +137,7 @@
   <div class="addrow"><button class="btn sec" id="rfAdd">Adicionar grupo</button><button class="btn" id="rfGo">Salvar</button></div>
 </template>
 
-<!-- ---------- administracao da instancia ---------- -->
+<!-- ---------- administracao do servidor ---------- -->
 
 <template id="t-admin">
   <div class="fld"><span class="flb">Chave da IA</span>
@@ -165,9 +165,9 @@
     <p class="sm muted">Desligado (o padrão enquanto o tabletop está em obra), só a administração abre o mapa; os outros veem o aviso "em construção". Quem já está com a página aberta precisa recarregar.</p></div>
   <div class="fld"><span class="flb">Contas</span><div id="adUs"><p class="muted sm">carregando…</p></div>
     <div class="addrow mt-2"><label class="rotulo cresce">Login<input class="inp" id="auL"></label><label class="rotulo cresce">Nome<input class="inp" id="auN"></label><label class="rotulo cresce">Senha<input class="inp" id="auS" type="password"></label><button class="btn sec" id="auGo">Criar</button></div></div>
-  <div class="fld"><span class="flb">Campanhas na instância</span><div id="adCa"></div></div>
+  <div class="fld"><span class="flb">Todas as campanhas</span><div id="adCa"></div></div>
   <div class="fld"><span class="flb">Modelos de campanha</span>
-    <p class="sm muted">Aparecem em “Como começar” para qualquer pessoa que criar uma {{ vmin('campanha') }} nesta instância. A {{ vmin('campanha') }} nova recebe uma cópia inteira do modelo, com livros, trilha e imagens.</p>
+    <p class="sm muted">Aparecem em “Como começar” para qualquer pessoa que criar uma {{ vmin('campanha') }} {{ vmin('campanha') }} nova recebe uma cópia inteira do modelo, com livros, trilha e imagens.</p>
     <div id="adMod"><p class="muted sm">carregando…</p></div>
     <div class="addrow mt-2"><button type="button" class="btn sec" id="adModEnv">Enviar pacotes (.zip)</button><span class="sm muted">Dá para escolher vários de uma vez.</span></div>
     <div class="addrow"><label class="rotulo cresce">Ou salve como modelo uma {{ vmin('campanha') }} que você mestra<select class="inp" id="adModCa" v-attr:disabled="minhas.length ? null : true"><option v-for="c in minhas" v-attr:value="String(c.id)">{{ c.nome }}</option></select></label><button type="button" class="btn sec" id="adModSal" v-attr:disabled="minhas.length ? null : true">Salvar como modelo</button></div>

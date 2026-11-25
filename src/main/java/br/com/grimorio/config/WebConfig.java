@@ -44,7 +44,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path dir = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
         /* A pasta precisa existir antes do registro: o Spring descarta local que nao existe, e
-           numa instancia nova (pasta criada depois, no boot) nenhuma midia era servida ate reiniciar. */
+           num servidor novo (pasta criada depois, no boot) nenhuma midia era servida ate reiniciar. */
         try { java.nio.file.Files.createDirectories(dir); }
         catch (java.io.IOException e) { throw new IllegalStateException("nao consegui criar a pasta de midia " + dir, e); }
         /* private: a midia e da campanha (PDF so de mestre, audio nunca para jogador). Sem isso um
