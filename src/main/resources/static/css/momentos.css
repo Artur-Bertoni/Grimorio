@@ -48,8 +48,7 @@
 @keyframes critraio{0%{opacity:0;transform:scale(.5) rotate(0)}20%{opacity:1}100%{opacity:0;transform:scale(1.1) rotate(35deg)}}
 body.treme main,body.treme .sheet{animation:treme var(--dur-3)}
 html[data-estilo="terror"] .critfx.min i:last-child{background:linear-gradient(var(--blood2),var(--blood) 60%,transparent);height:40%;inset:0 0 auto 0;
-  mask:linear-gradient(#000,transparent);animation:critcai 1.4s ease-in}
-html[data-estilo="terror"] .critfx.min i:last-child{transform-origin:top}
+  mask:linear-gradient(#000,transparent);animation:critcai 1.4s ease-in;transform-origin:top}
 @keyframes critcai{0%{opacity:0;transform:scaleY(0)}25%{opacity:.75;transform:scaleY(1)}100%{opacity:0;transform:scaleY(1.25)}}
 html[data-estilo="misterio"] .critfx.max i:last-child{background:radial-gradient(closest-side,transparent 58%,color-mix(in srgb,var(--gold) 55%,transparent) 60%,transparent 63%);
   mask:none;inset:0;animation:critanel 1.3s ease-out}
@@ -141,6 +140,52 @@ button.inichip:hover{border-color:var(--gold)}
 .fxnum:not(:disabled):hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--brilho)}
 .fxnum:not(:disabled):hover b{color:var(--gold)}
 .fxnum:not(:disabled):active{transform:scale(.95)}
+
+/* o icone na lista: o da ficha ou, sem ele, o de um token dela */
+.cad.fxcard{flex-direction:row;align-items:center;text-align:left}
+.fxlava{flex:0 0 auto;width:4rem;height:4rem;margin:var(--s-3) 0 var(--s-3) var(--s-3);border-radius:var(--r-pill);overflow:hidden;
+  display:grid;place-items:center;background:var(--bg3);border:1px solid var(--line2);font-family:var(--disp);font-size:var(--fs-6);color:var(--fg3)}
+.fxlava img{width:100%;height:100%;object-fit:cover}
+
+/* topo da ficha aberta: icone, nome e os tokens dela nos mapas */
+.fxtopo{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,24rem);gap:var(--s-4);align-items:start;
+  margin:0 0 var(--s-4);padding:0 0 var(--s-4);border-bottom:1px solid var(--line)}
+.fxava{display:flex;flex-direction:column;align-items:center;gap:var(--s-2)}
+.fxavaimg{width:7rem;height:7rem;border-radius:var(--r-pill);overflow:hidden;display:grid;place-items:center;background:var(--bg3);
+  border:1px solid var(--borda-bloco);font-family:var(--disp);font-size:var(--fs-7);color:var(--fg3)}
+.fxavaimg img{width:100%;height:100%;object-fit:cover}
+.fxid{min-width:0;display:flex;flex-direction:column;gap:var(--s-1)}
+.fxid.form{gap:var(--s-3)}
+.fxnome{margin:0;font-family:var(--disp);font-size:var(--fs-6);line-height:var(--lh-titulo);color:var(--fg)}
+.fxtok{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-3);background:var(--bg);border:1px solid var(--line2);border-radius:var(--rc)}
+.fxtok h4{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:var(--tr-caixa);color:var(--gold);padding-bottom:var(--s-2);border-bottom:1px solid var(--line)}
+.fxtokimg{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;padding-bottom:var(--s-2);border-bottom:1px dashed var(--line)}
+.fxtokimg .cresce{flex:1 1 9rem;min-width:0;display:flex;flex-direction:column;line-height:var(--lh-ui)}
+.fxtokava{width:2.75rem;height:2.75rem;flex:0 0 auto;border-radius:var(--r-pill);object-fit:cover;background:var(--bg3);border:1px solid var(--line2)}
+.fxtoks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1)}
+.fxtoks li{display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-m)}
+.fxtoks .cresce{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:900px){
+  .fxtopo{grid-template-columns:auto minmax(0,1fr)}
+  .fxtok{grid-column:1/-1}
+}
+@media (max-width:600px){ .fxtopo{grid-template-columns:minmax(0,1fr)} }
+
+/* modo edicao: cada valor, rotulo e secao e um campo no lugar */
+.fxsechd{display:flex;align-items:center;gap:var(--s-1);padding-bottom:var(--s-2);border-bottom:1px solid var(--line)}
+.fxsecnome{font-family:var(--disp);color:var(--gold)}
+.fxeds{display:flex;flex-direction:column;gap:var(--s-2)}
+.fxed{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2);background:var(--bg2);border:1px dashed var(--line2);border-radius:var(--rb)}
+.fxedhd,.fxedbar{display:flex;align-items:center;gap:var(--s-1)}
+.fxedbar .inp{min-width:0}
+.fxsec.ed .fxnums{grid-template-columns:repeat(auto-fill,minmax(8rem,1fr))}
+.fxnum.fxnumed{gap:var(--s-1);padding:var(--s-1);border-style:dashed;cursor:default}
+.fxnum.fxnumed:hover{transform:none;box-shadow:none;border-color:var(--line2)}
+.fxnumed .inp{width:100%;min-width:0}
+.fxnumed .fxnumv{text-align:center;font-family:var(--disp);font-size:var(--fs-5)}
+.fxnumed .fxrot{text-align:center}
+.fxnumac{display:flex;justify-content:space-between;align-items:center;width:100%}
+.fxfim{display:flex;justify-content:space-between;align-items:center;gap:var(--s-3);flex-wrap:wrap}
 
 /* ---- painel de rolagens: solto na tela, abre e fecha, lembra lugar e tamanho ---- */
 .rolpainel{position:fixed;z-index:var(--z-painel);right:1rem;top:calc(var(--hh,3.5rem) + .75rem);width:21rem;height:min(34rem,70vh);

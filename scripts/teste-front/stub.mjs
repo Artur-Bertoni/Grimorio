@@ -214,6 +214,43 @@ const casasEntre = (mp, a, b) => {
   return mp.grid.diagonal === '1' ? Math.max(p, q) : Math.max(p, q) + Math.floor(Math.min(p, q) / 2);
 };
 const registra = (mp, op, e, antes) => { (mp.hist ||= []).push({ seq: mp.seq, usuario: ST.perfil.id, op, id: e.id, antes: antes ? structuredClone(antes) : null, depois: op === 'remover' ? null : structuredClone(e), desfeito: false }); };
+/* os tokens de uma ficha (MapaFichas no servidor): listar, pôr num mapa, ligar um que ja esta posto e desligar */
+function tokensDaFicha(cid, fid) {
+  const out = [];
+  for (const mp of MAPAS[cid] || []) for (const e of mp.els) {
+    if (e.tipo === 'TOKEN' && e.dados.fichaId === fid && (mestreEm(cid) || (e.visivel && (mp.ativo || e.dono === ST.perfil.id))))
+      out.push({ id: e.id, mapa: mp.id, mapaNome: mestreEm(cid) || mp.ativo ? mp.nome : null, ativo: mp.ativo, nome: e.dados.nome || '', img: e.dados.img || '',
+        visivel: e.visivel, vinculo: !!e.dados.vinculo, podeSoltar: mestreEm(cid) || e.dono === ST.perfil.id });
+  }
+  return out;
+}
+function rotaFichaTokens(M, p, b, res) {
+  const m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)\/(tokens|imagem)(?:\/(\d+))?$/);
+  if (!m) return false;
+  const cid = m[1], f = (FICHAS[cid] || []).find(x => x.id === Number(m[2]));
+  if (!f) { envia(res, 404, { erro: 'não encontrado' }); return true; }
+  if (m[3] === 'imagem') { envia(res, 200, { arquivo: 'img/ficha-' + f.id + '.png' }); return true; }
+  if (M === 'GET') { envia(res, 200, tokensDaFicha(cid, f.id)); return true; }
+  let conteudo = {}; try { conteudo = JSON.parse(f.json); } catch { conteudo = {}; }
+  if (M === 'DELETE') {
+    for (const mp of MAPAS[cid] || []) for (const e of mp.els) if (e.id === Number(m[4])) { delete e.dados.fichaId; delete e.dados.vinculo; mp.seq++; }
+    res.writeHead(204, { 'Set-Cookie': 'XSRF-TOKEN=t0; Path=/' }); res.end(); return true;
+  }
+  const mp = (MAPAS[cid] || []).find(x => x.id === Number(b.mapa));
+  if (!mp || (!mestreEm(cid) && !mp.ativo)) { envia(res, 404, { erro: 'não encontrado' }); return true; }
+  let e;
+  if (b.elemento == null) {
+    e = { id: ++MAPA_SEQ, tipo: 'TOKEN', camada: 'personagens', dono: ST.perfil.id, visivel: true, bloqueado: false, ordem: mp.els.length,
+      dados: { x: mp.largura / 2, y: mp.altura / 2, tam: 1, rot: 0, nome: f.nome, img: conteudo.token || conteudo.img || '', fichaId: f.id, vinculo: true } };
+    mp.els.push(e);
+  } else {
+    e = mp.els.find(x => x.id === Number(b.elemento));
+    if (!e) { envia(res, 404, { erro: 'não encontrado' }); return true; }
+    Object.assign(e.dados, { fichaId: f.id, vinculo: true }, conteudo.token || conteudo.img ? { img: conteudo.token || conteudo.img } : {});
+  }
+  mp.seq++;
+  envia(res, 200, elJson(mp, e, mestreEm(cid))); return true;
+}
 function rotaMapa(M, p, b, req, res) {
   const tl = p.match(/^\/api\/c\/(\d+)\/mapas\/(\d+)\/tile\/(\d+)\/(\d+)$/);
   if (tl) {
@@ -421,8 +458,11 @@ http.createServer(async (req, res) => {
         res.write('event: campanha\ndata: ' + JSON.stringify({ tipo: 'ola' }) + '\n\n');
         return;
       }
-      if (rotaMapa(M, p, {}, req, res)) return;
-      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) return envia(res, 200, FICHAS[m[1]] || []);
+      if (rotaMapa(M, p, {}, req, res) || rotaFichaTokens(M, p, {}, res)) return;
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas$/))) {
+        const cid = m[1];
+        return envia(res, 200, (FICHAS[cid] || []).map(f => ({ ...f, tokenImg: (tokensDaFicha(cid, f.id).find(t => t.img) || {}).img || '' })));
+      }
       if (p === '/api/zerar') { zera(); return envia(res, 200, { ok: true }); }
       if ((m = p.match(/^\/api\/c\/(\d+)\/(guia|mesa)$/))) {
         const d = (ST[m[2]][m[1]]) || ST[m[2]][2];
@@ -468,7 +508,7 @@ http.createServer(async (req, res) => {
       if (ST.csrf.falha) { ST.csrf.falha = false; return envia(res, 403, { erro: 'a sessao de seguranca expirou, tente de novo', codigo: 'csrf' }); }
       ST.csrf.repetiu++;
     }
-    if (rotaMapa(M, p, b, req, res)) return;
+    if (rotaMapa(M, p, b, req, res) || rotaFichaTokens(M, p, b, res)) return;
     if ((m = p.match(/^\/__mapa-move-outro\/(\d+)$/))) return envia(res, 200, { x: moveDeOutro(m[1]) });
     /* so no teste: uma parede entre a heroina e o guarda, nevoa pela visao e deslocamento sem limite */
     if ((m = p.match(/^\/__mapa-paredes\/(\d+)$/))) {
@@ -487,10 +527,11 @@ http.createServer(async (req, res) => {
         const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
         f.nome = b.nome || f.nome; f.json = b.json || f.json;
         /* como o servidor: o alcance da ficha vai para a copia dos tokens ligados a ela */
-        let v; try { v = JSON.parse(f.json).visao; } catch { v = null; }
+        let v, img; try { const j = JSON.parse(f.json); v = j.visao; img = j.token || j.img; } catch { v = null; }
         for (const mp of MAPAS[m[1]] || []) for (const e of mp.els) {
           if (e.tipo !== 'TOKEN' || e.dados.fichaId !== f.id || !e.dados.vinculo) continue;
           if (v == null || v === '') delete e.dados.visaoFicha; else e.dados.visaoFicha = Number(v);
+          if (img) e.dados.img = img;
           mp.seq++;
         }
         return envia(res, 200, { ok: true });

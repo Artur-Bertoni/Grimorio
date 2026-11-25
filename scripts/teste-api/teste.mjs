@@ -756,6 +756,49 @@ console.log("\n=== mapa: organizacao (camadas, desenho, grupo, trava, vida e mar
   await jogador.put(`/api/c/${cid}/fichas/${fV}`, { nome: "Vinculada", json: jsonFicha("1", "12") });
   ok((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tV).dados.vida === 7, "sem o vinculo, a ficha nao mexe mais no token");
 
+  /* os tokens vistos da ficha (MapaFichas): pôr, ligar, desligar, a imagem do token e o que o jogador pode */
+  const F = `/api/c/${cid}/fichas`, jid = (await jogador.get("/api/sessao")).d.id;
+  const jsonImg = token => JSON.stringify({ campos: [], img: "img/icone.png", ...(token ? { token } : {}) });
+  r = await jogador.post(F, { nome: "Com token", json: jsonImg("img/token-a.png") });
+  const fT = r.d.id;
+  r = await jogador.post(`${F}/${fT}/tokens`, { mapa: mid });
+  ok(r.s === 200 && r.d.dados.img === "img/token-a.png" && r.d.meu === true, "o dono poe a propria ficha no mapa ativo, com a imagem do token (nao o icone)", r.d);
+  const tT = r.d.id;
+  r = await jogador.post(`${F}/${fT}/tokens`, { mapa: mid });
+  ok(r.s === 409, "o jogador poe uma peca so por ficha em cada mapa", r.s);
+  await jogador.put(`${F}/${fT}`, { nome: "Com token", json: jsonImg("img/token-b.png") });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tT).dados.img === "img/token-b.png", "trocar a imagem do token na ficha troca a do token ligado", r.d.elementos.find(e => e.id === tT)?.dados);
+  await jogador.put(`${F}/${fT}`, { nome: "Com token", json: JSON.stringify({ campos: [] }) });
+  r = await mestre.get(`${M}/${mid}`);
+  ok(r.d.elementos.find(e => e.id === tT).dados.img === "img/token-b.png", "ficha sem imagem nenhuma nao apaga a do token");
+  await jogador.put(`${F}/${fT}`, { nome: "Com token", json: jsonImg("img/token-b.png") });
+  r = await jogador.get(`${F}/${fT}/tokens`);
+  ok(r.s === 200 && r.d.length === 1 && r.d[0].id === tT && r.d[0].podeSoltar === true, "a ficha lista o token ligado a ela", r.d);
+  ok((await jogador.get(F)).d.find(f => f.id === fT).tokenImg === "img/token-b.png", "a lista de fichas leva a imagem do token ligado (tokenImg)");
+  r = await mestre.post(F, { nome: "Do mestre 2", json: "{}" });
+  const fM2 = r.d.id;
+  ok((await jogador.get(`${F}/${fM2}/tokens`)).s === 404 && (await jogador.post(`${F}/${fM2}/tokens`, { mapa: mid })).s === 404,
+    "tokens da ficha de outra pessoa nao existem para o jogador (404)");
+  r = await mestre.post(`${M}/${mid}/elementos`, { dados: { nome: "Do mestre", x: 70, y: 70 } });
+  const tM = r.d.id;
+  ok((await jogador.post(`${F}/${fT}/tokens`, { mapa: mid, elemento: tM })).s === 404, "o jogador nao liga a ficha a um token que nao controla");
+  r = await mestre.post(`${F}/${fT}/tokens`, { mapa: mid, elemento: tM });
+  ok(r.s === 200 && r.d.dados.fichaId === fT && r.d.dono === jid && r.d.dados.img === "img/token-b.png",
+    "o mestre liga um token ja posto: ele passa a seguir a ficha e a ser do dono dela", r.d);
+  r = await jogador.del(`${F}/${fT}/tokens/${tT}`);
+  ok(r.s === 204, "o dono desliga o token da ficha", r.s);
+  const solto = (await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tT);
+  ok(!!solto && !("fichaId" in solto.dados) && !("vinculo" in solto.dados), "desligado, o token fica no mapa sem o vinculo", solto?.dados);
+  r = await jogador.post(`${F}/${fT}/imagem`, null, { form: forma("arquivo", PNG, "eu.png", "image/png") });
+  ok(r.s === 200 && /^img\/ficha-\d+-\d+\.png$/.test(r.d.arquivo), "o jogador envia o icone pela ficha, com nome proprio", r.d);
+  /* a imagem entra no catalogo da campanha; sai daqui para nao mudar a contagem dos testes da biblioteca */
+  const enviada = ((await mestre.get(`/api/c/${cid}/midia`)).d.imagens || []).find(i => i.arquivo === r.d.arquivo);
+  ok(!!enviada && (await mestre.del(`/api/c/${cid}/midia/${enviada.id}`)).s < 300, "o icone enviado pelo jogador aparece no catalogo do mestre");
+  r = await jogador.post(`${F}/${fT}/imagem`, null, { form: forma("arquivo", Buffer.from("<svg/>"), "x.svg", "image/svg+xml") });
+  ok(r.s === 400, "imagem SVG nao entra pela ficha", r.s);
+  ok((await jogador.post(`${F}/${fM2}/imagem`, null, { form: forma("arquivo", PNG, "eu.png", "image/png") })).s === 404, "nem pela ficha de outra pessoa");
+
   await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
   r = await mestre.del(`${M}/${mid}`);
   ok(r.s === 204, "apagar o mapa leva tudo junto", r.s);

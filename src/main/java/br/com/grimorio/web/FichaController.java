@@ -7,11 +7,16 @@ import br.com.grimorio.repo.FichaRepo;
 import br.com.grimorio.repo.UsuarioRepo;
 import br.com.grimorio.service.CampanhaService;
 import br.com.grimorio.service.IaService;
+import br.com.grimorio.service.MapaFichas;
+import br.com.grimorio.service.MapaService;
+import br.com.grimorio.service.MidiaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 
@@ -27,11 +32,15 @@ public class FichaController {
     private final CampanhaService camp;
     private final IaService ia;
     private final Atual atual;
-    private final br.com.grimorio.service.MapaService mapas;
+    private final MapaService mapas;
+    private final MapaFichas tokens;
+    private final MidiaService midia;
 
-    public FichaController(FichaRepo fichas, UsuarioRepo usuarios, CampanhaService camp, IaService ia, Atual atual,
-                           br.com.grimorio.service.MapaService mapas) {
+    public FichaController(FichaRepo fichas, UsuarioRepo usuarios, CampanhaService camp, IaService ia, Atual atual, // NOSONAR: ficha, mapa e midia, de proposito
+                           MapaService mapas, MapaFichas tokens, MidiaService midia) {
         this.mapas = mapas;
+        this.tokens = tokens;
+        this.midia = midia;
         this.fichas = fichas;
         this.usuarios = usuarios;
         this.camp = camp;
@@ -49,13 +58,57 @@ public class FichaController {
         List<Ficha> l = mestre ? fichas.findByCampanhaIdOrderByNomeAsc(cid)
                                : fichas.findByCampanhaIdAndUsuarioIdOrderByNomeAsc(cid, uid);
         Map<Long, String> nomes = new HashMap<>();
+        /* ficha sem icone mostra na lista a imagem de um token dela */
+        Map<Long, String> deToken = tokens.imagens(cid, uid);
         List<Map<String, Object>> out = new ArrayList<>();
         for (Ficha f : l) {
             String dono = nomes.computeIfAbsent(f.getUsuarioId(),
                     k -> usuarios.findById(k).map(Usuario::getNome).orElse("?"));
-            out.add(mapa(f, uid, dono));
+            Map<String, Object> m = mapa(f, uid, dono);
+            m.put("tokenImg", deToken.getOrDefault(f.getId(), ""));
+            out.add(m);
         }
         return out;
+    }
+
+    /**
+     * O icone da ficha enviado por quem pode mexer nela (o jogador nao envia imagem pela Biblioteca). O arquivo
+     * ganha um nome proprio: com o nome que veio, a imagem de alguem que ja tivesse esse nome seria trocada.
+     */
+    @PostMapping("/{id}/imagem")
+    public ResponseEntity<?> imagem(@PathVariable Long cid, @PathVariable Long id, @RequestParam MultipartFile arquivo) throws IOException {
+        Ficha f = minhaOuDoMestre(cid, id);
+        if (f == null) return ResponseEntity.notFound().build();
+        String ext = extensaoDeImagem(arquivo);
+        if (ext == null) return ResponseEntity.badRequest().body(Map.of("erro", "envie uma imagem PNG, JPG, WEBP ou GIF de até 10 MB"));
+        var m = midia.gravarImagem(cid, "ficha-" + f.getId() + "-" + System.currentTimeMillis() + "." + ext, arquivo.getBytes());
+        return ResponseEntity.ok(Map.of("arquivo", m.getArquivo()));
+    }
+
+    // ---------- tokens da ficha no mapa (MapaFichas) ----------
+
+    public static class CorpoToken {
+        public Long mapa;
+        public Long elemento;
+    }
+
+    @GetMapping("/{id}/tokens")
+    public List<Map<String, Object>> tokens(@PathVariable long cid, @PathVariable long id) {
+        return tokens.tokens(cid, atual.id(), id);
+    }
+
+    /** Pôr a ficha num mapa ({@code mapa}) ou ligar a ela um token que ja esta la ({@code mapa} e {@code elemento}). */
+    @PostMapping("/{id}/tokens")
+    public Map<String, Object> porToken(@PathVariable long cid, @PathVariable long id, @RequestBody CorpoToken c) {
+        if (c == null || c.mapa == null) throw new IllegalArgumentException("qual mapa?");
+        return c.elemento == null ? tokens.por(cid, atual.id(), id, c.mapa) : tokens.vincular(cid, atual.id(), id, c.mapa, c.elemento);
+    }
+
+    /** Desliga o token da ficha; ele continua no mapa. */
+    @DeleteMapping("/{id}/tokens/{eid}")
+    public ResponseEntity<Void> soltarToken(@PathVariable long cid, @PathVariable long id, @PathVariable long eid) {
+        tokens.soltar(cid, atual.id(), id, eid);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping
@@ -82,6 +135,8 @@ public class FichaController {
         mapas.vidaDaFicha(cid, f.getId(), f.getConteudo());
         /* e o alcance da visao dela, na nevoa do mapa */
         mapas.visaoDaFicha(cid, f.getId(), f.getConteudo());
+        /* e a imagem do token dela */
+        mapas.imagemDaFicha(cid, f.getId(), f.getConteudo());
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
@@ -117,6 +172,19 @@ public class FichaController {
                 .filter(f -> Objects.equals(f.getCampanhaId(), cid))
                 .filter(f -> mestre || Objects.equals(f.getUsuarioId(), uid))
                 .orElse(null);
+    }
+
+    private static final long MAX_IMAGEM = 10L * 1024 * 1024;
+    private static final Set<String> EXT_IMAGEM = Set.of("png", "jpg", "jpeg", "webp", "gif");
+
+    /** a extensao, se o arquivo for uma imagem que pode ir para a mesa (SVG nao: e documento, carrega script) */
+    private static String extensaoDeImagem(MultipartFile a) {
+        if (a == null || a.isEmpty() || a.getSize() > MAX_IMAGEM) return null;
+        String n = a.getOriginalFilename() == null ? "" : a.getOriginalFilename();
+        int p = n.lastIndexOf('.');
+        String ext = p < 0 ? "" : n.substring(p + 1).toLowerCase(Locale.ROOT);
+        String tipo = a.getContentType() == null ? "" : a.getContentType();
+        return EXT_IMAGEM.contains(ext) && tipo.startsWith("image/") && !tipo.contains("svg") ? ext : null;
     }
 
     private static void aplica(Ficha f, Corpo c) {

@@ -120,7 +120,7 @@ public class MapaService {
     }
 
     private static final int MAX_MAPAS = 100;
-    private static final int MAX_ELEMENTOS = 1000;
+    static final int MAX_ELEMENTOS = 1000;
     private static final int MAX_LOTE = 300;
     private static final int LADO_MIN = 200;
     private static final int LADO_MAX = 16000;
@@ -532,6 +532,11 @@ public class MapaService {
     /** O alcance da visao da ficha mudou: os tokens vinculados a ela guardam a copia. Chamado depois de gravar a ficha. */
     public void visaoDaFicha(long cid, long fichaId, String conteudo) {
         partes.vida().visaoDaFicha(cid, fichaId, conteudo);
+    }
+
+    /** A imagem do token da ficha (ou o icone) mudou: os tokens vinculados a ela passam a usa-la. Chamado depois de gravar a ficha. */
+    public void imagemDaFicha(long cid, long fichaId, String conteudo) {
+        partes.vida().imagemDaFicha(cid, fichaId, conteudo);
     }
 
     /** Aponta um ponto do mapa: todos que veem o mapa recebem na hora, e nada fica gravado. */

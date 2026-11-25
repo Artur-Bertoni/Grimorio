@@ -24,7 +24,7 @@ import static br.com.grimorio.service.MapaBase.K_VISAO;
 
 /**
  * O token vinculado a uma ficha anda junto com ela, nos dois sentidos: a vida mexida no mapa vai para a
- * barra da ficha, e a barra ou o alcance da visao mexidos na ficha vao para os tokens dela.
+ * barra da ficha, e a barra, o alcance da visao ou a imagem do token mexidos na ficha vao para os tokens dela.
  */
 @Component
 class MapaVida {
@@ -35,6 +35,7 @@ class MapaVida {
     private final MapaBase base;
     private final MapaAvisos avisos;
     private final TransactionTemplate tx;
+    private static final String K_IMG = "img";
     private final ObjectMapper om = JsonMapper.builder().build();
 
     MapaVida(MapaRepo mapas, MapaElementoRepo elementos, FichaRepo fichas, MapaBase base, MapaAvisos avisos,
@@ -98,6 +99,25 @@ class MapaVida {
             if (ligado && !Objects.equals(atual, alvo)) {
                 sincronizaDados(cid, e.getId(), e.getMapaId(), x -> {
                     if (alvo == null) x.remove(MapaRegras.K_VISAO_FICHA); else x.put(MapaRegras.K_VISAO_FICHA, alvo.doubleValue());
+                    return true;
+                });
+            }
+        }
+    }
+
+    /**
+     * A imagem do token da ficha (ou, sem ela, o icone) mudou: os tokens vinculados passam a usa-la. Ficha sem
+     * nenhuma das duas nao apaga a imagem que o token ja tem. Chamado pelo controller depois de gravar a ficha.
+     */
+    void imagemDaFicha(long cid, long fichaId, String conteudo) {
+        String alvo = MapaFichas.imagemDoToken(base.ler(conteudo));
+        if (alvo.isEmpty()) return;
+        for (MapaElemento e : elementos.findByCampanhaIdAndTipo(cid, MapaElemento.Tipo.TOKEN)) {
+            ObjectNode d = base.ler(e.getDados());
+            boolean ligado = d.path(K_VINCULO).asBoolean(false) && d.path(K_FICHA).asLong(-1) == fichaId;
+            if (ligado && !alvo.equals(d.path(K_IMG).asString(""))) {
+                sincronizaDados(cid, e.getId(), e.getMapaId(), x -> {
+                    x.put(K_IMG, alvo);
                     return true;
                 });
             }

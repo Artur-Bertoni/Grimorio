@@ -234,7 +234,7 @@ function guiaMesaMestre(){
     {a:'#view [data-msec="regras"]',ir:irMesa("regras"),t:Vm("referencia"),x:"O resumo das regras, para consulta rápida. O lápis abre o editor, que também fica em Configurações."},
     {a:"#fxModelo",ir:irMesa("fichas"),t:Vm("fichas")+" e modelo",x:"Você vê e edita as "+vmin("fichas")+" de todo mundo. Modelo da ficha define os campos e a rolagem que as novas recebem."},
     {a:"#fxPdf",ir:irMesa("fichas"),t:"Importar de PDF",x:"O PDF é lido no navegador; com a IA configurada, ela organiza os campos, até de ficha escaneada. Funciona melhor com ficha preenchível."},
-    {a:"#fxList",ir:irMesa("fichas"),t:"A ficha aberta",x:"Clicar num número rola o dado com o nome do campo, barras têm − e +, e Usar como modelo transforma os campos de uma ficha no modelo das próximas."},
+    {a:"#fxList",ir:irMesa("fichas"),t:"A ficha aberta",x:"Clicar num número rola o dado com o nome do campo e barras têm − e +. O lápis do topo edita ali mesmo: valores, rótulos, seções, campos novos e o ícone. Na ficha também se escolhe a imagem do "+vmin("token")+" e se põe o personagem num "+vmin("mapa")+" ou se liga a ela um "+vmin("token")+" já posto. Usar como modelo transforma os campos de uma ficha no modelo das próximas."},
     {a:"#mNotas",ir:irMesa("notas"),t:"Minhas anotações",x:"Um caderno só seu, guardado na sua conta."},
     {a:"#mPost",ir:irMesa("mural"),t:"Mural",x:"Recados que a "+vmin("mesa")+" toda lê. Você escreve aqui também e pode apagar qualquer recado."}
   ];
@@ -317,7 +317,7 @@ function guiaFichas(){
     {a:'[data-msec="fichas"]',ir:ir,t:Vm("fichas"),x:"As fichas dos seus personagens. Só você e o "+vmin("mestre")+" veem."},
     {a:"#fxNova",ir:ir,t:"Nova ficha",x:"Cria uma ficha com os campos do modelo que o "+vmin("mestre")+" definiu. Dá para ter mais de uma."},
     {a:"#fxPdf",ir:ir,t:"Importar de PDF",x:"Escolha o PDF da ficha: ele é lido no seu navegador. Funciona melhor com ficha preenchível."},
-    {a:"#fxList",ir:ir,t:"Usar a ficha",x:"Clique numa ficha para abrir. Número rola o dado com o nome do campo, barras de vida têm − e +, e caixas marcam condições. O lápis edita."},
+    {a:"#fxList",ir:ir,t:"Usar a ficha",x:"Clique numa ficha para abrir. Número rola o dado com o nome do campo, barras de vida têm − e +, e caixas marcam condições. O lápis edita na própria ficha, com o ícone do personagem, e dali você põe o seu "+vmin("token")+" no "+vmin("mapa")+" aberto."},
     {ir:ir,t:"Os campos",x:"Texto curto, número (clicar rola), barra com atual e máximo, texto longo e caixa de marcar, organizados em seções."}
   ];
 }

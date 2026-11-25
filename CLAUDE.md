@@ -51,6 +51,8 @@ src/main/java/br/com/grimorio/
               o resto mora ao lado: MapaBase (a trava de cada mapa, permissões, JSON de saída),
               MapaAvisos (o que sai pelo SSE e para quem), MapaMovimento, MapaDesfazer,
               MapaIniciativa e MapaVida (token e ficha). Operação nova no mapa usa MapaBase.travado.
+              MapaFichas é o lado da ficha: listar, pôr num mapa, ligar e desligar os tokens dela
+              (rotas em /api/c/{cid}/fichas/{id}/tokens).
               MidiaService cataloga; gravar no volume (hash, hard link, espaço) é de
               ArmazenamentoMidia, e ler o PDF para a busca é de IndexadorPdf.
   web/        um controller por área, todos sob /api
@@ -257,6 +259,15 @@ pedaços cortados pela névoa (`MapaTiles`).
 um monta uma planta em casas com semente (a prévia, o "Gerar outro" e o mapa criado saem iguais); as paredes saem das
 divisas entre zonas. O chão é pintado no navegador e enviado como imagem (o repositório não carrega arte); paredes,
 portas, móveis que barram, marcações e tokens vão em `elementos` no `POST /mapas`, gravados na mesma transação do mapa.
+
+**Ficha e token**: a ficha guarda o ícone em `img` e a imagem do token em `token` (no JSON dela; sem `token`, o token
+usa o ícone: `MapaFichas.imagemDoToken`). Os tokens ligados (vínculo ligado) seguem essa imagem a cada gravação da
+ficha (`MapaVida.imagemDaFicha`), como seguem a vida e a visão; ficha sem imagem nenhuma não apaga a do token. Ela mostra os tokens ligados a ela nos mapas,
+com "Pôr num mapa" e "Ligar um token já posto". Mestre mexe em qualquer mapa; o dono da ficha só no mapa ativo,
+numa peça por ficha, ao lado de uma peça dele (sem nenhuma, só se o mapa não tem névoa: no meio ele veria o que a
+névoa esconde) e só liga token que controla. Ligar faz o dono da ficha controlar o token. Sem ícone, a lista usa a
+imagem do token da ficha e, sem ela, a de um token ligado (`tokenImg` em `GET /fichas`). O jogador envia o ícone por `POST /fichas/{id}/imagem`, que
+dá nome próprio ao arquivo: pela Biblioteca, um nome repetido trocaria a imagem de outra pessoa.
 
 **Ficha pelos livros** (`js/fichas-livros.js`, só o mestre): lê o índice de busca que o mestre já recebe e monta um
 esboço de ficha sem IA, guiado pelos termos da campanha (`D.campanha.fichaBusca`, editáveis; sem eles vale `FL_PADRAO`).
@@ -486,7 +497,12 @@ clima da última mesa aberta.
 
 **Tudo passa por formulário.** Não existe mais modo edição, tecla `E` nem
 `contentEditable`: digitar direto na página não tinha rótulo, perdia quebra de linha
-e ligava sem querer (ver `docs/decisoes.md`). Cada item tem um botão **editar** que
+e ligava sem querer (ver `docs/decisoes.md`). **A exceção é a ficha de personagem**
+(`abrirFicha`, decisão do dono): a lista de campos num formulário ficava enorme, então o lápis do
+topo liga o modo edição na própria ficha. Cada valor, rótulo e seção vira um `<input>` de verdade com
+rótulo (`.inp.m`), grava sozinho com debounce e não redesenha a cada tecla; mudança de estrutura
+(campo novo, tipo, remover, arrastar) redesenha e oferece desfazer. Fora do modo, a ficha é de jogo
+(número rola, barra tem + e −). Cada item tem um botão **editar** que
 abre `formulario()`:
 
 ```js

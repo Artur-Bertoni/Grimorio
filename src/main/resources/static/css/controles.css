@@ -121,6 +121,9 @@ summary.sm{line-height:var(--ctl-p)}
   transition:border-color var(--dur-2),box-shadow var(--dur-2),background-color var(--dur-2)}
 .inp,.form input,.form textarea,.form select{padding:var(--s-2) var(--s-3);min-height:var(--ctl-g)}
 .inp{flex:1;min-width:7.5rem}
+/* campo medio (32px): o que mora dentro de um bloco cheio de outros, como a ficha em edicao */
+.inp.m{min-height:var(--ctl-m);padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
+textarea.inp{resize:vertical;line-height:var(--lh-texto)}
 .form textarea{resize:vertical;line-height:var(--lh-texto)}
 .inp::placeholder,.form input::placeholder,.form textarea::placeholder,.sfield input::placeholder{color:var(--fg3);opacity:1}
 .inp:hover,.form input:hover,.form textarea:hover,.form select:hover,.sfield:hover{border-color:var(--fg3)}

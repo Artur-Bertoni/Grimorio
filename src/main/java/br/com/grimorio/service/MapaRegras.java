@@ -39,7 +39,10 @@ final class MapaRegras {
     private static final String K_ROTULO = "rotulo";
     private static final String K_ABERTA = "aberta";
     private static final String K_REVELA = "revela";
-    static final Set<String> TIPOS_GRID = Set.of("quadrado", "hex", NENHUM);
+    private static final String QUADRADO = "quadrado";
+    private static final String K_PONTA = "ponta";
+    private static final String K_SUAVE = "suave";
+    static final Set<String> TIPOS_GRID = Set.of(QUADRADO, "hex", NENHUM);
     static final Set<String> DIAGONAIS = Set.of("1", "121", "eu");
     static final Set<String> QUEM_MOVE = Set.of("dono", "todos");
     static final Set<String> LIMITES = Set.of(AVISO, "bloqueio");
@@ -55,7 +58,7 @@ final class MapaRegras {
     static final Set<String> PAREDES = Set.of(PAREDE, "janela", "porta");
     /** "traco" e o que o pincel pinta: um caminho com a largura do pincel, a ponta (formato) e a borda macia ou firme. */
     static final String TRACO = "traco";
-    static final Set<String> PONTAS = Set.of("redondo", "quadrado", "losango");
+    static final Set<String> PONTAS = Set.of("redondo", QUADRADO, "losango");
     static final Set<String> FORMAS_FOG = Set.of("retangulo", "circulo", POLIGONO, TRACO);
     private static final int MAX_MARCAS = 12;
     private static final int MAX_PONTOS = 100;
@@ -83,7 +86,7 @@ final class MapaRegras {
     /** Grid com todos os campos: o que veio, preso a faixa, e o padrao no que faltou. */
     static Map<String, Object> grid(Map<String, Object> in) {
         Map<String, Object> g = new LinkedHashMap<>();
-        g.put(K_TIPO, escolha(in, K_TIPO, TIPOS_GRID, "quadrado"));
+        g.put(K_TIPO, escolha(in, K_TIPO, TIPOS_GRID, QUADRADO));
         g.put("tam", num(in, "tam", 70, 8, 1000));
         g.put("ox", num(in, "ox", 0, -1000, 1000));
         g.put("oy", num(in, "oy", 0, -1000, 1000));
@@ -266,8 +269,8 @@ final class MapaRegras {
     /** Largura (em pixels do mapa), ponta e borda do pincel; so a mudanca de quem mandou, o resto fica como estava. */
     private static void pincel(ObjectNode d, Map<String, Object> x, boolean novo) {
         if (novo || x.containsKey("larg")) d.put("larg", Math.round(num(x, "larg", 70, 4, 1000)));
-        if (novo || x.containsKey("ponta")) d.put("ponta", escolha(x, "ponta", PONTAS, "redondo"));
-        if (novo || x.containsKey("suave")) d.put("suave", !x.containsKey("suave") || bool(x, "suave"));
+        if (novo || x.containsKey(K_PONTA)) d.put(K_PONTA, escolha(x, K_PONTA, PONTAS, "redondo"));
+        if (novo || x.containsKey(K_SUAVE)) d.put(K_SUAVE, !x.containsKey(K_SUAVE) || bool(x, K_SUAVE));
     }
 
     /** Pontos [x, y] presos a uma margem em volta do mapa; a forma diz quantos precisa (e o excesso cai). */
@@ -303,7 +306,8 @@ final class MapaRegras {
         if (x.containsKey("img") || novo) d.put("img", caminhoImagem(texto(x, "img", "")));
     }
 
-    /** de onde o token veio (ficha ou NPC) so se define ao nascer; o vinculo com a ficha liga e desliga */
+    /** de onde o token veio (ficha ou NPC) so se define ao nascer por aqui (ligar a outra ficha depois e MapaFichas);
+     *  o vinculo com a ficha liga e desliga */
     private static void vinculo(ObjectNode d, Map<String, Object> x, boolean novo) {
         if (novo && x.get(K_FICHA) instanceof Number f) {
             d.put(K_FICHA, f.longValue());

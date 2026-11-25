@@ -463,11 +463,13 @@ function mpVisaoDaFicha(f){
 }
 function mpTokenDeFicha(){
   carregaFichas().then(function(fs){
-    return mpEscolhe("Escolher a "+vmin("ficha"),fs.map(function(f){ return {id:f.id,nome:f.nome,sub:f.dono||"",img:""}; }),
+    return mpEscolhe("Escolher a "+vmin("ficha"),fs.map(function(f){ return {id:f.id,nome:f.nome,sub:f.dono||"",img:fichaIcone(f)}; }),
       "Nenhuma "+vmin("ficha")+" nesta "+vmin("campanha")+" ainda.").then(function(id){
       var f=fs.find(function(x){ return String(x.id)===String(id); });
       if(!f){ return null; }
-      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,fichaId:f.id,vinculo:true,...mpVidaDaFicha(f),...mpVisaoDaFicha(f)}});
+      var c=fichaDados(f);
+      /* a imagem do token da ficha e, sem ela, o icone (mesma regra de MapaFichas.imagemDoToken) */
+      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,img:c.token||c.img||"",fichaId:f.id,vinculo:true,...mpVidaDaFicha(f),...mpVisaoDaFicha(f)}});
     });
   }).catch(function(e){ if(e){ toast(e.message||"não consegui ler as "+vmin("fichas"),"erro"); } });
 }
