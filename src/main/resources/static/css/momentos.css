@@ -136,6 +136,8 @@ button.inichip:hover{border-color:var(--gold)}
 .fxnum{display:flex;flex-direction:column;align-items:center;gap:.125rem;padding:var(--s-2) var(--s-1) var(--s-1);border:1px solid var(--line2);border-radius:var(--rb);
   background:var(--bg2);transition:border-color var(--dur-2),transform var(--dur-1) var(--ease),box-shadow var(--dur-2)}
 .fxnum b{font-family:var(--disp);font-size:var(--fs-6);line-height:var(--lh-solida);color:var(--fg)}
+/* valor que e rolagem (d10+d12) e mais comprido que um numero: letra menor e quebra no sinal em vez de vazar da celula */
+.fxnum.dados b{font-size:var(--fs-4);overflow-wrap:anywhere;text-align:center}
 .fxnum span{text-align:center;line-height:var(--lh-titulo);letter-spacing:var(--tr-caixa)}
 .fxnum:not(:disabled):hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--brilho)}
 .fxnum:not(:disabled):hover b{color:var(--gold)}

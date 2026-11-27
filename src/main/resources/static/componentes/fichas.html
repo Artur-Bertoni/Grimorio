@@ -75,13 +75,13 @@
 
       <div v-if="ed && s.nums.length" class="fxnums" data-ordena="fxcampo" :data-p="s.si + 'n'">
         <div v-for="o in s.nums" class="fxnum fxnumed" :data-item="o.k" data-alca>
-          <input class="inp m fxnumv" :data-fv="o.i" v-attr:value="o.x.val" inputmode="numeric" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off">
+          <input class="inp m fxnumv" :data-fv="o.i" v-attr:value="o.x.val" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off">
           <input class="inp m fxrot" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off">
           <span class="fxnumac"><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover o campo ' + (o.x.rot || (o.k + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn ico" :data-fmenu="o.i" :title="'Tipo e remover: ' + (o.x.rot || 'campo')" :aria-label="'Tipo e remover: ' + (o.x.rot || 'campo')"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg></button></span>
         </div>
       </div>
       <div v-if="!ed && s.nums.length" class="fxnums"><span v-for="o in s.nums" data-solta>
-        <button v-if="rola" class="fxnum" :data-fn="o.i" title="Clique para rolar"><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button>
+        <button v-if="rola || o.r" class="fxnum" :class="{dados:o.r}" :data-fn="o.i" title="Clique para rolar"><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button>
         <button v-else class="fxnum" :data-fn="o.i" disabled><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button></span></div>
 
       <button v-if="ed" type="button" class="addbtn" :data-fadd="s.si">+ Campo</button>

@@ -5,13 +5,17 @@
    Os campos sao da campanha (MESA.fichaModelo), nunca de um sistema. A ficha e uma lista
    plana de campos com a secao escrita em cada um: e o que o formulario de grupo sabe editar. */
 var FICHAS=[], fichaT={};
-var FICHA_TIPOS=[["texto","Texto curto"],["num","Número (clicar rola)"],["barra","Barra (atual / máximo)"],["area","Texto longo"],["check","Caixa de marcar"]];
+var FICHA_TIPOS=[["texto","Texto curto"],["num","Número ou dados (clicar rola)"],["barra","Barra (atual / máximo)"],["area","Texto longo"],["check","Caixa de marcar"]];
 var FICHA_PADRAO=[{sec:"Identidade",rot:"Conceito",tipo:"texto"},{sec:"Identidade",rot:"Jogador",tipo:"texto"},
   {sec:"Recursos",rot:"Vida",tipo:"barra"},{sec:"Recursos",rot:"Energia",tipo:"barra"},
   {sec:"Atributos",rot:"Atributo",tipo:"num"},{sec:"Perícias",rot:"Perícia",tipo:"num"},
   {sec:"Equipamento",rot:"Itens",tipo:"area"},{sec:"Anotações",rot:"Notas",tipo:"area"}];
 function fichaModelo(){ return (Array.isArray(MESA.fichaModelo)&&MESA.fichaModelo.length)?MESA.fichaModelo:FICHA_PADRAO; }
 function fichaFormula(){ return typeof MESA.fichaFormula==="string"?MESA.fichaFormula:"1d20+{v}"; }
+/* Valor que ja e uma rolagem (d10+d12, 2d6+3): ha sistema em que o teste soma dados de tamanhos diferentes, e a formula
+   do modelo so troca um numero. Esse campo rola o proprio valor, com ou sem formula no modelo. */
+var FICHA_ROLAGEM=/^\s*\d{0,2}d\d{1,4}(\s*[+-]\s*(\d{0,2}d\d{1,4}|\d{1,4}))*\s*$/i;
+function fichaValorRola(v){ return FICHA_ROLAGEM.test(String(v??"")); }
 function fichaDados(f){
   if(f._c){ return f._c; }
   var c={};
@@ -90,7 +94,7 @@ function apagaFicha(f,depois){
 }
 function editarModeloFicha(){
   formulario("Modelo da ficha",[
-    {k:"formula",rot:"Rolagem ao clicar num número",dica:"{v} vira o valor do campo. Ex.: 1d20+{v}. Deixe vazio para o clique não rolar nada."},
+    {k:"formula",rot:"Rolagem ao clicar num número",dica:"{v} vira o valor do campo. Ex.: 1d20+{v}. Deixe vazio para o clique não rolar nada. Campo cujo valor já é uma rolagem (d10+d12) rola o próprio valor."},
     fichaGrupo()
   ],{formula:fichaFormula(),campos:fichaModelo()},{
     salvar:function(w){ MESA.fichaFormula=String(w.formula||"").trim();
@@ -108,7 +112,7 @@ function fichaSecoes(c){
     if(!porNome[nome]){ porNome[nome]={nome:nome,si:secs.length,resto:[],nums:[]}; secs.push(porNome[nome]); }
     var g=x.tipo==="num"?porNome[nome].nums:porNome[nome].resto;
     var mx=Number.parseFloat(x.max)||0, v=Number.parseFloat(x.val)||0;
-    g.push({x:x,i:i,k:g.length,pc:mx>0?Math.max(0,Math.min(100,v/mx*100)):0});
+    g.push({x:x,i:i,k:g.length,pc:mx>0?Math.max(0,Math.min(100,v/mx*100)):0,r:x.tipo==="num"&&fichaValorRola(x.val)});
   });
   return secs;
 }
@@ -134,6 +138,7 @@ function fichaPasso(x,passo){
 }
 /* clicar num numero rola a formula do modelo com o valor do campo no lugar de {v} */
 function fichaRola(x,nome){
+  if(fichaValorRola(x.val)){ abrirDados({formula:String(x.val).replace(/\s+/g,""),rotulo:x.rot+" · "+nome,auto:true}); return; }
   var fo=fichaFormula();
   if(!fo){ return; }
   var n=Number.parseInt(String(x.val).replace(/[^\d+-]/g,""),10)||0;
