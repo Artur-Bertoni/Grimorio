@@ -80,7 +80,8 @@ export default defineRailway(() => {
     // o dominio (DOMINIO, porta 8080) fica no painel: a IaC do Railway nao registra *.up.railway.app
     env: {
       PORT: "8080",
-      API_URL: "grimorio.railway.internal:8080",
+      // referencia ao endereco privado da api: acompanha se ele mudar, e o canvas mostra a ligacao
+      API_URL: "${{Grimório.RAILWAY_PRIVATE_DOMAIN}}:8080",
       URL_PUBLICA: `https://${DOMINIO}`,
     },
   });
