@@ -51,6 +51,16 @@ public class MidiaService {
         return volume.raiz(campanhaId);
     }
 
+    /** O original inteiro (do cofre, ou do volume enquanto nao migrou), para o pacote. */
+    public InputStream abrir(Midia m) throws IOException {
+        return volume.abrir(m);
+    }
+
+    /** O original existe em algum lugar (cofre ou volume)? */
+    public boolean disponivel(Midia m) {
+        return volume.disponivel(m);
+    }
+
     public void prepararPastas(Long campanhaId) throws IOException {
         Path r = raiz(campanhaId);
         Files.createDirectories(r.resolve("pdf"));
@@ -130,63 +140,75 @@ public class MidiaService {
             throw new IllegalArgumentException("a abreviacao deve ter de 2 a 10 letras ou numeros");
         if (arquivo == null || arquivo.isEmpty()) throw new IllegalArgumentException("arquivo vazio");
         prepararPastas(campanhaId);
-        Path destino = raiz(campanhaId).resolve("pdf").resolve(ab + ".pdf");
-        ArmazenamentoMidia.Gravado g = volume.gravar(arquivo, destino);
-        Midia m = registraPdf(campanhaId, ab, nome, publico, destino, g.hash());
+        ArmazenamentoMidia.Gravado g = volume.gravar(arquivo);
+        volume.apagarLegado(campanhaId, "pdf/" + ab + ".pdf");
+        Midia m = registraPdf(campanhaId, ab, nome, publico, g.hash(), g.tamanho());
         m.setReaproveitado(g.reaproveitado());
         return m;
     }
 
+    /** Cataloga um PDF que ja esta no cofre (a importacao de pacote grava antes e registra no fim). */
     @Transactional(rollbackFor = IOException.class)
     public Midia registrarPdf(Long campanhaId, String abrev, String nome, boolean publico,
-                              Path arquivo) throws IOException {
-        return registraPdf(campanhaId, abrev, nome, publico, arquivo, null);
-    }
-
-    @Transactional(rollbackFor = IOException.class)
-    public Midia registrarPdf(Long campanhaId, String abrev, String nome, boolean publico,
-                              Path arquivo, String hash) throws IOException {
-        return registraPdf(campanhaId, abrev, nome, publico, arquivo, hash);
+                              String hash, long tamanho) throws IOException {
+        return registraPdf(campanhaId, abrev, nome, publico, hash, tamanho);
     }
 
     /* o corpo fica fora dos metodos @Transactional: chamado pelo this, a anotacao nao valeria nada */
     private Midia registraPdf(Long campanhaId, String abrev, String nome, boolean publico,
-                              Path arquivo, String hash) throws IOException {
+                              String hash, long tamanho) throws IOException {
         String ab = abrev.toUpperCase();
-        /* veio do reescanear (arquivo posto direto no volume): junta com uma copia igual, se houver */
-        String h = hash != null ? hash : volume.desduplicar(arquivo);
+        String rel = "pdf/" + ab + ".pdf";
+        ArmazenamentoMidia.ComOriginal original = () -> volume.local(campanhaId, rel, hash);
         int paginas;
         if (indice.temLivro(campanhaId, ab)) {
-            paginas = leitorPdf.contarPaginas(arquivo);
+            paginas = contaPaginas(original);
             log.info("PDF {} registrado sem reindexar: ja existe indice para ele.", ab);
         } else {
-            paginas = leitorPdf.copiarIndiceDoGemeo(campanhaId, ab, nome, publico, h);
-            if (paginas == 0) paginas = indexaOuZero(campanhaId, ab, nome, arquivo, publico);
+            paginas = leitorPdf.copiarIndiceDoGemeo(campanhaId, ab, nome, publico, hash);
+            if (paginas == 0) paginas = indexaOuZero(campanhaId, ab, nome, original, publico);
         }
         indice.marcarPublico(campanhaId, ab, publico);
 
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.PDF, ab)
                 .orElseGet(Midia::new);
+        String antigo = m.getHash();
         m.setCampanhaId(campanhaId);
         m.setTipo(Midia.Tipo.PDF);
         m.setChave(ab);
         m.setNome(nome == null || nome.isBlank() ? ab : nome.trim());
         m.setCategoria("livro");
-        m.setArquivo("pdf/" + ab + ".pdf");
-        m.setTamanho(Files.size(arquivo));
-        m.setHash(h);
+        m.setArquivo(rel);
+        m.setTamanho(tamanho);
+        m.setHash(hash);
         m.setPaginas(paginas);
         m.setPublico(publico);
         m.setEnviadoEm(Instant.now());
         repo.save(m);
+        soltaAntigo(antigo, hash);
         indice.invalidar(campanhaId);
         return m;
     }
 
-    /* PDF que nao se le continua guardado e no catalogo, so sem busca: a indexacao nao derruba o envio */
-    private int indexaOuZero(Long campanhaId, String ab, String nome, Path arquivo, boolean publico) {
+    /* o conteudo que a linha deixou de usar sai do cofre se ninguem mais aponta para ele */
+    private void soltaAntigo(String antigo, String novo) {
+        if (antigo != null && !antigo.equals(novo)) volume.soltarSeOrfao(antigo);
+    }
+
+    private int contaPaginas(ArmazenamentoMidia.ComOriginal original) {
         try {
-            return leitorPdf.indexar(campanhaId, ab, nome, arquivo, publico)[0];
+            return leitorPdf.contarPaginas(original.obter());
+        } catch (IOException e) {
+            log.warn("Nao consegui contar as paginas: {}", e.getMessage());
+            return 0;
+        }
+    }
+
+    /* PDF que nao se le continua guardado e no catalogo, so sem busca: a indexacao nao derruba o envio */
+    private int indexaOuZero(Long campanhaId, String ab, String nome, ArmazenamentoMidia.ComOriginal original,
+                             boolean publico) {
+        try {
+            return leitorPdf.indexar(campanhaId, ab, nome, original.obter(), publico)[0];
         } catch (Exception e) {
             log.warn("PDF {} salvo, mas a indexacao falhou: {}", ab, e.getMessage());
             return 0;
@@ -204,25 +226,26 @@ public class MidiaService {
         String ext = extensao(original).isEmpty() ? "mp3" : extensao(original);
 
         String rel = "audio/" + slug(cat) + "/" + slug(nomeFinal) + "." + ext;
-        Path destino = raiz(campanhaId).resolve(rel);
-        Files.createDirectories(destino.getParent());
-        ArmazenamentoMidia.Gravado g = volume.gravar(arquivo, destino);
+        ArmazenamentoMidia.Gravado g = volume.gravar(arquivo);
+        volume.apagarLegado(campanhaId, rel);
 
         String chave = slug(cat) + "/" + slug(nomeFinal);
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.AUDIO, chave)
                 .orElseGet(Midia::new);
+        String antigo = m.getHash();
         m.setCampanhaId(campanhaId);
         m.setTipo(Midia.Tipo.AUDIO);
         m.setChave(chave);
         m.setNome(nomeFinal);
         m.setCategoria(cat);
         m.setArquivo(rel);
-        m.setTamanho(Files.size(destino));
+        m.setTamanho(g.tamanho());
         m.setPaginas(0);
         m.setPublico(false);
         m.setEnviadoEm(Instant.now());
         m.setHash(g.hash());
         repo.save(m);
+        soltaAntigo(antigo, g.hash());
         m.setReaproveitado(g.reaproveitado());
         return m;
     }
@@ -247,12 +270,14 @@ public class MidiaService {
     private Midia gravaImagem(Long campanhaId, String nomeArquivo, byte[] bytes) throws IOException {
         prepararPastas(campanhaId);
         String rel = "img/" + nomeArquivo;
-        Path destino = raiz(campanhaId).resolve(rel);
-        /* nunca Files.write no caminho: se ele for um link compartilhado, mudaria a imagem dos outros */
-        ArmazenamentoMidia.Gravado g = volume.gravar(bytes, destino);
+        ArmazenamentoMidia.Gravado g = volume.gravar(bytes);
+        volume.apagarLegado(campanhaId, rel);
+        /* mesmo nome, conteudo novo: as versoes reduzidas da imagem antiga saem */
+        Miniaturas.apagar(raiz(campanhaId), nomeArquivo);
 
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.IMG, nomeArquivo)
                 .orElseGet(Midia::new);
+        String antigo = m.getHash();
         m.setCampanhaId(campanhaId);
         m.setTipo(Midia.Tipo.IMG);
         m.setChave(nomeArquivo);
@@ -265,47 +290,50 @@ public class MidiaService {
         m.setEnviadoEm(Instant.now());
         m.setHash(g.hash());
         repo.save(m);
+        soltaAntigo(antigo, g.hash());
         m.setReaproveitado(g.reaproveitado());
         return m;
     }
 
-    /** Importacao de pacote: grava um PDF ou uma faixa no caminho relativo que veio no zip
-     *  (quem chama ja validou o formato). O fluxo e lido uma vez so, direto do zip; por isso o
-     *  tamanho vai como desconhecido, e disco cheio aparece como ArmazenamentoCheioException. */
+    /** Importacao de pacote: grava no cofre um PDF ou uma faixa que veio no zip (quem chama ja
+     *  validou o formato). O fluxo e lido uma vez so, direto do zip; por isso o tamanho vai como
+     *  desconhecido, e disco cheio aparece como ArmazenamentoCheioException. */
     public ArmazenamentoMidia.Gravado gravarDoPacote(Long campanhaId, String rel, InputStream in) throws IOException {
-        Path base = raiz(campanhaId);
-        Path destino = base.resolve(rel).normalize();
-        if (!destino.startsWith(base)) throw new IllegalArgumentException("caminho invalido no pacote");
-        return volume.gravar(() -> in, -1, destino);
+        if (volume.legado(campanhaId, rel) == null) throw new IllegalArgumentException("caminho invalido no pacote");
+        ArmazenamentoMidia.Gravado g = volume.gravar(() -> in, -1);
+        volume.apagarLegado(campanhaId, rel);
+        return g;
     }
 
     /** Importacao de pacote: cataloga a faixa com o nome e a categoria que ela tinha na origem.
      *  A chave e o caminho tambem sao os de la, porque e pela chave que o roteiro cita a faixa. */
     @Transactional(rollbackFor = IOException.class)
     public Midia registrarFaixa(Long campanhaId, String rel, String chave, String nome,
-                                String categoria, String hash) throws IOException {
-        Path arquivo = raiz(campanhaId).resolve(rel).normalize();
+                                String categoria, String hash, long tamanho) throws IOException {
+        Path arquivo = Paths.get(rel).normalize();
         Path pai = arquivo.getParent();
         String nomeArq = semExtensao(arquivo.getFileName().toString());
         String cat;
         if (categoria != null && !categoria.isBlank()) cat = corta(categoria.trim(), 60);
-        else if (pai == null || pai.equals(raiz(campanhaId).resolve(PASTA_AUDIO))) cat = SEM_CATEGORIA;
+        else if (pai == null || pai.toString().replace('\\', '/').equals(PASTA_AUDIO)) cat = SEM_CATEGORIA;
         else cat = pai.getFileName().toString();
         String ch = chave == null || chave.isBlank() ? slug(cat) + "/" + slug(nomeArq) : corta(chave.trim(), 120);
         Midia m = repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.AUDIO, ch)
                 .orElseGet(Midia::new);
+        String antigo = m.getHash();
         m.setCampanhaId(campanhaId);
         m.setTipo(Midia.Tipo.AUDIO);
         m.setChave(ch);
         m.setNome(nome == null || nome.isBlank() ? nomeArq : corta(nome.trim(), 200));
         m.setCategoria(cat);
         m.setArquivo(rel);
-        m.setTamanho(Files.size(arquivo));
+        m.setTamanho(tamanho);
         m.setPaginas(0);
         m.setPublico(false);
         m.setEnviadoEm(Instant.now());
         m.setHash(hash);
         repo.save(m);
+        soltaAntigo(antigo, hash);
         return m;
     }
 
@@ -334,10 +362,8 @@ public class MidiaService {
         boolean extraido = Files.exists(indice.pastaIndice(campanhaId).resolve(ab + ".json"));
         if (!extraido && indice.temLivro(campanhaId, ab))
             throw new IllegalArgumentException("este livro tem indice vindo de pacote; ele nao e refeito");
-        Path arquivo = raiz(campanhaId).resolve(m.getArquivo()).normalize();
-        if (!arquivo.startsWith(raiz(campanhaId)) || !Files.exists(arquivo))
-            throw new IllegalArgumentException("o PDF nao esta no servidor");
-        int[] r = leitorPdf.indexar(campanhaId, ab, m.getNome(), arquivo, m.isPublico());
+        if (!volume.disponivel(m)) throw new IllegalArgumentException("o PDF nao esta no servidor");
+        int[] r = leitorPdf.indexar(campanhaId, ab, m.getNome(), volume.local(m), m.isPublico());
         m.setPaginas(r[0]);
         repo.save(m);
         indice.invalidar(campanhaId);
@@ -369,17 +395,18 @@ public class MidiaService {
         Midia m = repo.findById(id)
                 .filter(x -> Objects.equals(x.getCampanhaId(), campanhaId))
                 .orElseThrow(() -> new IllegalArgumentException(NAO_ACHADA));
-        Path p = raiz(campanhaId).resolve(m.getArquivo()).normalize();
-        if (p.startsWith(raiz(campanhaId))) Files.deleteIfExists(p);
-        if (m.getTipo() == Midia.Tipo.IMG) Miniaturas.apagar(raiz(campanhaId), p);
+        volume.apagarLegado(campanhaId, m.getArquivo());
+        if (m.getTipo() == Midia.Tipo.IMG) Miniaturas.apagar(raiz(campanhaId), m.getChave());
         if (m.getTipo() == Midia.Tipo.PDF) {
             Files.deleteIfExists(indice.pastaIndice(campanhaId).resolve(m.getChave() + ".json"));
             indice.invalidar(campanhaId);
         }
         repo.delete(m);
+        volume.soltarSeOrfao(m.getHash());
     }
 
-    /** Registra o que ja esta no volume mas nao passou pelo envio da tela. */
+    /** Registra o que foi posto direto no volume (railway volume files upload) e nao passou pelo envio
+     *  da tela. O conteudo vai para o cofre; o arquivo fica no volume ate a Administracao liberar. */
     @Transactional(rollbackFor = IOException.class)
     public Map<String, Object> reescanear(Long campanhaId) throws IOException {
         prepararPastas(campanhaId);
@@ -407,7 +434,7 @@ public class MidiaService {
             if (!ab.matches("[A-Z0-9]{2,10}")) {
                 log.warn("Ignorei {}: o nome precisa ser a abreviacao, tipo LB.pdf", p.getFileName());
             } else if (repo.findByCampanhaIdAndTipoAndChaveIgnoreCase(campanhaId, Midia.Tipo.PDF, ab).isEmpty()) {
-                registraPdf(campanhaId, ab, ab, false, p, null);
+                registraPdf(campanhaId, ab, ab, false, volume.ingerir(p), Files.size(p));
                 pdfs++;
             }
         }
@@ -440,7 +467,7 @@ public class MidiaService {
             m.setPaginas(0);
             m.setPublico(false);
             m.setEnviadoEm(Instant.now());
-            m.setHash(volume.desduplicar(p));
+            m.setHash(volume.ingerir(p));
             repo.save(m);
             audios++;
         }
@@ -468,7 +495,7 @@ public class MidiaService {
             m.setPaginas(0);
             m.setPublico(true);
             m.setEnviadoEm(Instant.now());
-            m.setHash(volume.desduplicar(p));
+            m.setHash(volume.ingerir(p));
             repo.save(m);
             imagens++;
         }
@@ -477,7 +504,11 @@ public class MidiaService {
 
     @Transactional(rollbackFor = IOException.class)
     public void apagarTudoDaCampanha(Long campanhaId) throws IOException {
+        List<String> hashes = repo.findByCampanhaId(campanhaId).stream()
+                .map(Midia::getHash).filter(Objects::nonNull).distinct().toList();
         repo.deleteByCampanhaId(campanhaId);
+        /* o que so esta campanha usava sai do cofre; o que outra campanha tambem usa fica */
+        for (String h : hashes) volume.soltarSeOrfao(h);
         Path r = raiz(campanhaId);
         if (!Files.isDirectory(r)) return;
         try (var st = Files.walk(r)) {

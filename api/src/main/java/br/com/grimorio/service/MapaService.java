@@ -1,14 +1,15 @@
 package br.com.grimorio.service;
 
-import br.com.grimorio.config.AppProps;
 import br.com.grimorio.model.Ficha;
 import br.com.grimorio.model.Mapa;
+import br.com.grimorio.model.Midia;
 import br.com.grimorio.model.MapaElemento;
 import br.com.grimorio.model.Papel;
 import br.com.grimorio.repo.FichaRepo;
 import br.com.grimorio.repo.MapaElementoRepo;
 import br.com.grimorio.repo.MapaHistoricoRepo;
 import br.com.grimorio.repo.MapaRepo;
+import br.com.grimorio.repo.MidiaRepo;
 import br.com.grimorio.repo.UsuarioRepo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -20,7 +21,6 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -139,7 +139,8 @@ public class MapaService {
     private final MapaVisao visao;
     private final MapaPartes partes;
     private final TransactionTemplate tx;
-    private final Path raizMidia;
+    private final ArmazenamentoMidia volume;
+    private final MidiaRepo midias;
     private final ObjectMapper om = JsonMapper.builder().build();
     private final Map<Long, Long> ultimoPing = new ConcurrentHashMap<>();
 
@@ -150,7 +151,8 @@ public class MapaService {
     public MapaService(MapaRepo mapas, MapaElementoRepo elementos, MapaHistoricoRepo historico, FichaRepo fichas, // NOSONAR: uma dependencia por tabela e servico do mapa, de proposito
                        UsuarioRepo usuarios, MapaTurnos turnos, CampanhaService camp, MapaEventos eventos, MapaVisao visao,
                        MapaBase base, MapaAvisos avisos, MapaMovimento movimento, MapaDesfazer desfazer,
-                       MapaIniciativa iniciativa, MapaVida vida, PlatformTransactionManager ptm, AppProps props) {
+                       MapaIniciativa iniciativa, MapaVida vida, PlatformTransactionManager ptm,
+                       ArmazenamentoMidia volume, MidiaRepo midias) {
         this.mapas = mapas;
         this.elementos = elementos;
         this.historico = historico;
@@ -162,7 +164,8 @@ public class MapaService {
         this.visao = visao;
         this.partes = new MapaPartes(base, avisos, movimento, desfazer, iniciativa, vida);
         this.tx = new TransactionTemplate(ptm);
-        this.raizMidia = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
+        this.volume = volume;
+        this.midias = midias;
     }
 
     private MapaBase base() { return partes.base(); }
@@ -713,9 +716,12 @@ public class MapaService {
     }
 
     private int[] dimensoes(long cid, String img) {
-        Path raiz = raizMidia.resolve("c" + cid);
-        Path arq = raiz.resolve(img).normalize();
-        if (!arq.startsWith(raiz.resolve("img"))) throw new IllegalArgumentException("imagem fora da campanha");
+        if (img == null || !img.startsWith("img/") || img.contains("..")) throw new IllegalArgumentException("imagem fora da campanha");
+        Midia m = midias.findFirstByCampanhaIdAndArquivo(cid, img)
+                .orElseThrow(() -> new IllegalArgumentException("não consegui ler essa imagem"));
+        Path arq;
+        try { arq = volume.local(m); }
+        catch (java.io.IOException e) { throw new IllegalArgumentException("não consegui ler essa imagem"); }
         return Miniaturas.dimensoes(arq).orElseThrow(() -> new IllegalArgumentException("não consegui ler essa imagem"));
     }
 }

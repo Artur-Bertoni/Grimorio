@@ -92,8 +92,7 @@ public class PacoteService {
     public void exportar(Long campanhaId, boolean comArquivos, boolean comMapas, OutputStream saida) throws IOException {
         Campanha c = campanhas.findById(campanhaId)
                 .orElseThrow(() -> new IllegalArgumentException("campanha nao encontrada"));
-        Path raiz = midia.raiz(campanhaId);
-        List<Midia> arquivos = comArquivos ? arquivosDoCatalogo(campanhaId, raiz) : List.of();
+        List<Midia> arquivos = comArquivos ? arquivosDoCatalogo(campanhaId) : List.of();
 
         try (ZipOutputStream z = new ZipOutputStream(saida, StandardCharsets.UTF_8)) {
             z.putNextEntry(new ZipEntry(CAMPANHA_JSON));
@@ -103,10 +102,8 @@ public class PacoteService {
             if (comArquivos) {
                 /* imagem, PDF e audio ja vem comprimidos: comprimir de novo so gasta processador */
                 z.setLevel(Deflater.BEST_SPEED);
-                Set<String> dosMapas = comMapas ? Set.of() : mapas.imagens(campanhaId);
-                copiarPasta(z, raiz.resolve("img"), DIR_IMG, p -> !p.getFileName().toString().endsWith(".parcial")
-                        && !dosMapas.contains(DIR_IMG + p.getFileName()));
-                for (Midia m : arquivos) copiar(z, m.getArquivo(), raiz.resolve(m.getArquivo()));
+                for (Midia m : imagensDoCatalogo(campanhaId, comMapas)) copiar(z, DIR_IMG + m.getChave(), m);
+                for (Midia m : arquivos) copiar(z, m.getArquivo(), m);
             }
             z.finish();
         }
@@ -117,11 +114,10 @@ public class PacoteService {
      * sem Content-Length. Imagem, PDF e audio quase nao comprimem, entao a soma dos arquivos chega perto.
      */
     public long tamanhoEstimado(Long campanhaId, boolean comArquivos) throws IOException {
-        Path raiz = midia.raiz(campanhaId);
         long t = 64L * 1024 + tamanhoDaPasta(indice.pastaIndice(campanhaId), p -> p.toString().endsWith(".json"));
         if (!comArquivos) return t;
-        t += tamanhoDaPasta(raiz.resolve("img"), p -> !p.getFileName().toString().endsWith(".parcial"));
-        for (Midia m : arquivosDoCatalogo(campanhaId, raiz)) t += Files.size(raiz.resolve(m.getArquivo()));
+        for (Midia m : imagensDoCatalogo(campanhaId, true)) t += m.getTamanho();
+        for (Midia m : arquivosDoCatalogo(campanhaId)) t += m.getTamanho();
         return t;
     }
 
@@ -134,15 +130,23 @@ public class PacoteService {
         return t;
     }
 
-    /* PDF e faixa saem pelo catalogo, que sabe nome e categoria; so vai o que esta no disco */
-    private List<Midia> arquivosDoCatalogo(Long campanhaId, Path raiz) {
+    /* PDF e faixa saem pelo catalogo, que sabe nome e categoria; so vai o que existe (no cofre ou no volume) */
+    private List<Midia> arquivosDoCatalogo(Long campanhaId) {
         return catalogo.findByCampanhaId(campanhaId).stream()
                 .filter(m -> m.getTipo() != Midia.Tipo.IMG && caminhoAceito(m))
-                .filter(m -> {
-                    Path p = raiz.resolve(m.getArquivo()).normalize();
-                    return p.startsWith(raiz) && Files.isRegularFile(p);
-                })
+                .filter(midia::disponivel)
                 .sorted(Comparator.comparing(Midia::getArquivo))
+                .toList();
+    }
+
+    /* as imagens, sem as dos mapas quando o pacote nao leva mapa (modelo de campanha nao carrega arte) */
+    private List<Midia> imagensDoCatalogo(Long campanhaId, boolean comMapas) {
+        Set<String> dosMapas = comMapas ? Set.of() : mapas.imagens(campanhaId);
+        return catalogo.findByCampanhaId(campanhaId).stream()
+                .filter(m -> m.getTipo() == Midia.Tipo.IMG && !m.getChave().contains("/"))
+                .filter(m -> !dosMapas.contains(DIR_IMG + m.getChave()))
+                .filter(midia::disponivel)
+                .sorted(Comparator.comparing(Midia::getChave))
                 .toList();
     }
 
@@ -193,6 +197,12 @@ public class PacoteService {
     private static void copiar(ZipOutputStream z, String nome, Path p) throws IOException {
         z.putNextEntry(new ZipEntry(nome));
         Files.copy(p, z);
+        z.closeEntry();
+    }
+
+    private void copiar(ZipOutputStream z, String nome, Midia m) throws IOException {
+        z.putNextEntry(new ZipEntry(nome));
+        try (InputStream in = midia.abrir(m)) { in.transferTo(z); }
         z.closeEntry();
     }
 
@@ -250,7 +260,7 @@ public class PacoteService {
         private final boolean comMapas;
         /* caminho do PDF ou da faixa gravada -> hash. O registro espera o fim do zip, quando o
            catalogo e os indices (que poupam o PDF de ser reprocessado) ja foram lidos. */
-        private final Map<String, String> gravados = new LinkedHashMap<>();
+        private final Map<String, ArmazenamentoMidia.Gravado> gravados = new LinkedHashMap<>();
         private final Map<String, JsonNode> meta = new HashMap<>();
         private String nomeCampanha;
         private int indices;
@@ -272,7 +282,7 @@ public class PacoteService {
         void entrada(String nome, InputStream z) throws IOException {
             if (PDF.matcher(nome).matches() || AUDIO.matcher(nome).matches()) {
                 String rel = relDoArquivo(nome);
-                gravados.put(rel, midia.gravarDoPacote(campanhaId, rel, new Limitado(z, LIMITE_ARQUIVO)).hash());
+                gravados.put(rel, midia.gravarDoPacote(campanhaId, rel, new Limitado(z, LIMITE_ARQUIVO)));
             } else if (nome.equals(CAMPANHA_JSON)) {
                 campanhaJson(om.readTree(lerLimitado(z)));
             } else if (nome.startsWith(DIR_INDICE) && nome.endsWith(".json")) {
@@ -306,18 +316,17 @@ public class PacoteService {
         }
 
         void registrarArquivos() throws IOException {
-            Path raiz = midia.raiz(campanhaId);
             for (var g : gravados.entrySet()) {
                 String rel = g.getKey();
                 JsonNode m = meta.getOrDefault(rel, om.createObjectNode());
                 if (rel.startsWith("pdf/")) {
                     String ab = rel.substring(4, rel.length() - 4);
                     midia.registrarPdf(campanhaId, ab, m.path(CAMPO_NOME).asString(ab),
-                            m.path("publico").asBoolean(false), raiz.resolve(rel), g.getValue());
+                            m.path("publico").asBoolean(false), g.getValue().hash(), g.getValue().tamanho());
                     pdfs++;
                 } else {
                     midia.registrarFaixa(campanhaId, rel, m.path("chave").asString(""), m.path(CAMPO_NOME).asString(""),
-                            m.path("categoria").asString(""), g.getValue());
+                            m.path("categoria").asString(""), g.getValue().hash(), g.getValue().tamanho());
                     faixas++;
                 }
             }

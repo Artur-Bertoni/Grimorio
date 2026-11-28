@@ -28,8 +28,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        banco: [h2, postgres]
+        # cofre: onde vao os arquivos originais. "pasta" e o padrao sem S3_*; "s3" fala com um S3 de
+        # teste (o mesmo protocolo do bucket do Railway), para o CofreS3 nao chegar a producao sem rodar
+        include:
+          - { banco: h2, cofre: pasta }
+          - { banco: postgres, cofre: pasta }
+          - { banco: h2, cofre: s3 }
     services:
+      s3:
+        image: adobe/s3mock
+        env:
+          initialBuckets: midia-teste
+        ports: ["9090:9090"]
       postgres:
         image: postgres:17
         env:
@@ -55,6 +65,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/servidor"
           cd "$RUNNER_TEMP/servidor"
           if [ "${{ matrix.banco }}" = "postgres" ]; then export DATABASE_URL=postgresql://postgres:pg@localhost:5432/grim; fi
+          if [ "${{ matrix.cofre }}" = "s3" ]; then
+            export S3_ENDPOINT=http://127.0.0.1:9090 S3_BUCKET=midia-teste S3_KEY=teste S3_SECRET=teste S3_REGIAO=us-east-1 S3_PATH_STYLE=true
+          fi
           PORT=8123 nohup java -jar "$GITHUB_WORKSPACE/api/target/grimorio.jar" > "$RUNNER_TEMP/grimorio.log" 2>&1 &
           for i in $(seq 1 90); do
             curl -sf http://127.0.0.1:8123/api/ping > /dev/null && exit 0

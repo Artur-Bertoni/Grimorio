@@ -97,6 +97,25 @@ devolve memória. No Railway isso é conta de verdade no fim do mês.
 volume também permite `railway volume files upload` contornar o limite de 5 minutos de corpo de
 requisição do proxy, com o botão **Reescanear o volume** registrando o que apareceu lá.
 
+**Arquivos originais no bucket, não no volume (28/11/2026).** O volume do Railway tem tamanho fixo e
+só se prende a um serviço; o plano Free permite um volume de 0,5 GB por projeto, e no Hobby criar mais
+volumes não economiza nada (paga-se o GB usado). Foram descartados volumes extras em subserviços (o
+hard link não atravessa volumes e cada um pediria um serviço servindo arquivo) e mover tudo, índice
+inclusive, para o bucket (cada busca leria pela rede). Ficou:
+
+- **Só os originais vão para o bucket** (PDF, áudio, imagem, zip de modelo); índice de busca e
+  miniaturas ficam no volume, pequenos e refeitos a partir do original se sumirem.
+- **A chave é o SHA-256 do conteúdo.** Substitui o hard link: o mesmo arquivo em duas campanhas é um
+  objeto, e quem conta as referências é a tabela `midia` (`soltarSeOrfao`), não o sistema de arquivos.
+- **`/midia` continua passando pela api**, que confere mestre/jogador e repassa o arquivo trecho a
+  trecho. URL assinada direto para o bucket pouparia a api, mas exigiria CORS no bucket (o pdf.js lê
+  por fetch) e deixaria o link valer para quem o recebesse até expirar.
+- **Migração sem passo arriscado.** O boot copia, nunca apaga; tudo lê do volume enquanto o bucket não
+  tem. Apagar do volume é um botão da Administração, que só tira o que o bucket já tem com o mesmo
+  tamanho. Foi testado subindo dados com a versão anterior e trocando de jar na mesma pasta.
+- **Na máquina e no CI o cofre é uma pasta** (`CofrePasta`), com o mesmo código de chave por hash: o
+  teste de API exercita o caminho inteiro sem S3. O CI roda também contra um S3 de teste.
+
 **pdf.js e fontes em `web/site/vendor/`.** O app sobe inteiro sem rede externa, e uma CDN fora do
 ar não derruba a mesa no meio da sessão.
 

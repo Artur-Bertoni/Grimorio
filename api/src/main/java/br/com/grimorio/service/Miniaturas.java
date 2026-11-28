@@ -41,45 +41,46 @@ public final class Miniaturas {
 
     private Miniaturas() { /* so funcoes estaticas */ }
 
-    /** Caminho da versao reduzida do original (que precisa estar dentro de {@code raiz/img}). */
-    private static Path destino(Path raizCampanha, Path original, String pasta, boolean comTransparencia) {
+    /** Caminho da versao reduzida da imagem {@code img/{relImg}} da campanha. */
+    private static Path destino(Path raizCampanha, String relImg, String pasta, boolean comTransparencia) {
         Path img = raizCampanha.resolve("img");
-        String rel = img.relativize(original).toString().replace('\\', '/');
-        return img.resolve(pasta).resolve(rel + (comTransparencia ? ".png" : ".jpg"));
+        Path d = img.resolve(pasta).resolve(relImg + (comTransparencia ? ".png" : ".jpg")).normalize();
+        if (!d.startsWith(img.resolve(pasta))) throw new IllegalArgumentException("imagem fora da campanha");
+        return d;
     }
 
     /**
-     * Devolve a miniatura, criando ou refazendo se o original mudou depois dela. Vazio quando
-     * nao vale a pena (imagem ja pequena) ou quando o formato nao e legivel: quem chama serve
-     * o original.
+     * Devolve a miniatura, criando ou refazendo se a imagem mudou depois dela ({@code versao}, em
+     * milissegundos). O original so e pedido se for preciso refazer. Vazio quando nao vale a pena
+     * (imagem ja pequena) ou quando o formato nao e legivel: quem chama serve o original.
      */
-    public static Optional<Path> obter(Path raizCampanha, Path original) throws IOException {
-        return obter(raizCampanha, original, LADO, PASTA);
+    public static Optional<Path> obter(Path raizCampanha, String relImg, long versao,
+                                       ArmazenamentoMidia.ComOriginal original) throws IOException {
+        return obter(raizCampanha, relImg, versao, original, LADO, PASTA);
     }
 
     /** A versao de ate 4096px que o tabletop desenha. Mesmas regras da miniatura. */
-    public static Optional<Path> obterMapa(Path raizCampanha, Path original) throws IOException {
-        return obter(raizCampanha, original, LADO_MAPA, PASTA_MAPA);
+    public static Optional<Path> obterMapa(Path raizCampanha, String relImg, long versao,
+                                           ArmazenamentoMidia.ComOriginal original) throws IOException {
+        return obter(raizCampanha, relImg, versao, original, LADO_MAPA, PASTA_MAPA);
     }
 
-    private static Optional<Path> obter(Path raizCampanha, Path original, int lado, String pasta) throws IOException {
+    private static Optional<Path> obter(Path raizCampanha, String relImg, long versao,
+                                        ArmazenamentoMidia.ComOriginal original, int lado, String pasta) throws IOException {
         for (boolean alfa : new boolean[] { false, true }) {
-            Path d = destino(raizCampanha, original, pasta, alfa);
-            if (Files.isRegularFile(d)
-                    && Files.getLastModifiedTime(d).compareTo(Files.getLastModifiedTime(original)) >= 0) {
-                return Optional.of(d);
-            }
+            Path d = destino(raizCampanha, relImg, pasta, alfa);
+            if (Files.isRegularFile(d) && Files.getLastModifiedTime(d).toMillis() >= versao) return Optional.of(d);
         }
         BufferedImage src;
         try {
-            src = lerReduzido(original, lado);
+            src = lerReduzido(original.obter(), lado);
         } catch (IOException | RuntimeException e) {
-            log.warn("Imagem reduzida: nao consegui ler {}: {}", original.getFileName(), e.getMessage());
+            log.warn("Imagem reduzida: nao consegui ler {}: {}", relImg, e.getMessage());
             return Optional.empty();
         }
         if (src == null) return Optional.empty();
         boolean alfa = src.getColorModel().hasAlpha();
-        Path d = destino(raizCampanha, original, pasta, alfa);
+        Path d = destino(raizCampanha, relImg, pasta, alfa);
         Files.createDirectories(d.getParent());
         Path tmp = Files.createTempFile(d.getParent(), "mini", ".tmp");
         try {
@@ -140,14 +141,14 @@ public final class Miniaturas {
         }
     }
 
-    /** Tira as versoes reduzidas de um original que saiu do volume. Falha aqui nao impede a remocao. */
-    public static void apagar(Path raizCampanha, Path original) {
+    /** Tira as versoes reduzidas de {@code img/{relImg}}. Falha aqui nao impede a remocao. */
+    public static void apagar(Path raizCampanha, String relImg) {
         for (String pasta : new String[] { PASTA, PASTA_MAPA }) {
             for (boolean alfa : new boolean[] { false, true }) {
                 try {
-                    Files.deleteIfExists(destino(raizCampanha, original, pasta, alfa));
+                    Files.deleteIfExists(destino(raizCampanha, relImg, pasta, alfa));
                 } catch (IOException | IllegalArgumentException e) {
-                    log.debug("Imagem reduzida nao removida de {}: {}", original.getFileName(), e.getMessage());
+                    log.debug("Imagem reduzida nao removida de {}: {}", relImg, e.getMessage());
                 }
             }
         }

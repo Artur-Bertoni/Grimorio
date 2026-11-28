@@ -68,11 +68,12 @@ final class MapaTiles {
     private MapaTiles() { /* so funcoes estaticas */ }
 
     /** Os pedacos da imagem do mapa (cortados na primeira vez). Vazio se a imagem nao existe ou nao e legivel. */
-    static Optional<Fonte> fonte(Path raizCampanha, Path original) {
+    static Optional<Fonte> fonte(Path raizCampanha, String relImg, long versao, ArmazenamentoMidia.ComOriginal original) {
         try {
-            if (!Files.isRegularFile(original)) return Optional.empty();
-            Path src = Miniaturas.obterMapa(raizCampanha, original).orElse(original);
-            String chave = src + "@" + Files.getLastModifiedTime(src).toMillis();
+            Optional<Path> reduzida = Miniaturas.obterMapa(raizCampanha, relImg, versao, original);
+            Path src = reduzida.isPresent() ? reduzida.get() : original.obter();
+            /* pela versao da imagem, nao pela data do arquivo: o original pode vir do cache, que muda de data a cada leitura */
+            String chave = raizCampanha.resolve("img").resolve(relImg) + "@" + versao;
             synchronized (FONTES) {
                 Fonte f = FONTES.get(chave);
                 if (f == null) {
@@ -83,7 +84,7 @@ final class MapaTiles {
                 return Optional.of(f);
             }
         } catch (IOException | RuntimeException e) {
-            log.warn("Mapa: nao consegui cortar {}: {}", original.getFileName(), e.getMessage());
+            log.warn("Mapa: nao consegui cortar {}: {}", relImg, e.getMessage());
             return Optional.empty();
         }
     }

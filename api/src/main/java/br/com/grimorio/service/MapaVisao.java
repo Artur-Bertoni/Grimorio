@@ -1,10 +1,11 @@
 package br.com.grimorio.service;
 
-import br.com.grimorio.config.AppProps;
 import br.com.grimorio.model.Mapa;
 import br.com.grimorio.model.MapaElemento;
 import br.com.grimorio.model.MapaExplorado;
+import br.com.grimorio.model.Midia;
 import br.com.grimorio.repo.MapaExploradoRepo;
+import br.com.grimorio.repo.MidiaRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
@@ -16,7 +17,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -110,14 +110,16 @@ public class MapaVisao {
     }
 
     private final MapaExploradoRepo explorados;
-    private final Path raizMidia;
+    private final ArmazenamentoMidia volume;
+    private final MidiaRepo midias;
     private final ObjectMapper om = JsonMapper.builder().build();
     private final Map<String, Vista> guardadas = new ConcurrentHashMap<>();
     private final Map<String, Object> travas = new ConcurrentHashMap<>();
 
-    public MapaVisao(MapaExploradoRepo explorados, AppProps props) {
+    public MapaVisao(MapaExploradoRepo explorados, ArmazenamentoMidia volume, MidiaRepo midias) {
         this.explorados = explorados;
-        this.raizMidia = Paths.get(props.getMidiaDir()).toAbsolutePath().normalize();
+        this.volume = volume;
+        this.midias = midias;
     }
 
     /** A vista do jogador sobre o mapa como ele esta agora. {@code els} so e lido se precisar calcular. */
@@ -199,10 +201,11 @@ public class MapaVisao {
 
     private MapaTiles.Fonte fonte(Mapa m) {
         if (m.getImagem().isEmpty()) return null;
-        Path raiz = raizMidia.resolve("c" + m.getCampanhaId());
-        Path arq = raiz.resolve(m.getImagem()).normalize();
-        if (!arq.startsWith(raiz.resolve("img"))) return null;
-        return MapaTiles.fonte(raiz, arq).orElse(null);
+        if (!m.getImagem().startsWith("img/")) return null;
+        Midia img = midias.findFirstByCampanhaIdAndArquivo(m.getCampanhaId(), m.getImagem()).orElse(null);
+        if (img == null) return null;
+        return MapaTiles.fonte(volume.raiz(m.getCampanhaId()), m.getImagem().substring(4),
+                img.getEnviadoEm().toEpochMilli(), () -> volume.local(img)).orElse(null);
     }
 
     /** a memoria gravada, se ainda vale (mesma versao do "esquecer" e mesma grade); senao, em branco */

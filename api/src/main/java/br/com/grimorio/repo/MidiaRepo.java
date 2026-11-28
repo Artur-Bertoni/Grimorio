@@ -13,4 +13,7 @@ public interface MidiaRepo extends JpaRepository<Midia, Long> {
     List<Midia> findByHash(String hash);
     List<Midia> findByHashIsNull();
     List<Midia> findByHashIsNotNullOrderByIdAsc();
+    long countByHash(String hash);
+    /* o caminho logico (pdf/LB.pdf, img/x.webp) e unico por campanha; findFirst so por seguranca */
+    Optional<Midia> findFirstByCampanhaIdAndArquivo(Long campanhaId, String arquivo);
 }

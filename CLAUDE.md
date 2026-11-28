@@ -48,7 +48,7 @@ docker-compose.yaml   o web (e um Postgres opcional) para rodar a composição n
 api/src/main/java/br/com/grimorio/
   GrimorioApplication.java
   config/     SecurityConfig, BancoConfig, MidiaAutorizacao, AjusteEsquema,
-              Inicializacao, WebConfig, AppProps
+              Inicializacao, CofreConfig (bucket ou pasta), AppProps
   model/      Usuario, Campanha, Membro, Convite, Documento, Anotacao,
               MuralPost, Midia, Config, Papel, Rolagem, Ficha, Chamado
   repo/       um repositório Spring Data por entidade
@@ -63,9 +63,10 @@ api/src/main/java/br/com/grimorio/
               MapaIniciativa e MapaVida (token e ficha). Operação nova no mapa usa MapaBase.travado.
               MapaFichas é o lado da ficha: listar, pôr num mapa, ligar e desligar os tokens dela
               (rotas em /api/c/{cid}/fichas/{id}/tokens).
-              MidiaService cataloga; gravar no volume (hash, hard link, espaço) é de
-              ArmazenamentoMidia, e ler o PDF para a busca é de IndexadorPdf.
-  web/        um controller por área, todos sob /api
+              MidiaService cataloga; gravar, ler e apagar o original é de ArmazenamentoMidia,
+              pelo Cofre (CofreS3 no bucket, CofrePasta na máquina), e ler o PDF para a busca é
+              de IndexadorPdf.
+  web/        um controller por área, todos sob /api; MidiaArquivoController serve /midia
 api/src/main/resources/application.yml
 
 web/site/
@@ -236,30 +237,37 @@ sugerido pelo mestre), `ini` (o espelho público da iniciativa, com NPC oculto v
 monta `MESA` campo a campo: **chave nova na mesa precisa entrar lá**, senão some na
 primeira leitura.
 
-Arquivos ficam no volume, nunca no banco: `/data/midia/c{campanhaId}/{pdf,audio,img,indice}`.
-A tabela `midia` só cataloga, e guarda o SHA-256 de cada arquivo (`hash`).
+**Arquivos originais moram no cofre, nunca no banco nem no volume** (28/11/2026). O cofre
+(`service/Cofre`) é o bucket S3 do Railway em produção (`CofreS3`, ligado quando as quatro variáveis
+`S3_*` existem) e a pasta `dados/objetos` na máquina e no CI (`CofrePasta`). `CofreConfig` escolhe.
+Todo PDF, áudio, imagem e zip de modelo passa por `ArmazenamentoMidia`; nenhum código lê ou grava
+original direto no disco.
 
-**O mesmo conteúdo ocupa o volume uma vez só.** Envio, importação de pacote e reescanear
-comparam o hash; se o conteúdo já existe em qualquer campanha, o caminho novo vira um *hard
-link* do antigo. Cada linha da `midia` mantém o próprio nome e caminho, então cada um vê o
-nome que deu. Quem conta as referências é o sistema de arquivos: apagar um caminho tira só
-aquela referência, e o conteúdo sai do disco junto com o último caminho. O boot junta, em
-segundo plano, as cópias iguais que ficaram de antes. Duas regras seguram isso:
-
-- **Nunca reescreva um arquivo de mídia no lugar** (`Files.write` num caminho existente):
-  se ele for um link, a mudança aparece em todas as campanhas que o compartilham. Trocar
-  arquivo é sempre gravar ao lado e mover por cima, como faz `ArmazenamentoMidia.gravar()`.
-- Volume que não aceita hard link cai para cópia comum, com aviso no log; nada quebra, só
-  não economiza.
-  O boot testa o volume e escreve no log se ele aceita hard link. Isso só aparece para o
-  administrador do sistema (Administração › Armazenamento, via `/api/admin/sistema`); nada
-  sobre compartilhamento ou espaço economizado aparece para mestre ou jogador.
+- **A chave é o conteúdo**: `midia/{sha256}`. O mesmo arquivo, em qualquer campanha e com qualquer nome,
+  é um objeto só. A tabela `midia` guarda o caminho lógico de cada campanha (`pdf/LB.pdf`,
+  `img/x.webp`, que é o que o guia cita e o `/midia/c{id}/…` usa) e o `hash` que aponta para o objeto.
+- **Objeto nunca é reescrito**: conteúdo novo é outra chave. Trocar a imagem com o mesmo nome muda o
+  `hash` da linha e solta o antigo. **Apagar** só tira o objeto quando nenhuma linha usa mais o
+  hash (`soltarSeOrfao`, chamado depois que a linha sai). Quem troca ou apaga linha da `midia` chama ele.
+- **O volume (`/data/midia/c{id}/`) guarda só o derivado**: `indice/` (busca), `img/.mini/` e
+  `img/.mapa/` (versões reduzidas, refeitas quando `enviadoEm` passa a data delas). Ao lado,
+  `cache-arquivos/` guarda os originais lidos ou recebidos por último (indexar PDF, reduzir imagem,
+  cortar mapa), até `CACHE_ARQUIVOS_MB` (1024). Quem precisa do arquivo inteiro pede `volume.local(m)`.
+- **Original de antes do bucket** continua em `/data/midia/c{id}/{pdf,audio,img}` até a Administração
+  liberar: tudo lê de lá enquanto o cofre não tem (`legado`). O boot copia para o cofre, em segundo
+  plano, o que ainda não foi (`migrarParaCofre`, só copia). **Liberar o volume** (Administração ›
+  Armazenamento) apaga do volume o que o cofre já tem com o mesmo tamanho. O reescanear segue o mesmo
+  caminho: arquivo posto direto no volume (`railway volume files upload`) é catalogado e copiado.
+- `/midia/c{id}/…` é servido por `MidiaArquivoController`, depois de `MidiaAutorizacao`: trecho por
+  trecho do cofre (Range, que o pdf.js e o `<audio>` usam), ETag = hash, `private`.
 - PDF repetido não é reprocessado: `IndexadorPdf.copiarIndiceDoGemeo()` copia o índice de busca da cópia
   já indexada, trocando sigla, nome e `publico` para a campanha que recebe.
+- O painel do administrador (`/api/admin/sistema`) mostra onde os arquivos estão, o que falta copiar
+  e o que o volume pode liberar; nada disso aparece para mestre ou jogador.
 
-Antes de gravar, o servidor confere o espaço livre. Sem espaço, ainda aceita conteúdo que já
-existe (o link não ocupa nada); senão responde **507** com `codigo: "armazenamento-cheio"`,
-e a tela mostra `avisoArmazenamento()` com o caminho para o suporte.
+Antes de gravar, o servidor confere o espaço livre no disco onde o envio passa (o cache). Sem
+espaço responde **507** com `codigo: "armazenamento-cheio"`, e a tela mostra `avisoArmazenamento()`
+com o caminho para o suporte.
 
 **Conta**: o e-mail é opcional e só serve para redefinir a senha (`/api/publico/senha/esqueci` e
 `/redefinir`, token de uma hora guardado só como hash; sem SMTP a tela manda pedir à
@@ -717,6 +725,12 @@ chega ao freio de login e o `https` original aos links.
 O `-Xmx512m` no `api/Dockerfile` é de propósito: sem ele a JVM enxerga o teto do plano,
 assume dezenas de gigas de heap e nunca devolve memória.
 
+- **Bucket `midia`**: os arquivos originais (ver "Modelo de dados"). Declarado em `railway.ts` com
+  `bucket("midia", { region: "iad" })` (região não muda depois de criado), e as credenciais chegam à api
+  por referência (`S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY`, `S3_SECRET`): nenhum segredo no repositório. O
+  CI roda o teste de API também contra um S3 de teste (`adobe/s3mock`).
+
 Upload pelo app morre em arquivo que leve mais de 5 minutos subindo, limite do proxy
 do Railway. Para livro grande: `railway volume -s "Grimório" files upload "livro.pdf"
-/midia/c1/pdf/LB.pdf` e depois **Reescanear o volume** em Biblioteca › Livros › Avançado.
+/midia/c1/pdf/LB.pdf` e depois **Reescanear o volume** em Biblioteca › Livros › Avançado: o
+reescanear cataloga e copia para o bucket, e o **Liberar o volume** tira a cópia do disco depois.

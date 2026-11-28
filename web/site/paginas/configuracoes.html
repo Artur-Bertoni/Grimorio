@@ -133,8 +133,9 @@
     <div class="addrow"><label class="rotulo cresce">Chave da API da Anthropic<input class="inp" id="iaK" type="password" placeholder="sk-ant-..." autocomplete="off"></label><label class="rotulo cresce">Modelo<input class="inp" id="iaM" placeholder="claude-sonnet-4-5"></label><button class="btn sec m" id="iaKs">Salvar</button></div>
     <p class="sm muted" id="iaKst">…</p></div>
   <div class="fld"><span class="flb">Armazenamento</span><div id="adArm" class="sm"><p class="muted sm">carregando…</p></div>
-    <div class="addrow mt-2"><button class="btn sec" id="adJunta">Juntar arquivos iguais agora</button></div>
-    <p class="sm muted">O servidor já faz isso sozinho a cada inicialização. Use depois de subir arquivos direto no volume.</p></div>
+    <div class="addrow mt-2"><button class="btn sec m" id="adMigra">Copiar para o bucket agora</button>
+      <button class="btn dang m" id="adLibera">Liberar o volume</button></div>
+    <p class="sm muted">O servidor copia sozinho a cada inicialização. "Liberar o volume" apaga do volume só as cópias antigas que já estão no bucket.</p></div>
   <div class="fld"><span class="flb">Sistema</span><div id="adSis" class="sm"><p class="muted sm">carregando…</p></div></div>
   <div class="fld"><span class="flb">E-mail do suporte</span>
     <div class="fgrid"><label class="rotulo fc fc-m">E-mail que recebe o suporte<input class="inp" id="smD" type="email"></label>
@@ -173,7 +174,10 @@
 
 <!-- a: o bloco armazenamento de /api/admin/sistema -->
 <template id="t-admin-armazenamento">
-  <ul class="fl"><li v-if="a.total > 0">Livre no volume: <b>{{ mb(a.livre) }}</b> de {{ mb(a.total) }}</li>
+  <ul class="fl"><li v-if="a.cofre">Arquivos guardados no <b>{{ a.cofre }}</b>.</li>
+    <li v-if="a.pendentes">Ainda só no volume, a caminho do bucket: <b>{{ a.pendentes }}</b> arquivo(s).</li>
+    <li v-if="a.noVolume">Cópias antigas no volume que já podem ser liberadas: <b>{{ mb(a.noVolume) }}</b>.</li>
+    <li v-if="a.total > 0">Livre no volume: <b>{{ mb(a.livre) }}</b> de {{ mb(a.total) }}</li>
     <li>Arquivos de mídia ocupam <b>{{ mb(a.usado || 0) }}</b>.</li>
     <li v-if="a.links">Arquivos iguais são compartilhados: <b>{{ a.compartilhados || 0 }}</b> cópias evitadas, economizando <b>{{ mb(a.economizado || 0) }}</b>.</li>
     <li v-else><span class="perigo-tx">Este volume não aceita compartilhar arquivos iguais</span>: cada arquivo repetido ocupa espaço próprio.</li></ul>

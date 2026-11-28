@@ -53,12 +53,14 @@ São três serviços no Railway, um projeto `Grimório`, só com o ambiente `pro
 | Serviço | Pasta | O que é | Domínio público |
 |---|---|---|---|
 | `web` | [`web/`](web/) | O front (HTML, JS e CSS sem build) servido por Caddy, que repassa `/api` e `/midia` para a api | `grimorio-rpg.up.railway.app` |
-| `Grimório` | [`api/`](api/) | A api Spring Boot, com o volume da mídia em `/data` | não (só rede privada) |
+| `Grimório` | [`api/`](api/) | A api Spring Boot. Volume em `/data` só para índice de busca, miniaturas e cache | não (só rede privada) |
 | `Postgres` | — | Banco, template oficial do Railway | não |
+| `midia` (bucket) | — | Os arquivos originais: PDFs, trilha, imagens e modelos de campanha (S3 do Railway) | não |
 
 ```
 navegador ──https──▶ web (Caddy) ──┬── /api, /midia ──▶ Grimório (Spring) ──▶ Postgres
-                                   │   rede privada        └── volume /data
+                                   │   rede privada        ├── bucket midia (arquivos)
+                                   │                       └── volume /data (índice, miniaturas)
                                    └── o resto: arquivos de web/site
 ```
 
@@ -140,13 +142,19 @@ rebuild. Postgres local: `docker compose --profile postgres up -d postgres` e
   trilha, imagens e índices de busca. Importa em qualquer servidor sem reenviar arquivos.
 - **Administração → Modelos de campanha**: a administração cadastra estruturas prontas (pacote
   enviado ou campanha existente). Quem cria uma campanha escolhe um em "Como começar" e recebe uma
-  cópia. Ficam em `/data/modelos`.
+  cópia. O pacote de cada modelo fica no bucket; nome e capa, em `/data/modelos`.
 
 ### Armazenamento
 
-Arquivos ficam no volume, em `/data/midia/c{campanha}/{pdf,audio,img,indice}/`; o banco só cataloga.
-Conteúdo idêntico é guardado uma vez só (hash SHA-256 e hard link entre campanhas), e o servidor
-confere o espaço livre antes de gravar (507 `armazenamento-cheio` quando acaba).
+Os arquivos originais (PDF, áudio, imagem, pacote de modelo) ficam no **bucket `midia`** do Railway;
+o banco só cataloga, e o volume guarda só o derivado (índice de busca e miniaturas) e um cache dos
+originais lidos por último. Conteúdo idêntico é guardado uma vez só: a chave no bucket é o SHA-256 do
+arquivo, então o mesmo livro em duas campanhas é um objeto. Sem as variáveis `S3_*` (na máquina, no
+CI), o "bucket" é a pasta `api/dados/objetos`.
+
+Arquivos de antes do bucket são copiados para ele sozinhos, a cada boot, e continuam abrindo do volume
+enquanto isso. Em **Administração › Armazenamento** aparece o que falta copiar; **Liberar o volume**
+apaga do volume as cópias que o bucket já tem (só elas, e pede confirmação).
 
 ### Arquivos grandes
 
@@ -172,6 +180,9 @@ Da api (`Grimório`):
 | `PORT` | `8080` | injetada pelo Railway |
 | `DB_POOL` | `5` | conexões do pool |
 | `URL_PUBLICA` | `https://` + `RAILWAY_PUBLIC_DOMAIN` | endereço usado nos links enviados por e-mail (redefinir senha). No Railway é o domínio do `web`, definido em `railway.ts`: a api não tem domínio público |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY`, `S3_SECRET` | — | o bucket dos arquivos. No Railway são referências ao bucket `midia` (`railway.ts`). Ausentes = pasta `dados/objetos` |
+| `S3_REGIAO`, `S3_PATH_STYLE` | `auto`, `false` | só para outro S3 (um de teste local pede `us-east-1` e `true`) |
+| `CACHE_ARQUIVOS_MB` | `1024` | quanto do volume os originais lidos por último podem ocupar |
 
 Do `web`:
 

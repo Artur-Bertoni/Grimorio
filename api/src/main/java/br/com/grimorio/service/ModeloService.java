@@ -28,11 +28,13 @@ import java.util.zip.ZipFile;
  *
  * O repositorio nao carrega campanha nenhuma: quem cadastra os modelos e a administracao da
  * servidor, enviando um pacote ou salvando como modelo uma campanha que ela mestra. Cada
- * modelo ocupa tres arquivos em {volume}/modelos, fora de /midia (nada aqui e servido direto):
+ * modelo ocupa tres arquivos, fora de /midia (nada aqui e servido direto):
  *
- *   {id}.zip     o pacote, no mesmo formato do Exportar pacote
- *   {id}.json    nome, sistema, descricao e a extensao da capa, para listar sem abrir o zip
- *   {id}.capa    a imagem do cartao: a do pacote, se ele tiver, ou a que a administracao puser
+ *   modelos/{id}.zip  no cofre (o bucket): o pacote, no mesmo formato do Exportar pacote. Modelo de
+ *                     antes do bucket fica em {volume}/modelos ate a Administracao liberar o volume
+ *   {id}.json         em {volume}/modelos: nome, sistema, descricao e a extensao da capa, para listar
+ *                     sem abrir o zip
+ *   {id}.capa         em {volume}/modelos: a imagem do cartao, a do pacote ou a que a administracao puser
  */
 @Service
 public class ModeloService {
@@ -58,11 +60,14 @@ public class ModeloService {
     private final PacoteService pacote;
     private final DocumentoService docs;
     private final CampanhaRepo campanhas;
+    private final Cofre cofre;
     private final ObjectMapper om = JsonMapper.builder().build();
     private final SecureRandom sorteio = new SecureRandom();
 
-    public ModeloService(AppProps props, PacoteService pacote, DocumentoService docs, CampanhaRepo campanhas) {
+    public ModeloService(AppProps props, PacoteService pacote, DocumentoService docs, CampanhaRepo campanhas,
+                         Cofre cofre) {
         this.props = props;
+        this.cofre = cofre;
         this.pacote = pacote;
         this.docs = docs;
         this.campanhas = campanhas;
@@ -74,6 +79,50 @@ public class ModeloService {
         Path p = (midia.getParent() == null ? midia : midia.getParent()).resolve("modelos");
         Files.createDirectories(p);
         return p;
+    }
+
+    private static String chaveZip(String id) {
+        return "modelos/" + id + EXT_ZIP;
+    }
+
+    /* tamanho do zip: o de antes do bucket, se ainda estiver no volume; senao o do cofre (-1 se nao existe) */
+    private long tamanhoZip(String id) throws IOException {
+        Path antigo = pasta().resolve(id + EXT_ZIP);
+        return Files.isRegularFile(antigo) ? Files.size(antigo) : cofre.tamanho(chaveZip(id));
+    }
+
+    private InputStream abrirZip(String id) throws IOException {
+        Path antigo = pasta().resolve(id + EXT_ZIP);
+        return Files.isRegularFile(antigo) ? Files.newInputStream(antigo) : cofre.abrir(chaveZip(id));
+    }
+
+    /** Copia para o cofre os zips de modelo que ainda so estao no volume. So copia. */
+    public int migrarParaCofre() throws IOException {
+        int n = 0;
+        try (var st = Files.list(pasta())) {
+            for (Path p : st.filter(x -> x.getFileName().toString().matches(ID_VALIDO + "\\.zip")).toList()) {
+                String id = p.getFileName().toString().replace(EXT_ZIP, "");
+                if (cofre.tamanho(chaveZip(id)) == Files.size(p)) continue;
+                cofre.guardar(chaveZip(id), p, false);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Apaga do volume os zips que ja estao no cofre com o mesmo tamanho. Devolve os bytes liberados. */
+    public long liberarVolume() throws IOException {
+        long liberado = 0;
+        try (var st = Files.list(pasta())) {
+            for (Path p : st.filter(x -> x.getFileName().toString().matches(ID_VALIDO + "\\.zip")).toList()) {
+                String id = p.getFileName().toString().replace(EXT_ZIP, "");
+                long t = Files.size(p);
+                if (cofre.tamanho(chaveZip(id)) != t) continue;
+                Files.delete(p);
+                liberado += t;
+            }
+        }
+        return liberado;
     }
 
     public List<Map<String, Object>> listar() throws IOException {
@@ -93,15 +142,15 @@ public class ModeloService {
         String id = json.getFileName().toString().replace(EXT_JSON, "");
         try {
             JsonNode n = om.readTree(Files.readString(json, StandardCharsets.UTF_8));
-            Path zip = json.resolveSibling(id + EXT_ZIP);
-            if (!Files.isRegularFile(zip)) return Map.of();
+            long tamanho = tamanhoZip(id);
+            if (tamanho < 0) return Map.of();
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", id);
             m.put(NOME, n.path(NOME).asString(""));
             m.put(SISTEMA, n.path(SISTEMA).asString(""));
             m.put(DESCRICAO, n.path(DESCRICAO).asString(""));
             m.put("temCapa", !n.path(CAPA).asString("").isEmpty() && Files.isRegularFile(json.resolveSibling(id + EXT_CAPA)));
-            m.put("tamanho", Files.size(zip));
+            m.put("tamanho", tamanho);
             m.put(CRIADO_EM, n.path(CRIADO_EM).asLong(0));
             return m;
         } catch (Exception e) {
@@ -163,7 +212,8 @@ public class ModeloService {
         } catch (java.util.zip.ZipException _) {
             throw new IllegalArgumentException("o arquivo nao e um zip valido");
         }
-        Files.move(zip, dir.resolve(id + EXT_ZIP), StandardCopyOption.REPLACE_EXISTING);
+        cofre.guardar(chaveZip(id), zip, true);
+        Files.deleteIfExists(zip);
         gravarMeta(id, meta);
         if (log.isInfoEnabled()) log.info("Modelo {} criado: {}", id, meta.path(NOME).asString(""));
         return ler(dir.resolve(id + EXT_JSON));
@@ -223,6 +273,7 @@ public class ModeloService {
 
     public void remover(String id) throws IOException {
         arquivo(id, EXT_JSON);
+        cofre.apagar(chaveZip(id));
         for (String ext : List.of(EXT_ZIP, EXT_CAPA, EXT_JSON)) Files.deleteIfExists(pasta().resolve(id + ext));
         log.info("Modelo {} removido", id);
     }
@@ -239,9 +290,10 @@ public class ModeloService {
 
     /** Poe o conteudo do modelo numa campanha, como a importacao de pacote com "substituir". */
     public Map<String, Object> aplicar(Long campanhaId, Long usuarioId, String id) throws IOException {
-        Path zip = arquivo(id, EXT_ZIP);
+        arquivo(id, EXT_JSON);
+        if (tamanhoZip(id) < 0) throw new IllegalArgumentException(NAO_ENCONTRADO);
         Map<String, Object> r;
-        try (InputStream in = Files.newInputStream(zip)) {
+        try (InputStream in = abrirZip(id)) {
             r = pacote.importar(campanhaId, usuarioId, in, true);
         }
         campanhas.findById(campanhaId).ifPresent(c -> retitular(campanhaId, c.getNome()));

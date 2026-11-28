@@ -273,16 +273,30 @@ function abrirAdmin(back,mk){
   function pintaSistema(){ api("/api/admin/sistema").then(function(r){
     var a=r.armazenamento||{}, s=r.sistema||{};
     $("#adArm",ov).innerHTML=htmlDe("t-admin-armazenamento",{a:a});
+    $("#adLibera",ov).disabled=!a.noVolume;
     var desde=s.noArDesde?Math.max(0,Date.now()-s.noArDesde):0, h=Math.floor(desde/3600000), d=Math.floor(h/24);
     $("#adSis",ov).innerHTML=htmlDe("t-admin-sistema",{s:s,
       noAr:d?d+" dia(s) e "+(h%24)+" h":h?h+" h":Math.floor(desde/60000)+" min"});
   }).catch(function(){ $("#adArm",ov).innerHTML=htmlDe("t-carregando-sm",{texto:"não consegui ler"}); }); }
   pintaSistema();
-  $("#adJunta",ov).onclick=function(){ var b=this; b.disabled=true; b.textContent="Juntando…";
-    api("/api/admin/armazenamento/juntar",{method:"POST"}).then(function(r){
-      b.disabled=false; b.textContent="Juntar arquivos iguais agora";
-      toast(r.liberado?mb(r.liberado)+" liberados":"Nada para juntar: os arquivos iguais já estavam compartilhados"); pintaSistema(); })
-     .catch(function(e){ b.disabled=false; b.textContent="Juntar arquivos iguais agora"; toast(mensagemDeErro(e),"erro"); }); };
+  $("#adMigra",ov).onclick=function(){ var b=this; b.disabled=true; b.textContent="Copiando…";
+    api("/api/admin/armazenamento/migrar",{method:"POST"}).then(function(r){
+      b.disabled=false; b.textContent="Copiar para o bucket agora";
+      var n=(r.copiados||0)+(r.modelos||0);
+      if(r.faltando) toast(r.faltando+" arquivo(s) do catálogo não estão em lugar nenhum","aviso");
+      else toast(n?n+" arquivo(s) copiados para o bucket":"Nada a copiar: tudo já está no bucket","ok");
+      pintaSistema(); })
+     .catch(function(e){ b.disabled=false; b.textContent="Copiar para o bucket agora"; toast(mensagemDeErro(e),"erro"); }); };
+  /* apagar do volume nao tem volta: so sai o que o bucket ja tem com o mesmo tamanho, e mesmo assim confirma */
+  $("#adLibera",ov).onclick=function(){ var b=this;
+    confirmar("Apaga do volume as cópias antigas dos arquivos que já estão no bucket. O que ainda não foi copiado fica onde está.",
+      {titulo:"Liberar o volume?",sim:"Liberar"}).then(function(sim){
+      if(!sim)return;
+      b.disabled=true; b.textContent="Liberando…";
+      api("/api/admin/armazenamento/liberar",{method:"POST"}).then(function(r){
+        b.textContent="Liberar o volume";
+        toast(r.liberado?mb(r.liberado)+" liberados no volume":"Nada a liberar","ok"); pintaSistema(); })
+       .catch(function(e){ b.disabled=false; b.textContent="Liberar o volume"; toast(mensagemDeErro(e),"erro"); }); }); };
   var DICAS={
     smtp:"Funciona em hospedagem que libera a saída SMTP. Railway Trial e Hobby bloqueiam: dá \"Couldn't connect\". Gmail: smtp.gmail.com, porta 587, senha de app.",
     resend:"resend.com › API Keys › Create API Key. Sem domínio próprio, deixe o remetente vazio (usa onboarding@resend.dev) e crie a conta Resend com o mesmo e-mail que recebe o suporte: sem domínio verificado, o Resend só entrega para o dono da conta. 3.000 e-mails/mês grátis.",

@@ -4,6 +4,7 @@ import br.com.grimorio.config.AppProps;
 import br.com.grimorio.repo.CampanhaRepo;
 import br.com.grimorio.repo.ChamadoRepo;
 import br.com.grimorio.service.ArmazenamentoMidia;
+import br.com.grimorio.service.ModeloService;
 import br.com.grimorio.service.UsuarioService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,9 +30,11 @@ public class AdminSistemaController {
     private final ChamadoRepo chamados;
     private final DataSource banco;
     private final AppProps props;
+    private final ModeloService modelos;
 
     public AdminSistemaController(UsuarioService usuarios, CampanhaRepo campanhas, ArmazenamentoMidia midia,
-                                  ChamadoRepo chamados, DataSource banco, AppProps props) {
+                                  ChamadoRepo chamados, DataSource banco, AppProps props, ModeloService modelos) {
+        this.modelos = modelos;
         this.usuarios = usuarios;
         this.campanhas = campanhas;
         this.midia = midia;
@@ -71,10 +74,19 @@ public class AdminSistemaController {
         }
     }
 
-    /** Junta agora as copias iguais do volume (o boot ja faz isso; serve para depois de subir
-     *  arquivos direto no volume). */
-    @PostMapping("/armazenamento/juntar")
-    public Map<String, Object> juntar() {
-        return Map.of("liberado", midia.desduplicarVolume());
+    /** Copia para o cofre (o bucket) os originais que ainda so estao no volume. O boot ja faz isso em
+     *  segundo plano; o botao serve para conferir e para depois de subir arquivos direto no volume. */
+    @PostMapping("/armazenamento/migrar")
+    public Map<String, Object> migrar() throws java.io.IOException {
+        Map<String, Object> r = new LinkedHashMap<>(midia.migrarParaCofre());
+        r.put("modelos", modelos.migrarParaCofre());
+        return r;
+    }
+
+    /** Apaga do volume os originais que ja estao no cofre com o mesmo tamanho (o que nao esta fica).
+     *  E o que libera o espaco do volume; nao tem volta, por isso a tela confirma antes. */
+    @PostMapping("/armazenamento/liberar")
+    public Map<String, Object> liberar() throws java.io.IOException {
+        return Map.of("liberado", midia.liberarVolume() + modelos.liberarVolume());
     }
 }

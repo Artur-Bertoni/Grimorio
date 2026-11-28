@@ -28,6 +28,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <pdfbox.version>3.0.8</pdfbox.version>
         <imageio-webp.version>3.12.0</imageio-webp.version>
+        <awssdk.version>2.59.11</awssdk.version>
     </properties>
 
     <dependencies>
@@ -67,6 +68,28 @@
         <dependency>
             <groupId>org.eclipse.angus</groupId>
             <artifactId>angus-mail</artifactId>
+        </dependency>
+        <!-- bucket S3 do Railway (arquivos originais da midia). Cliente HTTP do proprio Java: sem Netty
+             nem Apache HttpClient, que o SDK puxaria por padrao. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>${awssdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>

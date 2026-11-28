@@ -496,7 +496,7 @@ http.createServer(async (req, res) => {
         emailProvedor: 'smtp', smtpHost: 'smtp.exemplo.com', smtpPorta: '587', smtpSenhaSalva: true, emailChaveSalva: false, emailConfigurado: true });
       if (p === '/__ultconfig') return envia(res, 200, ST.ultConfig || {});
       if (p === '/api/admin/sistema') return envia(res, 200, {
-        armazenamento: { links: true, livre: 8e9, total: 10e9, usado: 1.5e9, economizado: 3.2e8, compartilhados: 4,
+        armazenamento: { cofre: 'bucket midia-teste', remoto: true, pendentes: 2, noVolume: 7.5e8, links: true, livre: 8e9, total: 10e9, usado: 1.5e9, economizado: 3.2e8, compartilhados: 4,
           porCampanha: [{ id: 1, nome: 'Campanha de teste', arquivos: 12, bytes: 9e8, compartilhados: 2 }, { id: 2, nome: 'Mesa em branco', arquivos: 3, bytes: 4e8, compartilhados: 2 }] },
         sistema: { banco: 'H2 2.2.224', midiaDir: '/data/midia', java: '21.0.5', memoriaUsada: 2e8, memoriaMax: 5.12e8, noArDesde: Date.now() - 90000000,
           contas: 3, campanhas: 3, suporteNaoEnviado: ST.suporte.length } });
@@ -651,7 +651,8 @@ http.createServer(async (req, res) => {
         return envia(res, 200, { id: ST.suporte.length, enviado: false, motivo: 'o envio de e-mail não está configurado' });
       }
       if ((m = p.match(/^\/__cheio\/(\d)$/))) { ST.cheio = m[1] === '1'; return envia(res, 200, { ok: true }); }
-      if (p === '/api/admin/armazenamento/juntar') return envia(res, 200, { liberado: 0 });
+      if (p === '/api/admin/armazenamento/migrar') return envia(res, 200, { copiados: 2, bytes: 1e6, faltando: 0, modelos: 0 });
+      if (p === '/api/admin/armazenamento/liberar') return envia(res, 200, { liberado: 7.5e8 });
       if (/^\/api\/c\/\d+\/mural$/.test(p)) {
         ST.mural.unshift({ id: ++ST.seq, usuarioId: 1, autor: ST.perfil.nome, em: new Date().toISOString(), texto: b.texto || '' });
         return envia(res, 200, { ok: true });
