@@ -1,0 +1,9 @@
+{
+  "name": "grimorio-infra",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "railway": "^3.17.0",
+    "typescript": "^5.7.3"
+  }
+}

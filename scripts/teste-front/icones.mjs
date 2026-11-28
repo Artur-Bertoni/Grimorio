@@ -1,14 +1,14 @@
 // Gera os icones e a imagem de previa a partir de logoSvg(), a unica fonte do d20.
 // Mudou o desenho da logo ou as cores do Sangue? Rode de novo (com o stub no ar):
 //   node stub.mjs &   node icones.mjs
-// Grava em src/main/resources/static/icones/ e o favicon.ico na raiz de static/.
+// Grava em web/site/icones/ e o favicon.ico na raiz de web/site/.
 import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const STATIC = join(AQUI, '..', '..', 'src', 'main', 'resources', 'static');
+const STATIC = join(AQUI, '..', '..', 'web', 'site');
 const DEST = join(STATIC, 'icones');
 const B = process.env.BASE || 'http://127.0.0.1:8099';
 mkdirSync(DEST, { recursive: true });

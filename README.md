@@ -46,20 +46,67 @@ não públicos e as rolagens fechadas só saem para quem tem o papel de mestre n
 Fichas de outras pessoas respondem 404 para o jogador. Detalhes de segurança (CSRF, CSP, freio
 de tentativas, sessão persistente) estão em [CLAUDE.md](CLAUDE.md).
 
-## Subir no Railway
+## Como roda
 
-1. Suba este repositório no GitHub.
-2. Railway → **New Project** → **Deploy from GitHub repo**. O `Dockerfile` da raiz é usado automaticamente.
-3. No mesmo projeto: **New** → **Database** → **Add PostgreSQL**, mantendo o nome `Postgres`.
-4. No serviço da aplicação, aba **Variables**:
+São três serviços no Railway, um projeto `Grimório`, só com o ambiente `production`:
 
-   | variável | valor |
-   |---|---|
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-   | `PORT` | `8080` |
+| Serviço | Pasta | O que é | Domínio público |
+|---|---|---|---|
+| `web` | [`web/`](web/) | O front (HTML, JS e CSS sem build) servido por Caddy, que repassa `/api` e `/midia` para a api | `grimorio-rpg.up.railway.app` |
+| `Grimório` | [`api/`](api/) | A api Spring Boot, com o volume da mídia em `/data` | não (só rede privada) |
+| `Postgres` | — | Banco, template oficial do Railway | não |
 
-5. **Settings → Volumes**: volume montado em **`/data`** (PDFs, áudio, imagens, índices e modelos).
-6. **Settings → Networking → Generate Domain**.
+```
+navegador ──https──▶ web (Caddy) ──┬── /api, /midia ──▶ Grimório (Spring) ──▶ Postgres
+                                   │   rede privada        └── volume /data
+                                   └── o resto: arquivos de web/site
+```
+
+Para o navegador tudo continua numa origem só, então cookie de sessão, CSRF e CSP funcionam como
+antes. O serviço da api manteve o nome `Grimório` porque é o que já existia: renomear pela IaC
+apagaria e recriaria o serviço, e o volume junto.
+
+**Todo push na `main` é deploy em produção.** Cada serviço só redeploya quando a pasta dele muda:
+mexer na tela não reinicia a api (nem derruba o SSE de quem está jogando), e mexer na api não
+reconstrói o site.
+
+## Deploy no Railway
+
+[`.railway/railway.ts`](.railway/railway.ts) declara os serviços, a origem no GitHub, o Dockerfile de
+cada um, healthcheck, política de restart, o volume e as variáveis. Ele é aplicado pela CLI, não pelo
+push:
+
+```bash
+cd .railway && npm install && cd ..
+railway login
+railway link            # projeto Grimório, ambiente production
+railway config plan     # mostra o que vai mudar, sem mudar
+railway config apply
+```
+
+Mudou o arquivo, repita o `plan` e o `apply`. Leia o `plan` antes: ele avisa quando uma mudança
+destrói algo (volume, serviço, variável) e o `apply` pede confirmação.
+
+> **No Windows**, o pacote `railway/iac` confere a versão da CLI chamando `railway` sem shell, e o
+> `railway.cmd` que o npm instala não roda assim (o `plan` diz que a CLI é velha demais). Aponte para
+> o executável real antes do `plan` e do `apply`, uma vez por terminal:
+>
+> ```powershell
+> $env:_ = "$env:APPDATA\npm\node_modules\@railway\cli\bin\railway.exe"
+> ```
+
+Fica fora do arquivo, no painel: o **domínio** `*.up.railway.app` (a IaC do Railway não registra
+domínio; ele fica no serviço `web`, porta 8080) e os valores de `DATABASE_URL`, `DB_HOST` e `DB_PORT`,
+que já existiam e o arquivo preserva.
+
+### Subindo do zero
+
+1. Railway → **New Project → Empty Project**, com o nome `Grimório`, e a conta do GitHub conectada.
+2. **New → Database → Add PostgreSQL**, mantendo o nome `Postgres`.
+3. `railway link` e `railway config apply`: o volume, a api e o web aparecem e fazem o primeiro deploy.
+   Na api, `DATABASE_URL` vale `${{Postgres.DATABASE_URL}}`.
+4. No serviço `web`: **Settings → Networking → Generate Domain**, porta **8080**. Se o domínio for
+   outro, troque `DOMINIO` em `railway.ts` e aplique de novo.
 
 Não há login de bootstrap: abra o site, clique em **Criar uma conta**, e a primeira conta criada
 vira a administradora.
@@ -67,11 +114,15 @@ vira a administradora.
 ## Rodar na máquina
 
 ```bash
-mvn spring-boot:run
+cd api && mvn spring-boot:run      # a api, em http://localhost:8080
+docker compose up web              # o site, em http://localhost:8000 (na raiz do repositório)
 ```
 
-Sem `DATABASE_URL`, usa H2 em arquivo em `./dados` e mídia em `./dados/midia`.
-Abre em http://localhost:8080. Para gerar o jar: `mvn -DskipTests package` → `target/grimorio.jar`.
+Sem `DATABASE_URL`, a api usa H2 em arquivo em `api/dados` e mídia em `api/dados/midia`. O
+`docker-compose.yaml` monta `web/site` dentro do Caddy, então HTML, JS e CSS valem no F5, sem
+rebuild. Postgres local: `docker compose --profile postgres up -d postgres` e
+`DATABASE_URL=postgresql://postgres:pg@localhost:55432/grim`. Para gerar o jar:
+`mvn -f api/pom.xml -DskipTests package` → `api/target/grimorio.jar`.
 
 ## Primeiros passos
 
@@ -104,12 +155,14 @@ de 180 MB). Alternativa: enviar ao volume pelo CLI e usar **Reescanear o volume*
 Biblioteca › Livros › Avançado.
 
 ```bash
-railway volume files upload "Livro.pdf" /c1/pdf/LB.pdf
+railway volume --service "Grimório" files upload "Livro.pdf" /c1/pdf/LB.pdf
 ```
 
 `c1` é o número da campanha e o nome do arquivo precisa ser a abreviação do livro.
 
 ## Variáveis
+
+Da api (`Grimório`):
 
 | variável | padrão | para quê |
 |---|---|---|
@@ -118,7 +171,15 @@ railway volume files upload "Livro.pdf" /c1/pdf/LB.pdf
 | `MIDIA_DIR` | `/data/midia` no Docker, `./dados/midia` fora | PDFs, áudio, imagens e índices |
 | `PORT` | `8080` | injetada pelo Railway |
 | `DB_POOL` | `5` | conexões do pool |
-| `URL_PUBLICA` | `https://` + `RAILWAY_PUBLIC_DOMAIN` | endereço usado nos links enviados por e-mail (redefinir senha). Fora do Railway, defina |
+| `URL_PUBLICA` | `https://` + `RAILWAY_PUBLIC_DOMAIN` | endereço usado nos links enviados por e-mail (redefinir senha). No Railway é o domínio do `web`, definido em `railway.ts`: a api não tem domínio público |
+
+Do `web`:
+
+| variável | para quê |
+|---|---|
+| `PORT` | porta do Caddy (`8080`) |
+| `API_URL` | onde está a api (`grimorio.railway.internal:8080` no Railway, `host.docker.internal:8080` no compose) |
+| `URL_PUBLICA` | endereço absoluto da imagem de prévia do link de convite (`og:image` do login) |
 
 SMTP, chave da IA, cadastro aberto, textos legais e liberação do mapa são configurados pela tela de
 Administração e ficam na tabela `config`.
@@ -160,18 +221,23 @@ Config       ajustes do servidor
 
 Não há suíte JUnit. Existem dois testes de ponta a ponta, ambos rodados no CI a cada push na `main`:
 
-- **API** (`scripts/teste-api/teste.mjs`): contra o jar real, em H2 e em Postgres. Cobre cadastro, login e
-  CSRF, guia com versão, separação mestre/jogador, upload, PDF, pacote e suporte.
+- **API** (`scripts/teste-api/teste.mjs`): contra o jar real com a imagem do `web` na frente, em H2 e
+  em Postgres. Cobre cadastro, login e CSRF, guia com versão, separação mestre/jogador, upload, PDF,
+  pacote e suporte, e o que é do Caddy (CSP, charset, redirects, 404, SSE pelo proxy).
 - **Tela** (`scripts/teste-front/`): navegador real sobre um servidor de mentira. Ver
   [scripts/teste-front/README.md](scripts/teste-front/README.md).
 
 ## Estrutura
 
 ```
-src/main/java/br/com/grimorio/   config · model · repo · service · web
-src/main/resources/static/       index.html, paginas/, componentes/ (templates), css/, js/, vendor/
-scripts/                         teste-api, teste-front
-docs/                            auditorias, decisões e plano do mapa
+.railway/railway.ts                       serviços, volume e variáveis do Railway
+api/                                      serviço "Grimório": pom.xml, Dockerfile
+api/src/main/java/br/com/grimorio/        config · model · repo · service · web
+web/                                      serviço "web": Caddyfile, Dockerfile
+web/site/                                 index.html, paginas/, componentes/ (templates), css/, js/, vendor/
+docker-compose.yaml                       o web (e um Postgres opcional) para rodar na máquina
+scripts/                                  teste-api, teste-front
+docs/                                     auditorias, decisões e plano do mapa
 ```
 
 Guia para quem mexe no código: [CLAUDE.md](CLAUDE.md).
@@ -182,6 +248,6 @@ Código-fonte disponível sob a [PolyForm Noncommercial 1.0.0](LICENSE): pode se
 modificado e usado para fins não comerciais, como a sua mesa de jogo. Uso comercial, incluindo
 oferecer o app como serviço, não está incluído. Para isso, entre em contato: artur_b_santos@hotmail.com.
 
-Não se trata de open source no sentido da OSI. As bibliotecas e fontes em `static/vendor/`
+Não se trata de open source no sentido da OSI. As bibliotecas e fontes em `web/site/vendor/`
 (pdf.js, petite-vue, Almendra, Barlow Condensed, Cinzel, Cormorant Garamond, Oxanium, Special Elite
 e Spectral) seguem as licenças originais de cada uma, incluídas ao lado dos arquivos.

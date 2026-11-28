@@ -88,18 +88,16 @@ public class SecurityConfig {
                    (o fluxo SSE do mapa, o download do pacote); conferir de novo no fim dele, com a
                    resposta ja comecada, so geraria erro no log */
                 .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
-                /* as fontes sao publicas de proposito: a tela de login usa as mesmas do app */
-                .requestMatchers("/login.html", "/paginas/login.html", "/favicon.ico", "/vendor/fontes.css", "/vendor/fonts/**",
-                                 "/api/ping", "/api/registrar", "/api/publico/**").permitAll()
-                /* privacidade e termos se leem sem conta (o link fica no login); icones, manifest e
-                   robots sao pedidos pelo navegador antes de qualquer sessao */
-                .requestMatchers("/privacidade", "/termos", "/paginas/legal.html", "/paginas/404.html", "/publico/**",
-                                 "/robots.txt", "/manifest.webmanifest", "/icones/**").permitAll()
+                /* Aqui so chegam /api e /midia: as paginas (login, privacidade, termos, a casca) sao do
+                   servico web. Estas rotas sao o que a tela de login e a de privacidade pedem sem conta. */
+                .requestMatchers("/api/ping", "/api/registrar", "/api/publico/**").permitAll()
                 /* conferido no banco a cada pedido, nao no papel congelado no login (ver AdminAutorizacao) */
                 .requestMatchers("/api/admin/**").access(adminAutorizacao)
                 .requestMatchers("/midia/**").access(midiaAutorizacao)
                 .anyRequest().authenticated())
             .formLogin(f -> f
+                /* a pagina mora no servico web; declarar o endereco impede o Spring de gerar a tela de
+                   login padrao dele em /login */
                 .loginPage("/paginas/login.html")
                 .loginProcessingUrl("/api/login")
                 .usernameParameter("login")

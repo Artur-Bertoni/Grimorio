@@ -20,14 +20,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import br.com.grimorio.service.CampanhaService;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.MediaType;
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class TratadorDeErros {
@@ -83,23 +76,10 @@ public class TratadorDeErros {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("erro", msg(e)));
     }
 
-    /* Endereco que nao existe: quem pediu pelo navegador (aceita HTML e nao e /api nem /midia)
-       recebe a pagina 404 com o tema e o caminho de volta; o resto continua recebendo JSON. */
+    /* Endereco que nao existe. Aqui so chegam /api e /midia (o resto e do servico web, que tem a
+       pagina 404 com o tema): a resposta e sempre JSON. */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<Object> naoAchei(NoResourceFoundException e, HttpServletRequest req) {
-        String uri = req.getRequestURI();
-        String aceita = req.getHeader("Accept");
-        boolean navegador = aceita != null && aceita.contains("text/html")
-                && !uri.startsWith("/api/") && !uri.startsWith("/midia/");
-        if (navegador) {
-            try (InputStream in = new ClassPathResource("static/paginas/404.html").getInputStream()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                        .body(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-            } catch (IOException falta) {
-                log.warn("Pagina 404 nao encontrada no jar: {}", falta.toString());
-            }
-        }
+    public ResponseEntity<Object> naoAchei(NoResourceFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("erro", "não encontrado"));
     }
 

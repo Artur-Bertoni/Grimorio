@@ -1,0 +1,110 @@
+# Servico "web" do Railway: serve o front (site/, sem passo de build) e repassa /api e /midia
+# para a api pela rede privada. Para o navegador tudo continua na mesma origem, entao cookie de
+# sessao, CSRF (double-submit) e CSP seguem como eram quando o jar servia tudo.
+#
+# Variaveis (o Railway define em .railway/railway.ts; localmente, docker-compose.yaml):
+#   PORT         porta deste servico (8080)
+#   API_URL      host:porta da api (no Railway, grimorio.railway.internal:8080)
+#   URL_PUBLICA  https publico do site, para a previa do link de convite (og:image do login)
+{
+	admin off
+	auto_https off
+	servers {
+		# So o proxy do Railway chega aqui: confiar no X-Forwarded-* dele mantem o IP de quem pediu
+		# (o freio de login conta por IP) e o https original ate o Spring.
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+(api) {
+	reverse_proxy {$API_URL:localhost:8080} {
+		# SSE (/eventos) e o download do pacote saem em fluxo: nada de segurar a resposta
+		flush_interval -1
+		# a api pode estar acordando (app sleeping) ou trocando de deploy: espera em vez de 502
+		lb_try_duration 30s
+		lb_try_interval 500ms
+	}
+}
+
+:{$PORT:8080} {
+	# a api ja comprime o JSON e a midia sai como esta: compressao so no estatico, abaixo
+	handle /api/* {
+		import api
+	}
+	handle /midia/* {
+		import api
+	}
+
+	# healthcheck do Railway: nao depende da api, para o site nao cair junto com ela
+	handle /saude {
+		respond "ok" 200
+	}
+
+	handle {
+		root * /srv
+		encode zstd gzip
+
+		# A casca so abre para quem tem o cookie de lembrar (o Spring grava em todo login e apaga
+		# no Sair). Sem ele, vai direto para o login, sem piscar a tela de carregamento. Cookie
+		# vencido nao e problema: o primeiro /api responde 401 e o nucleo.js manda ao login.
+		@anonimo {
+			path / /index.html
+			not header_regexp Cookie (^|;\s*)GRIMORIO_LEMBRAR=
+		}
+		redir @anonimo /paginas/login.html 302
+
+		# endereco antigo do login, que ainda circula em favorito e convite (?convite= vai junto)
+		redir /login.html /paginas/login.html{?query} 302
+		# privacidade e termos: a mesma pagina, que escolhe o texto pelo caminho
+		rewrite /privacidade /paginas/legal.html
+		rewrite /termos /paginas/legal.html
+
+		# a previa do convite (WhatsApp, Discord) so aceita imagem com endereco absoluto
+		templates /paginas/login.html
+
+		# Sem hash no nome dos arquivos: o navegador guarda e pergunta se mudou (304 pelo ETag e
+		# Last-Modified). max-age deixaria quem abriu antes de um deploy com o JS velho.
+		header Cache-Control "no-cache"
+
+		# charset explicito: sem ele o navegador adivinha Windows-1252 e quebra a regex de acento
+		# do norm() (tela branca depois do login, ver CLAUDE.md, armadilha 3)
+		@js path *.js *.mjs
+		header @js Content-Type "text/javascript; charset=utf-8"
+		@css path *.css
+		header @css Content-Type "text/css; charset=utf-8"
+		@manifesto path *.webmanifest
+		header @manifesto Content-Type "application/manifest+json; charset=utf-8"
+
+		# os mesmos cabecalhos que o Spring Security punha no estatico
+		header {
+			Content-Security-Policy "script-src 'self' 'unsafe-eval'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+			Referrer-Policy same-origin
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			-Server
+		}
+
+		file_server
+	}
+
+	# Endereco que nao existe: quem navega ve a pagina 404 com o tema; o resto recebe JSON,
+	# como a api responde
+	handle_errors 404 {
+		@navegador header Accept *text/html*
+		handle @navegador {
+			root * /srv
+			header Content-Type "text/html; charset=utf-8"
+			header Cache-Control "no-cache"
+			rewrite * /paginas/404.html
+			file_server {
+				status 404
+			}
+		}
+		handle {
+			header Content-Type "application/json"
+			respond `{"erro":"não encontrado"}` 404
+		}
+	}
+}

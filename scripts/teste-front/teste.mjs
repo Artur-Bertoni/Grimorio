@@ -2109,7 +2109,7 @@ titulo('tema: o seu fora das campanhas, o da mesa dentro');
 
 titulo('qualidade de cor: contraste dos temas e nenhuma cor solta');
 {
-  const temaJs = readFileSync(join(AQUI, '..', '..', 'src', 'main', 'resources', 'static', 'js', 'tema.js'), 'utf8');
+  const temaJs = readFileSync(join(AQUI, '..', '..', 'web', 'site', 'js', 'tema.js'), 'utf8');
   const ini = temaJs.indexOf('var TEMAS={'), fim = temaJs.indexOf('\n};', ini) + 3;
   const TEMAS = (0, eval)('(' + temaJs.slice(ini + 10, fim - 1) + ')');
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -2125,7 +2125,7 @@ titulo('qualidade de cor: contraste dos temas e nenhuma cor solta');
     for (const f of ['bg', 'bg2']) if (cr(v['campo-borda'], v[f]) < 3) ruins.push(id + ' campo-borda/' + f);
   }
   ok(ruins.length === 0, 'texto 4,5:1 e borda de campo 3:1 nos ' + Object.keys(TEMAS).length + ' temas' + (ruins.length ? ': ' + ruins.join(', ') : ''));
-  const pasta = join(AQUI, '..', '..', 'src', 'main', 'resources', 'static', 'css'), soltas = [];
+  const pasta = join(AQUI, '..', '..', 'web', 'site', 'css'), soltas = [];
   for (const f of readdirSync(pasta).filter(x => x.endsWith('.css'))) {
     readFileSync(join(pasta, f), 'utf8').split('\n').forEach((l, i) => {
       const semDef = l.replace(/--[a-z0-9-]+\s*:[^;]+;?/gi, '').replace(/mask[^;]*/g, '').replace(/url\([^)]*\)/g, '');

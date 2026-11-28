@@ -1,7 +1,7 @@
 server:
   port: ${PORT:8080}
-  # atras do proxy do Railway: o endereco que vai nos links (redefinir senha, previa do convite)
-  # precisa ser o https publico, nao o http interno
+  # atras do Caddy (servico web) e do proxy do Railway: o endereco que vai nos links (redefinir
+  # senha) precisa ser o https publico, nao o http interno. O Caddy repassa X-Forwarded-*.
   forward-headers-strategy: framework
   compression:
     enabled: true
@@ -20,15 +20,7 @@ server:
 
 spring:
   web:
-    # Sem isto o Spring Security marcava todo estatico como no-store, e cada abertura do app
-    # baixava de novo os ~50 JS e CSS, os templates, as fontes e o pdf.js (~480 KB). no-cache guarda
-    # e so pergunta se mudou (304 pelo Last-Modified): os arquivos nao levam hash no nome, entao
-    # guardar sem perguntar (max-age) deixaria alguem com o JS velho depois de um deploy.
-    resources:
-      cache:
-        use-last-modified: true
-        cachecontrol:
-          no-cache: true
+    # o front e o cache dele (no-cache + Last-Modified) agora sao do servico web (web/Caddyfile)
     error:
       whitelabel:
         enabled: false
@@ -58,7 +50,8 @@ spring:
 grimorio:
   midia-dir: ${MIDIA_DIR:./dados/midia}
   suporte-email: ${SUPORTE_EMAIL:artur_b_santos@hotmail.com}
-  # endereco dos links que vao por e-mail; vazio usa o RAILWAY_PUBLIC_DOMAIN (ver AppProps)
+  # endereco dos links que vao por e-mail. No Railway e o dominio do servico web (a api nao tem
+  # dominio publico, entao o RAILWAY_PUBLIC_DOMAIN dela fica vazio): .railway/railway.ts define
   url-publica: ${URL_PUBLICA:}
 
 logging:

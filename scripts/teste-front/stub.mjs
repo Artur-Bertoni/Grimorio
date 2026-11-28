@@ -19,7 +19,7 @@ import { dirname, join, normalize, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const RAIZ = normalize(join(AQUI, '..', '..', 'src', 'main', 'resources', 'static'));
+const RAIZ = normalize(join(AQUI, '..', '..', 'web', 'site'));
 const iPorta = process.argv.indexOf('--porta');
 const PORTA = iPorta > 0 ? Number(process.argv[iPorta + 1]) : 8099;
 
@@ -677,6 +677,6 @@ http.createServer(async (req, res) => {
     envia(res, 405, 'metodo', 'text/plain');
   } catch (e) { envia(res, 500, { erro: String(e && e.message || e) }); }
 }).listen(PORTA, '127.0.0.1', () => {
-  if (!existsSync(RAIZ)) { console.error('nao achei o static em ' + RAIZ); process.exit(1); }
+  if (!existsSync(RAIZ)) { console.error('nao achei o site em ' + RAIZ); process.exit(1); }
   console.log(`stub em http://127.0.0.1:${PORTA}  (static de ${RAIZ})`);
 });

@@ -132,12 +132,17 @@ const mestre = new Pessoa("mestre"), jogador = new Pessoa("jogador"), anonimo = 
 console.log("\n=== publico e CSRF ===");
 {
   let r = await anonimo.get("/");
-  ok(r.s === 401, "a casca (/) so abre logado", r.s);
+  ok(r.s === 302 && /\/paginas\/login\.html$/.test(r.h.get("location") || ""), "a casca (/) sem login vai para o login", r.s);
   r = await anonimo.get("/login.html?convite=abc");
   ok(r.s >= 300 && r.s < 400 && /paginas\/login\.html/.test(r.h.get("location") || "") && /convite=abc/.test(r.h.get("location") || ""),
      "/login.html redireciona para paginas/login.html preservando ?convite=", r.h.get("location"));
   r = await anonimo.get("/paginas/login.html");
   ok(r.s === 200, "login.html e publico");
+  ok(/og:image" content="https?:\/\/[^"\/]+\/icones\/previa\.png"/.test(r.bruto.toString()),
+     "a previa do convite leva endereco absoluto (URL_PUBLICA no servico web)", (r.bruto.toString().match(/og:image" content="[^"]*"/) || [])[0]);
+  ok(/script-src 'self'/.test(r.h.get("content-security-policy") || ""), "pagina publica sai com a CSP", r.h.get("content-security-policy"));
+  r = await anonimo.get("/saude");
+  ok(r.s === 200, "healthcheck do web responde sem depender de login", r.s);
   r = await anonimo.get("/api/sessao");
   ok(r.s === 401 || r.s === 403 || (r.s >= 300 && r.s < 400), "API sem login nao responde 200", r.s);
   r = await anonimo.post("/api/registrar", { login: "x", senha: "y" }, { semCsrf: true });

@@ -1,8 +1,9 @@
 # Grimório
 
 Painel de mesa de RPG, agnóstico de sistema. O app serve várias campanhas e
-vários mestres. Spring Boot 4.2 / Java 25 no backend, HTML + JS puro no front,
-PostgreSQL em produção e H2 em arquivo no local, deploy no Railway por Dockerfile.
+vários mestres. Spring Boot 4.2 / Java 25 no backend (`api/`), HTML + JS puro no front
+(`web/site/`, servido por Caddy), PostgreSQL em produção e H2 em arquivo no local, deploy no
+Railway em três serviços declarados em `.railway/railway.ts` (ver "Deploy").
 
 A 4ª rodada (front e backend auditados, e depois tudo o que era código aplicado) está em
 `docs/auditoria-rodada-4.md`.
@@ -22,11 +23,15 @@ camadas" abaixo; o porquê está lá.
 ## Rodar
 
 ```bash
-mvn -DskipTests package     # gera target/grimorio.jar
-mvn spring-boot:run         # sobe em http://localhost:8080
+cd api
+mvn -DskipTests package     # gera api/target/grimorio.jar
+mvn spring-boot:run         # a api em http://localhost:8080 (só /api e /midia)
+cd .. && docker compose up web   # o site em http://localhost:8000, com web/site montado (F5 basta)
 ```
 
-Sem `DATABASE_URL` ele cai para H2 em arquivo dentro de `./dados`. Nenhuma conta é
+A api sozinha não serve tela nenhuma: quem serve o front, a página de login, `/privacidade`,
+`/termos` e a 404 é o Caddy (`web/Caddyfile`), que repassa `/api` e `/midia` para ela. Sem
+`DATABASE_URL` ela cai para H2 em arquivo dentro de `api/dados`. Nenhuma conta é
 criada no boot: abra o site e clique em **Criar uma conta**, e a primeira vira a
 administradora do sistema.
 
@@ -35,7 +40,12 @@ Não existe suíte JUnit. O que existe (teste de API contra o jar de verdade e t
 ## Mapa do código
 
 ```
-src/main/java/br/com/grimorio/
+.railway/railway.ts   os serviços do Railway (web, Grimório = a api, Postgres), o volume e as variáveis
+api/                  serviço "Grimório": pom.xml, Dockerfile, src/
+web/                  serviço "web": Caddyfile (proxy, cabeçalhos, redirects, 404), Dockerfile, site/
+docker-compose.yaml   o web (e um Postgres opcional) para rodar a composição na máquina
+
+api/src/main/java/br/com/grimorio/
   GrimorioApplication.java
   config/     SecurityConfig, BancoConfig, MidiaAutorizacao, AjusteEsquema,
               Inicializacao, WebConfig, AppProps
@@ -56,29 +66,34 @@ src/main/java/br/com/grimorio/
               MidiaService cataloga; gravar no volume (hash, hard link, espaço) é de
               ArmazenamentoMidia, e ler o PDF para a busca é de IndexadorPdf.
   web/        um controller por área, todos sob /api
-src/main/resources/
-  static/index.html   a casca: marcação fixa, e a lista ordenada de css/ e js/
-  static/paginas/     templates HTML das páginas (mapa, campanha, sessoes, sessao, elenco,
-                      biblioteca, mesa, configuracoes) e login.html, a única página
-                      inteira dali: é pública, aberta em SecurityConfig, e /login.html
-                      redireciona para ela (WebConfig)
-  static/componentes/ templates HTML dos componentes (janelas, formulário, busca, dados,
-                      fichas, momentos, logo, estados de carregando/vazio…)
-  static/css/         folhas de estilo, na ordem da cascata: tokens.css (escalas) primeiro,
-                      controles.css (botão, aba, campo, chip, aviso) antes de pele.css, e de
-                      pele.css em diante o tema
-  static/js/          o JS que preenche e liga cada página ou componente (nucleo,
-                      componentes, camadas, nolugar (edição no lugar), tema, tour (guias), musica, cena, pagina-*, configuracoes,
-                      rotas, render…)
-  static/paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
-  static/publico/     o JS das páginas públicas (tema, login, legal): a CSP não aceita script inline
-  static/icones/, favicon.ico, manifest.webmanifest, robots.txt   gerados por scripts/teste-front/icones.mjs
-  static/vendor/      pdf.js (módulos .mjs), petite-vue e as fontes, para não depender de CDN
-  application.yml
+api/src/main/resources/application.yml
+
+web/site/
+  index.html   a casca: marcação fixa, e a lista ordenada de css/ e js/. Sem o cookie
+               GRIMORIO_LEMBRAR o Caddy manda direto ao login
+  paginas/     templates HTML das páginas (mapa, campanha, sessoes, sessao, elenco,
+               biblioteca, mesa, configuracoes) e login.html, a única página
+               inteira dali: é pública, /login.html redireciona para ela e o Caddy
+               preenche a og:image por template (`{{env "URL_PUBLICA"}}`)
+  componentes/ templates HTML dos componentes (janelas, formulário, busca, dados,
+               fichas, momentos, logo, estados de carregando/vazio…)
+  css/         folhas de estilo, na ordem da cascata: tokens.css (escalas) primeiro,
+               controles.css (botão, aba, campo, chip, aviso) antes de pele.css, e de
+               pele.css em diante o tema
+  js/          o JS que preenche e liga cada página ou componente (nucleo,
+               componentes, camadas, nolugar (edição no lugar), tema, tour (guias), musica, cena, pagina-*, configuracoes,
+               rotas, render…)
+  paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
+  publico/     o JS das páginas públicas (tema, login, legal): a CSP não aceita script inline
+  icones/, favicon.ico, manifest.webmanifest, robots.txt   gerados por scripts/teste-front/icones.mjs
+  vendor/      pdf.js (módulos .mjs), petite-vue e as fontes, para não depender de CDN
 ```
 
+Os nomes curtos abaixo (`js/nucleo.js`, `css/tokens.css`, `paginas/…`) são relativos a `web/site/`.
+
 O front é JS de navegador sem build: `var`, `function`, sem módulos. Não introduza
-bundler, framework nem TypeScript sem combinar: o jar sobe sem passo de build de front.
+bundler, framework nem TypeScript sem combinar: a imagem do web é o Caddy com os arquivos
+copiados, sem passo de build de front.
 Três regras seguram a divisão em arquivos:
 
 - **A ordem das tags em `index.html` é a ordem de execução.** Todo arquivo é script
@@ -318,7 +333,12 @@ tela:
   envio por pessoa (thread virtual), para uma conexão travada não segurar as outras. Mudança nova que
   o jogador precisa ver na hora publica ali, depois do commit.
 - **CSP com `script-src self unsafe-eval`**: nenhum `<script>` inline nem `onclick=` em HTML
-  (ligue o evento no JS). O `unsafe-eval` existe só pelo `new Function` do petite-vue.
+  (ligue o evento no JS). O `unsafe-eval` existe só pelo `new Function` do petite-vue. Ela sai em
+  dois lugares que precisam andar juntos: o `web/Caddyfile` (páginas e estáticos) e o
+  `SecurityConfig` (respostas da api).
+- **A api não tem domínio público.** No Railway ela só responde pela rede privada
+  (`grimorio.railway.internal:8080`), atrás do Caddy. O front é público (é só marcação e JS): todo
+  dado sai da api, que confere sessão e papel em cada pedido.
 - Ficha (`/api/c/{cid}/fichas`): o jogador só enxerga as suas; ficha de outra pessoa
   responde 404, não 403. O mestre vê e edita todas.
   O pacote leva as fichas; na importação elas entram em nome de quem importou, com o dono
@@ -389,8 +409,9 @@ da tabela morre com "Check constraint invalid" / "database has been closed" até
 **3. `index.html` precisa de `<!doctype html>` e `<meta charset="utf-8">`.** Sem isso
 o navegador adivinha Windows-1252, corrompe a regex de normalização de acento
 (`[̀-ͯ]` em `norm()`) e o SyntaxError mata o script inteiro: tela branca
-depois do login. Os `.js` e `.css` dependem do filtro `charsetDeTexto` em `WebConfig`,
-que manda `charset=utf-8`: arquivo de front com outra extensão precisa entrar nele.
+depois do login. Os `.js`, `.mjs`, `.css` e o `.webmanifest` dependem do `Content-Type` com
+`charset=utf-8` que o `web/Caddyfile` grava (matchers `@js`, `@css`, `@manifesto`): arquivo de
+front de texto com outra extensão precisa entrar lá.
 
 **4. Caminho de imagem sempre passa por `IMG()`.** O guia guarda caminho relativo
 (`img/foo.webp`), nunca URL. `IMG()` prefixa com `MIDIABASE` (`/midia/c{cid}/`).
@@ -640,39 +661,62 @@ CSRF, guia com versão, separação mestre/jogador (guia, mídia, PDF, índice, 
 upload, PDF no PDFBox, pacote (exportar e importar) e suporte. Precisa de um servidor **sem contas** e
 de um `java` do JDK 25 (o do PATH pode ser mais velho que o do Maven):
 
+O roteiro passa pelo Caddy, como em produção: as páginas, a CSP, o charset, os redirects e a 404
+são dele. Contra o jar sozinho essas conferências falham.
+
 ```bash
-mvn -DskipTests package
-cd pasta-vazia && PORT=8123 "$JAVA_HOME/bin/java" -jar /caminho/target/grimorio.jar &
-BASE=http://127.0.0.1:8123 node scripts/teste-api/teste.mjs
-# contra Postgres: DATABASE_URL=postgresql://postgres:pg@localhost:55432/grim (docker run postgres)
+mvn -f api/pom.xml -DskipTests package
+cd pasta-vazia && PORT=8123 "$JAVA_HOME/bin/java" -jar /caminho/api/target/grimorio.jar &
+docker build -t grimorio-web web
+docker run -d --name grim-web -p 8124:8080 -e API_URL=host.docker.internal:8123 \
+  -e URL_PUBLICA=http://localhost:8124 grimorio-web
+BASE=http://127.0.0.1:8124 node scripts/teste-api/teste.mjs
+# contra Postgres: DATABASE_URL=postgresql://postgres:pg@localhost:55432/grim (docker compose --profile postgres up -d postgres)
 ```
+
+No Git Bash do Windows, `export MSYS_NO_PATHCONV=1` antes de `docker run` com caminho de Linux.
 
 Mexeu em controller, segurança, entidade ou dependência: rode isto além do teste de tela. Foi ele que pegou
 o `AuthorizationManager` quebrado na migração para o Spring Security 7 (`check` virou `authorize`; sem
 isso `/api/admin` e `/midia` davam 500 e o app compilava e subia normal).
 
-**CI** (`.github/workflows/testes.yml`): a cada push na `main` o teste de API roda contra H2 e contra
-Postgres (container de serviço), falha se o boot deixar erro de DDL no log, e o teste de tela roda no
-Chrome do runner.
+**CI** (`.github/workflows/testes.yml`): a cada push na `main` o teste de API roda pela imagem do web
+contra H2 e contra Postgres (container de serviço), falha se o boot deixar erro de DDL no log, e o
+teste de tela roda no Chrome do runner.
 
 SQL de schema vale testar contra um Postgres de verdade, não por leitura. As duas
 armadilhas do `ddl-auto` acima foram confirmadas assim.
 
 ## Deploy
 
-Estático (JS, CSS, templates, fontes, pdf.js) sai com `Cache-Control: no-cache` e `Last-Modified`
-(`spring.web.resources.cache` no `application.yml`): o navegador guarda e pergunta se mudou (304).
-Sem isso o Spring Security marcava tudo `no-store` e cada abertura baixava o app inteiro de novo.
-Não troque por `max-age` enquanto os arquivos não levarem hash no nome: quem abriu antes de um
-deploy ficaria com o JS velho. A mídia sai `private` com `Last-Modified`: imagem (`MiniaturaController`) com `max-age` de 5 minutos e PDF/áudio com 1 dia, porque um arquivo pode ser trocado no mesmo caminho e, com prazo longo, o navegador mostrava o velho.
+Três serviços no Railway, declarados em `.railway/railway.ts` e aplicados pela CLI
+(`railway config plan`, depois `apply`; o README tem o passo a passo e o contorno do Windows):
 
-Railway, Dockerfile na raiz (ele vence o builder padrão sozinho). Duas variáveis:
-`DATABASE_URL` apontando para o serviço `Postgres` e `PORT=8080`. Volume em `/data`.
-`git push` na `main` reconstrói e troca sozinho; volume e banco não são tocados.
+- **`web`** (`web/`): Caddy com `web/site`. Dono do domínio `grimorio-rpg.up.railway.app` (o domínio
+  fica no painel: a IaC não registra `*.up.railway.app`). Repassa `/api/*` e `/midia/*` para
+  `API_URL` com `flush_interval -1` (SSE e download do pacote em fluxo) e espera até 30 s se a api
+  estiver acordando ou trocando de deploy. Healthcheck `/saude`, que não depende da api.
+- **`Grimório`** (`api/`): a api. O nome é o do serviço que já existia, de propósito: renomear pela
+  IaC apaga e recria o serviço, e o volume junto. Volume `campanha-volume` em `/data`, sem domínio
+  público, `URL_PUBLICA` apontando para o domínio do web. Healthcheck `/api/ping`.
+- **`Postgres`**: template do Railway.
 
-O `-Xmx512m` no Dockerfile é de propósito: sem ele a JVM enxerga o teto do plano,
+Cada serviço tem `watchPatterns` na própria pasta: `git push` na `main` só reconstrói quem mudou.
+Mexer na tela não reinicia a JVM. Volume e banco não são tocados por deploy. Antes do `apply`,
+leia o `plan`: mudança no volume, no `volumeMounts` ou no nome de serviço aparece como destrutiva.
+
+Estático (JS, CSS, templates, fontes, pdf.js) sai do Caddy com `Cache-Control: no-cache`, `ETag` e
+`Last-Modified`: o navegador guarda e pergunta se mudou (304). Não troque por `max-age` enquanto os
+arquivos não levarem hash no nome: quem abriu antes de um deploy ficaria com o JS velho. A mídia sai
+da api `private` com `Last-Modified`: imagem (`MiniaturaController`) com `max-age` de 5 minutos e PDF/áudio com 1 dia, porque um arquivo pode ser trocado no mesmo caminho e, com prazo longo, o navegador mostrava o velho.
+
+O Caddy confia no `X-Forwarded-*` de quem chega (`trusted_proxies`, só o proxy do Railway alcança o
+web) e repassa para o Spring (`forward-headers-strategy: framework`): é assim que o IP de quem pediu
+chega ao freio de login e o `https` original aos links.
+
+O `-Xmx512m` no `api/Dockerfile` é de propósito: sem ele a JVM enxerga o teto do plano,
 assume dezenas de gigas de heap e nunca devolve memória.
 
 Upload pelo app morre em arquivo que leve mais de 5 minutos subindo, limite do proxy
-do Railway. Para livro grande: `railway volume files upload "livro.pdf"
+do Railway. Para livro grande: `railway volume -s "Grimório" files upload "livro.pdf"
 /midia/c1/pdf/LB.pdf` e depois **Reescanear o volume** em Biblioteca › Livros › Avançado.

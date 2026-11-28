@@ -17,7 +17,7 @@ API do navegador. Virar app de verdade significou trocar cada uma por um endpoin
 | `claude.use("sample")` | `POST /api/c/{cid}/ia`, chave no servidor |
 | File System Access API | upload pelo painel + volume do Railway |
 | pdf.js via `{data: arrayBuffer}` | `{url}` com HTTP Range, não baixa o livro inteiro |
-| CDN para pdf.js e fontes | `static/vendor/` |
+| CDN para pdf.js e fontes | `web/site/vendor/` |
 
 A sondagem de 6 segundos é o motivo de a evidência liberada pelo mestre demorar até uns 10
 segundos para aparecer na tela do jogador. É o esperado, não defeito. WebSocket foi
@@ -68,9 +68,27 @@ migração escrita sem ambiente para testar é mais arriscada que `ddl-auto` com
 conhecidas (DEFAULT em coluna NOT NULL nova, e `AjusteEsquema` para os CHECK de enum). Se o
 projeto ganhar um staging com dados de verdade, vale reavaliar.
 
-**Railway, Dockerfile.** Um Dockerfile na raiz vence o builder padrão sozinho. O `railway.json`
-que também declara `DOCKERFILE` é cinto e suspensório, e o formato está marcado como
-depreciado: quando parar de valer, a detecção automática continua.
+**Railway em três serviços, declarados em código (28/11/2026).** Até aqui era um serviço só: o jar
+servia a tela e a api, com um `railway.json` na raiz. Dois motivos para mudar. O `railway.json` deixa de
+valer em 01/12/2026 (a CLI passou a pedir a Infrastructure as Code em `.railway/railway.ts`). E todo
+ajuste de tela reiniciava a JVM, derrubando o SSE e as sessões em memória de quem estava jogando.
+A divisão seguiu a do outro projeto do dono (Unidos pelo Vôlei): uma pasta por serviço, Dockerfile
+próprio, `watchPatterns` na pasta e `railway config plan`/`apply` pela CLI.
+
+- **`web` (Caddy) na frente, api privada.** O Caddy serve `web/site` e repassa `/api` e `/midia` pela
+  rede privada. Mesma origem para o navegador, então cookie, CSRF double-submit e CSP não mudaram e o
+  front não ganhou CORS nem URL de api. O que o Spring fazia pelo front (login com `{{BASE}}`, redirect de
+  `/login.html`, `/privacidade`, 404 em HTML, charset, cabeçalhos de segurança, `no-cache`) foi para o
+  `Caddyfile`. A casca deixou de exigir login no servidor: é só marcação. O Caddy manda ao login quem
+  não tem o cookie de lembrar, e o 401 da api cobre o resto.
+- **Três, não mais.** Mapa, SSE, rolagens e mídia autorizada pela sessão moram juntos, e um volume só se
+  prende a um serviço. Separar PDF, IA ou e-mail em serviços próprios criaria rede e autenticação entre
+  eles sem ganho para uma mesa de RPG. Candidato se um dia pesar: indexar PDF fora da api, lendo o
+  volume por um bucket.
+- **O serviço da api manteve o nome `Grimório`.** Renomear pela IaC é apagar e recriar o serviço, e o
+  volume de mídia junto. O domínio `grimorio-rpg.up.railway.app` passou para o `web`, então convites já
+  compartilhados continuam valendo.
+- **O front continua sem build.** A imagem do web é o Caddy com os arquivos copiados.
 
 **`-Xmx512m` fixo.** Sem isso a JVM enxerga o teto do plano, assume heap proporcional e nunca
 devolve memória. No Railway isso é conta de verdade no fim do mês.
@@ -79,7 +97,7 @@ devolve memória. No Railway isso é conta de verdade no fim do mês.
 volume também permite `railway volume files upload` contornar o limite de 5 minutos de corpo de
 requisição do proxy, com o botão **Reescanear o volume** registrando o que apareceu lá.
 
-**pdf.js e fontes em `static/vendor/`.** O app sobe inteiro sem rede externa, e uma CDN fora do
+**pdf.js e fontes em `web/site/vendor/`.** O app sobe inteiro sem rede externa, e uma CDN fora do
 ar não derruba a mesa no meio da sessão.
 
 ## Incidentes

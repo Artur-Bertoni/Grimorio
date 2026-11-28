@@ -1,7 +1,9 @@
 # Os dois roteiros que ja existiam, rodando a cada push e pull request na main.
-# - api: sobe o jar de verdade numa pasta vazia (servidor sem contas) e bate nas rotas, duas vezes:
+# - api: sobe o jar de verdade numa pasta vazia (servidor sem contas), poe na frente dele a imagem
+#   do servico web (o Caddy de producao, web/Dockerfile) e bate nas rotas pelo Caddy, duas vezes:
 #   com o H2 local e com um Postgres de verdade (o banco de producao). As armadilhas do ddl-auto
-#   (coluna NOT NULL sem DEFAULT, CHECK de enum) so aparecem no Postgres.
+#   (coluna NOT NULL sem DEFAULT, CHECK de enum) so aparecem no Postgres. Passar pelo Caddy testa
+#   tambem o que e dele: CSP, charset, redirects do login, 404, SSE em fluxo e o proxy de /api e /midia.
 # - tela: o stub em Node e o roteiro de Playwright no Chrome que ja vem no runner.
 # Nenhum dos dois precisa de segredo nem de servico externo.
 name: testes
@@ -46,28 +48,40 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Empacotar
-        run: mvn -B -DskipTests package
+      - name: Empacotar a api
+        run: mvn -B -f api/pom.xml -DskipTests package
       - name: Subir o jar numa pasta vazia
         run: |
           mkdir -p "$RUNNER_TEMP/servidor"
           cd "$RUNNER_TEMP/servidor"
           if [ "${{ matrix.banco }}" = "postgres" ]; then export DATABASE_URL=postgresql://postgres:pg@localhost:5432/grim; fi
-          PORT=8123 nohup java -jar "$GITHUB_WORKSPACE/target/grimorio.jar" > "$RUNNER_TEMP/grimorio.log" 2>&1 &
+          PORT=8123 nohup java -jar "$GITHUB_WORKSPACE/api/target/grimorio.jar" > "$RUNNER_TEMP/grimorio.log" 2>&1 &
           for i in $(seq 1 90); do
             curl -sf http://127.0.0.1:8123/api/ping > /dev/null && exit 0
             sleep 1
           done
           echo "o jar nao subiu em 90 s"; cat "$RUNNER_TEMP/grimorio.log"; exit 1
-      - name: Teste de API
-        run: BASE=http://127.0.0.1:8123 node scripts/teste-api/teste.mjs
+      - name: Subir o web (Caddy) na frente do jar
+        run: |
+          docker build -t grimorio-web web
+          docker run -d --name web --network host -e PORT=8124 -e API_URL=127.0.0.1:8123 \
+            -e URL_PUBLICA=http://127.0.0.1:8124 grimorio-web
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8124/saude > /dev/null && exit 0
+            sleep 1
+          done
+          echo "o web nao subiu"; docker logs web; exit 1
+      - name: Teste de API (pelo Caddy)
+        run: BASE=http://127.0.0.1:8124 node scripts/teste-api/teste.mjs
       # coluna nova sem DEFAULT ou CHECK desatualizado nao derrubam o boot: so deixam erro de DDL no log
       - name: Nenhum erro de esquema no boot
         run: |
           if grep -E "Error executing DDL|GenerationTarget encountered exception" "$RUNNER_TEMP/grimorio.log"; then exit 1; fi
       - name: Log do servidor
         if: failure()
-        run: cat "$RUNNER_TEMP/grimorio.log"
+        run: |
+          cat "$RUNNER_TEMP/grimorio.log"
+          docker logs web || true
 
   tela:
     runs-on: ubuntu-latest

@@ -1,0 +1,45 @@
+# A composicao de producao na maquina: o Caddy do servico web na frente da api.
+#
+#   cd api && mvn spring-boot:run      # a api, em http://localhost:8080 (H2 em ./dados)
+#   docker compose up web              # o site, em http://localhost:8000
+#
+# web/site e o Caddyfile entram montados: editar HTML, JS ou CSS vale no F5, sem rebuild.
+# Mudou o Caddyfile: docker compose restart web.
+#
+# Para usar Postgres em vez do H2:
+#   docker compose --profile postgres up -d postgres
+#   DATABASE_URL=postgresql://postgres:pg@localhost:55432/grim mvn spring-boot:run   (dentro de api/)
+name: grimorio
+
+services:
+  web:
+    build: ./web
+    ports:
+      - "8000:8080"
+    environment:
+      PORT: "8080"
+      API_URL: host.docker.internal:8080
+      URL_PUBLICA: http://localhost:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./web/site:/srv:ro
+      - ./web/Caddyfile:/etc/caddy/Caddyfile:ro
+
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: pg
+      POSTGRES_DB: grim
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 30
+
+volumes:
+  postgres_data:
