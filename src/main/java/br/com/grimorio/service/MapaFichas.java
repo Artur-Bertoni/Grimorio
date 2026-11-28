@@ -13,6 +13,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.*;
@@ -36,6 +38,13 @@ public class MapaFichas {
 
     private static final String K_IMG = "img";
     private static final String K_TOKEN = "token";
+    private static final String K_TOKENS = "tokens";
+    static final String K_VARS = "vars";
+    static final String K_VARIANTE = "variante";
+    private static final int MAX_VARIANTES = 8;
+    /* a coluna de dados do token tem 4000; a folga e para o que o mapa ainda grava nele (posicao, marcas, vida) */
+    private static final int MAX_DADOS = 3200;
+    private static final Pattern ID_VARIANTE = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final String K_VIDA_CAMPO = "vidaCampo";
     private static final String CAMADA_PERSONAGENS = "personagens";
     /* a barra que vira a vida do token: de preferencia a que se chama vida (mesma regra da tela, mpVidaDaFicha) */
@@ -142,7 +151,9 @@ public class MapaFichas {
             x.setCamada(CAMADA_PERSONAGENS);
             x.setDono(f.getUsuarioId());
             x.setOrdem((int) elementos.countByMapaId(mid));
-            x.setDados(om.writeValueAsString(MapaRegras.dadosToken(om.createObjectNode(), in, m)));
+            ObjectNode novo = MapaRegras.dadosToken(om.createObjectNode(), in, m);
+            vesteToken(novo, conteudo);
+            x.setDados(om.writeValueAsString(novo));
             elementos.save(x);
             m.setSeq(m.getSeq() + 1);
             mapas.save(m);
@@ -179,6 +190,7 @@ public class MapaFichas {
             d.put(K_FICHA, fichaId);
             d.put(K_VINCULO, true);
             aplicaFicha(d, daFicha(f, conteudo));
+            vesteToken(d, conteudo);
             x.setDados(om.writeValueAsString(d));
             x.setDono(f.getUsuarioId());
             elementos.save(x);
@@ -206,7 +218,7 @@ public class MapaFichas {
             if (base.trancado(x, m)) throw new IllegalStateException(MSG_TRANCADO);
             String antes = base.elCruTexto(x);
             ObjectNode d = base.ler(x.getDados());
-            for (String k : List.of(K_FICHA, K_VINCULO, K_VIDA_CAMPO, MapaRegras.K_VISAO_FICHA)) d.remove(k);
+            for (String k : List.of(K_FICHA, K_VINCULO, K_VIDA_CAMPO, MapaRegras.K_VISAO_FICHA, K_VARS, K_VARIANTE)) d.remove(k);
             x.setDados(om.writeValueAsString(d));
             elementos.save(x);
             m.setSeq(m.getSeq() + 1);
@@ -286,10 +298,8 @@ public class MapaFichas {
         return in;
     }
 
-    /** Na peca que ja existia, a ficha so traz o que ela tem: sem imagem, a peca fica com a dela; sem barra, com a vida dela. */
+    /** Na peca que ja existia, a ficha so traz o que ela tem: sem barra, a peca fica com a vida dela (a imagem e de vesteToken). */
     private static void aplicaFicha(ObjectNode d, Map<String, Object> in) {
-        String img = String.valueOf(in.get(K_IMG));
-        if (!img.isEmpty()) d.put(K_IMG, img);
         if (in.containsKey(K_VIDA_CAMPO) && ((Number) in.get(K_VIDA_MAX)).doubleValue() > 0) {
             double max = (double) Math.round(Math.clamp(((Number) in.get(K_VIDA_MAX)).doubleValue(), 1, 99999));
             d.put(K_VIDA_MAX, max);
@@ -316,12 +326,55 @@ public class MapaFichas {
     }
 
     /**
-     * A imagem que o token da ficha usa: a propria do token ({@code token} no JSON da ficha) e, sem ela, o icone.
-     * Vazio quando a ficha nao tem nenhuma das duas. MapaVida usa a mesma regra para manter os tokens ligados iguais.
+     * As variacoes de token da ficha ({@code tokens} no JSON dela: id, nome e imagem), na ordem dela; a primeira e a
+     * padrao. Ficha de antes delas, com uma imagem so de token ({@code token}), vira uma variacao. Variacao sem imagem
+     * valida da campanha nao entra.
      */
+    static List<ObjectNode> variantes(ObjectNode conteudo) {
+        List<ObjectNode> out = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        for (JsonNode v : conteudo.path(K_TOKENS)) {
+            String id = v.path("id").asString("").trim();
+            String img = imagem(v.path(K_IMG).asString(""));
+            if (!ID_VARIANTE.matcher(id).matches() || img.isEmpty() || !ids.add(id) || out.size() >= MAX_VARIANTES) continue;
+            out.add(JsonNodeFactory.instance.objectNode().put("id", id)
+                    .put("nome", MapaRegras.corta(v.path("nome").asString("").trim(), 30)).put(K_IMG, img));
+        }
+        String antiga = imagem(conteudo.path(K_TOKEN).asString(""));
+        if (out.isEmpty() && !antiga.isEmpty()) out.add(JsonNodeFactory.instance.objectNode().put("id", "t").put("nome", "").put(K_IMG, antiga));
+        return out;
+    }
+
+    /** A imagem com que o token da ficha nasce: a da primeira variacao e, sem nenhuma, o icone. Vazio sem as duas. */
     static String imagemDoToken(ObjectNode conteudo) {
-        String t = imagem(conteudo.path(K_TOKEN).asString(""));
-        return t.isEmpty() ? imagem(conteudo.path(K_IMG).asString("")) : t;
+        List<ObjectNode> vs = variantes(conteudo);
+        return vs.isEmpty() ? imagem(conteudo.path(K_IMG).asString("")) : vs.getFirst().path(K_IMG).asString("");
+    }
+
+    /**
+     * Veste o token com as variacoes da ficha. Ele guarda a copia delas ({@code vars}): e dali que a troca no mapa tira a
+     * imagem, sem aceitar caminho vindo do navegador. A variacao escolhida fica se ainda existe (senao, a primeira) e a
+     * imagem e a dela. Sem variacao, a imagem e o icone; ficha sem imagem nenhuma deixa a do token como estava. A copia
+     * cabe na coluna de dados do token: passando do limite, as ultimas variacoes ficam de fora. Devolve se algo mudou.
+     */
+    static boolean vesteToken(ObjectNode d, ObjectNode conteudo) {
+        String antes = d.toString();
+        List<ObjectNode> vs = variantes(conteudo);
+        if (vs.isEmpty()) {
+            d.remove(K_VARS);
+            d.remove(K_VARIANTE);
+            String icone = imagem(conteudo.path(K_IMG).asString(""));
+            if (!icone.isEmpty()) d.put(K_IMG, icone);
+            return !antes.equals(d.toString());
+        }
+        String atual = d.path(K_VARIANTE).asString("");
+        ObjectNode escolhida = vs.stream().filter(v -> v.path("id").asString("").equals(atual)).findFirst().orElse(vs.getFirst());
+        ArrayNode a = d.putArray(K_VARS);
+        vs.forEach(a::add);
+        d.put(K_VARIANTE, escolhida.path("id").asString(""));
+        d.put(K_IMG, escolhida.path(K_IMG).asString(""));
+        while (d.toString().length() > MAX_DADOS && a.size() > 1) a.remove(a.size() - 1);
+        return !antes.equals(d.toString());
     }
 
     /** a imagem e texto livre do JSON da ficha: so entra no token se for um caminho de imagem da campanha */

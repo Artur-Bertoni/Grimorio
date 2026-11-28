@@ -40,6 +40,11 @@ function buscaMesa(q){ var r=[],k=norm(q); if(!k)return r;
     r.push({src:"Pessoa",ti:x.nome,sub:"",sn:x.desc||"",go:function(){S.view="mesa";S.msec="quem";render();}}); });
   (MESA.locais||[]).forEach(function(x){ if(norm(x.nome+" "+(x.desc||"")).indexOf(k)>=0)
     r.push({src:"Lugar",ti:x.nome,sub:"",sn:x.desc||"",go:function(){S.view="mesa";S.msec="quem";render();}}); });
+  /* as fichas que a pessoa enxerga (o mestre, todas; o jogador, as dele: o corte e do servidor), pelo nome e pelos campos */
+  fichasDaCampanha().forEach(function(f){
+    var t=fichaDados(f).campos.map(function(x){ return x.rot+" "+x.val; }).join(" · ");
+    if(norm(f.nome+" "+t).indexOf(k)>=0)
+      r.push({src:Vm("ficha"),ti:f.nome,sub:GM&&!f.minha?f.dono:"",sn:norm(f.nome).indexOf(k)>=0?"":trecho(t,q),go:function(){abrirFicha(f);}}); });
   return r; }
 function buscaCampanha(q){ if(!GM)return buscaMesa(q); var r=buscaMesa(q),k=norm(q); if(!k)return r;
   if(!D.campanha)return r;
@@ -327,5 +332,7 @@ function abrirBusca(){
 
   var t=null; inp.oninput=function(){clearTimeout(t);t=setTimeout(run,200);};
   carregaIndice().then(filtros);
+  /* a lista de fichas so desce quando alguem abre a secao delas: a busca pede a da campanha se ainda nao tem */
+  if(FICHAS_CID!==CID){ carregaFichas().then(function(){ if(document.body.contains(ov)){ run(); } }).catch(function(){ /* sem fichas, a busca segue com o resto */ }); }
   run(); setTimeout(function(){inp.focus();inp.select();},30);
 }

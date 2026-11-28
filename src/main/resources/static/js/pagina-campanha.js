@@ -77,24 +77,34 @@ function hydrateCampanhas(v){
     var origem=ORIGEM;
     if(origem==="pacote"&&!PACOTE){ toast("Escolha o pacote .zip, ou outra forma de começar.","aviso"); $("#ncPac",v).focus(); return; }
     go.disabled=true; go.setAttribute("aria-busy","true"); go.textContent="Criando…";
+    /* em branco e rapido; de modelo ou de pacote o servidor tem arquivo para desempacotar e livro para ler */
+    var h=origem==="branco"?null:tarefaLonga("Criando a campanha","Criando “"+nome.trim()+"”…");
+    var resumo="", falha="";
+    function encheDoModelo(r){
+      if(h)h.passo("Montando a partir do modelo…",null);
+      return api("/api/c/"+r.id+"/modelo/"+encodeURIComponent(origem.slice(2)),{method:"POST"})
+        .then(function(imp){ resumo=resumoPacote(imp); return r; })
+        .catch(function(e){ falha="A campanha foi criada, mas o modelo não entrou: "+mensagemDeErro(e); return r; });
+    }
+    function encheDoPacote(r){
+      var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
+      return upload("/api/c/"+r.id+"/pacote",fd,h.envio("Enviando "+PACOTE.name,"Pacote enviado. O servidor está desempacotando e lendo os livros…"))
+        .then(function(imp){ resumo=resumoPacote(imp); return r; })
+        .catch(function(e){ falha="A campanha foi criada, mas o pacote falhou: "+mensagemDeErro(e); return r; });
+    }
     api("/api/campanhas",{method:"POST",body:{nome:nome,sistema:sis}})
       .then(function(r){
-        if(origem.startsWith("m:")){
-          go.textContent="Montando a partir do modelo…";
-          return api("/api/c/"+r.id+"/modelo/"+encodeURIComponent(origem.slice(2)),{method:"POST"})
-            .then(function(imp){ toast(resumoPacote(imp)); return r; })
-            .catch(function(e){ toast("Campanha criada, mas o modelo não entrou: "+mensagemDeErro(e),"erro"); return r; });
-        }
-        if(origem!=="pacote"||!PACOTE) return r;
-        go.textContent="Importando pacote…";
-        var fd=new FormData(); fd.append("arquivo",PACOTE); fd.append("substituir","true");
-        return upload("/api/c/"+r.id+"/pacote",fd,function(fr){ go.textContent="Enviando o pacote… "+Math.round(fr*100)+"%"; })
-          .then(function(imp){ toast(resumoPacote(imp)); return r; })
-          .catch(function(e){ toast("Campanha criada, mas o pacote falhou: "+mensagemDeErro(e),"erro"); return r; });
+        if(origem.startsWith("m:"))return encheDoModelo(r);
+        return origem==="pacote"&&PACOTE?encheDoPacote(r):r;
       })
       .then(function(r){ PACOTE=null; ORIGEM="branco";
-        return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[]; entrarNaCampanha(r.id); }); })
-      .catch(function(e){ go.disabled=false; go.removeAttribute("aria-busy"); go.textContent="Criar campanha"; toast(mensagemDeErro(e),"erro"); }); };
+        return api("/api/sessao").then(function(s2){ CAMPANHAS=s2.campanhas||[];
+          function entra(){ entrarNaCampanha(r.id); }
+          if(!h){ entra(); return; }
+          if(falha)h.fim(falha,"aviso",null,entra);
+          else h.fim("Campanha criada. "+resumo+".","ok",null,entra); }); })
+      .catch(function(e){ go.disabled=false; go.removeAttribute("aria-busy"); go.textContent="Criar campanha";
+        if(h)h.fim("Não consegui criar a campanha: "+mensagemDeErro(e),"erro"); else toast(mensagemDeErro(e),"erro"); }); };
 }
 /* Como começar: em branco, de um modelo ou de um pacote. Os modelos chegam depois
    da tela (vêm do servidor). O modelo é uma estrutura, não uma campanha: o nome continua o que a
@@ -173,12 +183,17 @@ function viewHome(){
   if(!c||BOOTERR)return viewVazio();
   var ps=passosCampanha(), falta=ps.some(function(p){return p.ok===false;});
   var prox=D.sessoes.find(function(s){return s.status!=="encerrada";});
+  var idx=nlEd("idx")?NL.dados:null;
   return htmlDe("t-home",{c:c,guia:botaoGuia(),
     passos:falta&&!c.semPassos&&!passosDispensados()?ps:null,
     nSessoes:D.sessoes.length,
     proxima:prox?{id:prox.id,numero:prox.numero,titulo:prox.titulo,resumo:prox.resumo,estado:estadoSessao(prox)}:null,
-    secoes:c.secoes.map(function(s,i){ var tem=s.itens.length&&(s.tipo==="lista"||s.tipo==="cartoes");
-      return {i:i,titulo:s.titulo,tipo:s.tipo,texto:s.texto,itens:s.itens,vazia:!s.texto&&!tem}; }),
+    cp:{ed:nlEd("cp"),lapis:nlLapis("cp","o nome e a apresentação da "+vmin("campanha")),fim:nlEd("cp")?nlFim([]):""},
+    secoes:c.secoes.map(function(s,i){ var tem=s.itens.length&&(s.tipo==="lista"||s.tipo==="cartoes"), k="sec:"+i, ed=nlEd(k);
+      return {i:i,k:k,ed:ed,titulo:s.titulo,tipo:s.tipo,texto:s.texto,itens:s.itens,vazia:!s.texto&&!tem,
+        lapis:nlLapis(k,"a seção "+(s.titulo||"sem título")),fim:ed?nlFim(ADD_DA_SECAO[s.tipo]||[],"Remover seção"):""}; }),
+    idx:idx,lapisIdx:nlLapis("idx","o índice dos livros"),fimIdx:idx?nlFim([{rot:"livro",p:"livros",novo:"livro"}]):"",
+    docs:idx?Object.keys(LIB.docs||{}):[],
     /* o indice tem tres niveis (grupo, item, subitem); vira uma lista so, cada linha com a classe do nivel */
     indice:c.indiceAS.map(function(d){ var l=[];
       (d.grupos||[]).forEach(function(g){ l.push({cls:"g",t:g.t,ref:d.doc,p:g.p});
@@ -186,34 +201,33 @@ function viewHome(){
           (it.sub||[]).forEach(function(s2){ l.push({cls:"s2",t:s2.t,ref:d.doc,p:s2.p}); }); }); });
       return {nome:d.nome,linhas:l}; })});
 }
-function editarCampanha(){
-  var c=D.campanha;
-  formulario("Sobre a "+V("campanha").toLowerCase(),[
-      {k:"titulo",rot:"Nome",obrig:true},
-      {k:"sistema",rot:"Sistema de regras",dica:"Entra no contexto que a IA recebe."},
-      {k:"apresentacao",rot:"Apresentação",tipo:"area",linhas:5,dica:"Uma ou duas frases: do que se trata."}],
-    {titulo:c.titulo,sistema:c.sistema,apresentacao:c.apresentacao},
-    {salvar:function(w){
-      c.titulo=String(w.titulo).trim(); c.sistema=String(w.sistema||"").trim(); c.apresentacao=w.apresentacao;
-      save(); salvarMesa(); render();
-      /* o nome tambem mora na tabela de campanhas (lista, convites): os dois andam juntos */
-      api("/api/campanhas/"+CID,{method:"PUT",body:{nome:c.titulo,sistema:c.sistema}})
+var ADD_DA_SECAO={lista:[{rot:"item",p:"itens"}],cartoes:[{rot:"cartão",p:"itens",novo:"cartao"}]};
+/* o nome e a apresentacao, no lugar (js/nolugar.js). O nome tambem mora na tabela de campanhas (lista,
+   convites): ao fechar, se ele ou o sistema mudou, os dois vao para la */
+NL_DADOS.cp=function(){ return {titulo:D.campanha.titulo,sistema:D.campanha.sistema}; };
+NL_ALVOS.cp=function(){
+  var c=D.campanha, antes=NL.dados||{};
+  return {obj:c,grava:function(){ save(); salvarMesa(); },
+    fecha:function(x){
+      x.titulo=String(x.titulo||"").trim()||antes.titulo||"Sem título"; x.sistema=String(x.sistema||"").trim();
+      if(x.titulo===antes.titulo&&x.sistema===antes.sistema)return;
+      api("/api/campanhas/"+CID,{method:"PUT",body:{nome:x.titulo,sistema:x.sistema}})
         .then(function(){ return api("/api/sessao"); })
-        .then(function(s2){ if(s2&&s2.campanhas)CAMPANHAS=s2.campanhas; }).catch(function(){}); }});
-}
-function editarSecao(i,tipo){
-  var c=D.campanha, nova=i<0;
-  var s=nova?{id:uid("q"),titulo:"",tipo:tipo,texto:"",itens:[]}:c.secoes[i];
-  if(!s)return;
-  var campos=[{k:"titulo",rot:"Título da seção",obrig:true},
-    {k:"texto",rot:s.tipo==="texto"?"Texto":"Texto de abertura (opcional)",tipo:"area",linhas:s.tipo==="texto"?10:3}];
-  if(s.tipo==="lista")campos.push({k:"itens",rot:"Itens",tipo:"linhas",linhas:8});
-  if(s.tipo==="cartoes")campos.push({k:"itens",rot:"Cartões",tipo:"grupo",um:"cartão",novo:function(){return {t:"",d:""};},
-    campos:[{k:"t",rot:"Título"},{k:"d",rot:"Explicação",tipo:"area",linhas:3}]});
-  formulario(nova?"Nova seção":"Editar seção",campos,s,{wide:true,
-    salvar:function(w){ if(nova)c.secoes.push(w); else c.secoes[i]=w; save(); render(); },
-    rotRemover:"Remover seção",
-    remover:nova?null:function(){ comDesfazer("Seção removida",function(){ c.secoes.splice(i,1); }); }});
+        .then(function(s2){ if(s2?.campanhas)CAMPANHAS=s2.campanhas; }).catch(function(){ /* a lista se acerta na proxima entrada */ }); }};
+};
+/* uma secao: lista e cartoes vazios ja abrem com um item */
+NL_ALVOS.sec=function(i){
+  var c=D.campanha, n=+i, s=c.secoes[n];
+  if(!s)return null;
+  return {obj:s,grava:save,limpa:nlLimpa,
+    abre:function(x){ if(x.tipo==="lista"&&!x.itens.length)x.itens.push(""); if(x.tipo==="cartoes"&&!x.itens.length)x.itens.push(NL_NOVO.cartao()); },
+    tira:function(){ c.secoes.splice(n,1); },
+    remove:function(){ comDesfazer("Seção removida",function(){ c.secoes.splice(n,1); }); }};
+};
+function novaSecao(tipo){
+  var c=D.campanha;
+  c.secoes.push({id:uid("q"),titulo:"",tipo:tipo,texto:"",itens:[]});
+  nlAbre("sec:"+(c.secoes.length-1),{novo:true});
 }
 function ligarPdfs(v){
   $$("[data-doc]",v).forEach(function(b){b.onclick=function(){
@@ -246,18 +260,16 @@ function hydrateHome(v){
   arranjaGrade(grade);
   if(grade&&window.ResizeObserver){ var ro=new ResizeObserver(function(){ ro.disconnect(); arranjaGrade(grade); }); ro.observe(grade); }
   $$("[data-cp]",v).forEach(function(b){ b.onclick=function(){ var a=b.dataset.cp;
-    if(a==="cp-ed")editarCampanha();
+    if(a==="cp-ed")nlAbre("cp");
     else if(a==="cp-semp"){ try{ localStorage.setItem(chavePassos(),"1"); }catch(error_){ /* sem armazenamento: vale a conta */ }
       marcaTourVisto("passos-"+CID); render(); }
     else if(a==="ir-elenco"){ S.view="elenco"; S.el="personagens"; render(); }
     else if(a==="ir-sessoes"){ S.view="sessoes"; render(); }
     else if(a==="ir-bib"){ S.view="biblioteca"; render(); }
     else if(a==="ir-mesa"){ S.view="ajustes"; S.aj="mesa"; render(); }
-    else if(a==="idx-ed")editarIndice();
     else if(a==="sec-add")escolher("Que tipo de seção?",TIPOS_SEC.map(function(t){return {v:t[0],l:t[1]};})
         .concat(D.campanha.indiceAS.length?[]:[{v:"indice",l:"Índice de livro (atalhos para páginas do PDF)"}]),
-      function(t){ if(t==="indice")editarIndice(); else editarSecao(-1,t); }); }; });
-  $$("[data-sec]",v).forEach(function(b){ b.onclick=function(){ editarSecao(+b.dataset.sec); }; });
+      function(t){ if(t==="indice")nlAbre("idx",{novo:true}); else novaSecao(t); }); }; });
 }
 /* as secoes da pagina da campanha trocam de lugar arrastando pelo cabecalho (js/ordenar.js) */
 ORDENA.secoes=function(_l,de,para){ if(moverNaLista(D.campanha.secoes,de,para)){ save(); render(); } };

@@ -187,14 +187,13 @@ function iniEditarForm(s,x,toks){
   var tokenAtual=x?mpTokenDaOrdem(x):"";
   if(tokenAtual&&!toks.some(function(o){ return o[0]===tokenAtual; })){ toks=toks.concat([[tokenAtual,"Token de outro mapa"]]); }
   formulario(novo?"Entrar na iniciativa":"Editar · iniciativa",[
-    {k:"elencoId",rot:"Alguém do elenco (opcional)",tipo:"sel",ops:iniOpcoesElenco(),
-      dica:"Preenche o nome."},
-    {k:"tokenId",rot:"Token no mapa (opcional)",tipo:"sel",ops:[["","Nenhum"]].concat(toks),
-      dica:"O token ligado aqui só se move na vez desta entrada (o do jogador, não o seu)."},
-    {k:"nome",rot:"Quem",dica:"Vazio, usa o nome do token ou de quem do elenco foi escolhido.",
+    {k:"nome",rot:"Quem",larg:"mg",dica:"Vazio, usa o nome do token ou de quem do elenco foi escolhido.",
       valida:function(v,w){ return String(v||"").trim()||w.elencoId||w.tokenId?"":"Informe um nome ou escolha alguém do elenco ou um token."; }},
     {k:"v",rot:"Iniciativa",tipo:"num"},
-    {k:"oc",rot:"Esconder nome e valor dos "+V("jogadores").toLowerCase(),tipo:"check"}
+    {k:"elencoId",rot:"Do elenco",tipo:"sel",ops:iniOpcoesElenco(),dica:"Opcional. Preenche o nome."},
+    {k:"tokenId",rot:"Token no mapa",tipo:"sel",ops:[["","Nenhum"]].concat(toks),
+      dica:"Opcional. O token ligado aqui só se move na vez desta entrada (o do jogador, não o seu)."},
+    {k:"oc",rot:"Esconder dos "+V("jogadores").toLowerCase(),tipo:"check",dica:"Os "+V("jogadores").toLowerCase()+" veem ??? no lugar do nome e do valor."}
   ],x?{...x,tokenId:tokenAtual}:{nome:"",v:"",oc:false,elencoId:"",tokenId:""},{
     salvar:function(w){ var alvo=x||{id:uid("i")}; alvo.elencoId=w.elencoId||""; alvo.tokenId=w.tokenId||"";
       alvo.nome=String(w.nome).trim()||nomeTok(w.tokenId)||iniNomeDoElenco(w.elencoId); alvo.v=w.v; alvo.oc=!!w.oc;

@@ -4,7 +4,8 @@
 /* ---------- FICHAS ----------
    Os campos sao da campanha (MESA.fichaModelo), nunca de um sistema. A ficha e uma lista
    plana de campos com a secao escrita em cada um: e o que o formulario de grupo sabe editar. */
-var FICHAS=[], fichaT={};
+/* FICHAS_CID: de que campanha a lista veio (trocar de campanha nao pode deixar a busca mostrar as fichas da anterior) */
+var FICHAS=[], FICHAS_CID=null, fichaT={};
 var FICHA_TIPOS=[["texto","Texto curto"],["num","Número ou dados (clicar rola)"],["barra","Barra (atual / máximo)"],["area","Texto longo"],["check","Caixa de marcar"]];
 var FICHA_PADRAO=[{sec:"Identidade",rot:"Conceito",tipo:"texto"},{sec:"Identidade",rot:"Jogador",tipo:"texto"},
   {sec:"Recursos",rot:"Vida",tipo:"barra"},{sec:"Recursos",rot:"Energia",tipo:"barra"},
@@ -14,8 +15,8 @@ function fichaModelo(){ return (Array.isArray(MESA.fichaModelo)&&MESA.fichaModel
 function fichaFormula(){ return typeof MESA.fichaFormula==="string"?MESA.fichaFormula:"1d20+{v}"; }
 /* Valor que ja e uma rolagem (d10+d12, 2d6+3): ha sistema em que o teste soma dados de tamanhos diferentes, e a formula
    do modelo so troca um numero. Esse campo rola o proprio valor, com ou sem formula no modelo. */
-var FICHA_ROLAGEM=/^\s*\d{0,2}d\d{1,4}(\s*[+-]\s*(\d{0,2}d\d{1,4}|\d{1,4}))*\s*$/i;
-function fichaValorRola(v){ return FICHA_ROLAGEM.test(String(v??"")); }
+var FICHA_ROLAGEM=/^\d{0,2}d\d{1,4}([+-]\d{0,2}d?\d{1,4})*$/i;
+function fichaValorRola(v){ return FICHA_ROLAGEM.test(String(v??"").replace(/\s+/g,"")); }
 function fichaDados(f){
   if(f._c){ return f._c; }
   var c={};
@@ -39,27 +40,50 @@ function gravaFicha(f,ja){
 }
 /* fechar a ficha com uma gravacao esperando o debounce manda na hora: quem fecha e reabre ja ve o que digitou */
 function gravaFichaPendente(f){ if(fichaT[f.id]){ gravaFicha(f,true); } }
-function carregaFichas(){ return api(cAPI("/fichas")).then(function(l){ FICHAS=Array.isArray(l)?l:[]; return FICHAS; }); }
+function carregaFichas(){ var cid=CID; return api(cAPI("/fichas")).then(function(l){ FICHAS=Array.isArray(l)?l:[]; FICHAS_CID=cid; return FICHAS; }); }
+function fichasDaCampanha(){ return FICHAS_CID===CID?FICHAS:[]; }
+/* o que a pessoa digitou na busca da lista: sobrevive ao redesenho da secao */
+var FX_BUSCA="";
 function fichasSecHtml(){
-  return htmlDe("t-fichas",{mestre:GM,ia:!!IACFG});
+  return htmlDe("t-fichas",{mestre:GM,ia:!!IACFG,busca:FX_BUSCA});
 }
 function fichaInicial(nome){ return String(nome||"").trim().charAt(0).toUpperCase()||"?"; }
-/* o icone da ficha; sem ele, a imagem do token dela e, sem as duas, a de um token ligado a ela num mapa (tokenImg) */
+/* As variacoes de token (desarmado, armado…): {id, nome, img}; a primeira e a padrao. Ficha de antes delas guardava
+   uma imagem so em "token", que vale como variacao unica (a mesma regra de MapaFichas.variantes, no servidor). */
+function fichaVariantes(c){
+  if(Array.isArray(c.tokens)){ return c.tokens.filter(function(v){ return v?.img; }); }
+  return c.token?[{id:"t",nome:"",img:c.token}]:[];
+}
+/* o icone da ficha; sem ele, a variacao padrao do token e, sem as duas, a de um token ligado a ela num mapa (tokenImg) */
 function fichaIcone(f){
-  var c=fichaDados(f), p=c.img||c.token;
+  var c=fichaDados(f), p=c.img||fichaVariantes(c)[0]?.img;
   if(p){ return IMG(p,"mini"); }
   return f.tokenImg?IMG(f.tokenImg,"mini"):"";
 }
+function fichaCartao(f){
+  var c=fichaDados(f);
+  return {id:f.id,nome:f.nome,dono:GM&&!f.minha?f.dono:"",campos:c.campos.length,img:fichaIcone(f),inicial:fichaInicial(f.nome),
+    barras:c.campos.filter(function(x){ return x.tipo==="barra"&&x.max; }).slice(0,2)};
+}
+/* Primeiro as fichas dos personagens (as que sao de quem joga), depois as dos NPCs (as do mestre). O jogador so ve as
+   proprias, entao para ele e um grupo so, sem titulo. A busca e pelo nome, sem acento nem caixa. */
 function pintaFichas(){
   var box=$("#fxList"); if(!box){ return; }
-  box.innerHTML=htmlDe("t-fichas-lista",{fichas:FICHAS.map(function(f){ var c=fichaDados(f);
-    return {id:f.id,nome:f.nome,dono:GM&&!f.minha?f.dono:"",campos:c.campos.length,img:fichaIcone(f),inicial:fichaInicial(f.nome),
-      barras:c.campos.filter(function(x){ return x.tipo==="barra"&&x.max; }).slice(0,2)}; })});
+  var q=norm(FX_BUSCA.trim()), l=FICHAS.filter(function(f){ return !q||norm(f.nome).includes(q); });
+  var grupos=[];
+  if(GM){
+    var pj=l.filter(function(f){ return f.jogador; }), npc=l.filter(function(f){ return !f.jogador; });
+    if(pj.length){ grupos.push({titulo:Vm("personagens"),fichas:pj.map(fichaCartao)}); }
+    if(npc.length){ grupos.push({titulo:Vm("npcs"),fichas:npc.map(fichaCartao)}); }
+  } else if(l.length){ grupos.push({titulo:"",fichas:l.map(fichaCartao)}); }
+  box.innerHTML=htmlDe("t-fichas-lista",{grupos:grupos,vazia:!FICHAS.length,semBusca:!!FICHAS.length&&!l.length});
   $$("[data-ficha]",box).forEach(function(b){ b.onclick=function(){
     abrirFicha(FICHAS.find(function(f){ return String(f.id)===b.dataset.ficha; })); }; });
 }
 function ligarFichas(){
   carregaFichas().then(pintaFichas).catch(function(){ var b=$("#fxList"); if(b){ b.innerHTML=htmlDe("t-vazio",{texto:"Não consegui ler as fichas."}); } });
+  var bu=$("#fxBusca");
+  if(bu){ bu.oninput=function(){ FX_BUSCA=bu.value; pintaFichas(); }; }
   var n=$("#fxNova");
   if(n){ n.onclick=function(){ criaFicha("Novo personagem",fichaModelo().map(function(x){ return fichaCampoLimpo(x); }),true); }; }
   var m=$("#fxModelo"); if(m){ m.onclick=editarModeloFicha; }
@@ -70,11 +94,22 @@ function ligarFichas(){
     a.onchange=function(){ if(a.files?.[0]){ importarFichaPdf(a.files[0]); } };
   }
 }
-/* editar: a ficha nova abre ja no modo edicao, com o nome selecionado para trocar */
+/* editar: a ficha nova abre com o topo (nome e icone) em edicao, com o nome selecionado para trocar */
 function criaFicha(nome,campos,editar){
   return api(cAPI("/fichas"),{method:"POST",body:{nome:nome,json:JSON.stringify({campos:campos})}}).then(function(f){
-    FICHAS.push(f); pintaFichas(); if(editar){ abrirFicha(f,{editar:true}); } return f; })
+    f.jogador=!GM; FICHAS.push(f); pintaFichas(); if(editar){ abrirFicha(f,{editar:true}); } return f; })
    .catch(function(e){ toast(e?.message||"não deu para criar a ficha"); });
+}
+/* abre a ficha pelo id, de onde for (busca, elenco, token do mapa): le a lista se ela ainda nao veio */
+function abrirFichaPorId(id){
+  var acha=function(){ return fichasDaCampanha().find(function(f){ return String(f.id)===String(id); }); };
+  var f=acha();
+  if(f){ abrirFicha(f); return Promise.resolve(f); }
+  return carregaFichas().then(function(){
+    var g=acha();
+    if(g){ abrirFicha(g); } else { toast("Essa "+vmin("ficha")+" não existe mais ou não é sua.","aviso"); }
+    return g;
+  }).catch(function(e){ toast(mensagemDeErro(e),"erro"); });
 }
 function fichaGrupo(){
   return {k:"campos",rot:"Campos",tipo:"grupo",um:"campo",novo:function(){ return {sec:"",rot:"",tipo:"texto",val:"",max:""}; },
@@ -146,18 +181,18 @@ function fichaRola(x,nome){
 }
 
 /* ---------- ficha aberta ----------
-   A propria ficha e onde se edita: o lapis do topo liga o modo edicao, em que cada valor, rotulo e secao vira campo
-   no lugar, com "+ Campo", "+ Seção", remover e arrastar. Fora dele a ficha e de jogo. Tudo grava sozinho.
-   fx e a ficha aberta: {f, c (os dados), ed, toks (tokens ligados; null enquanto carrega), ov, corpo, fecha}. */
+   Edita-se bloco a bloco: o topo (nome, icone, jogador, visao), os tokens (as variacoes) e cada secao tem o seu lapis,
+   e so um bloco fica aberto por vez. O resto continua de jogo enquanto isso. Tudo grava sozinho.
+   fx e a ficha aberta: {f, c (os dados), ed ("" | "topo" | "tok" | "s:" + nome da secao), toks (tokens ligados; null
+   enquanto carrega), donos (as pessoas da mesa, so para o mestre), ov, corpo, fecha}. */
 function abrirFicha(f,o){
   if(!f){ return; }
   var ov=overlay(f.nome,"",{wide:true,cls:"fichasheet",head:htmlDe("t-ficha-cabeca",{mestre:GM})});
-  var fx={f:f,c:fichaDados(f),ed:!!o?.editar,toks:null,ov:ov,corpo:el("div",{id:"fxBody"}),fecha:ov.close};
+  var fx={f:f,c:fichaDados(f),ed:o?.editar?"topo":"",toks:null,donos:null,ov:ov,corpo:el("div",{id:"fxBody"}),fecha:ov.close};
   $(".sbodyscroll",ov).appendChild(fx.corpo);
   ov.close=function(){ gravaFichaPendente(f); pintaFichas(); fx.fecha(); };
   var fm=$("#fxMod",ov);
   if(fm){ fm.onclick=function(){ fxViraModelo(fx); }; }
-  $("#fxEd",ov).onclick=function(){ fx.ed=!fx.ed; fxPinta(fx); if(fx.ed){ focar($("#fxNome",ov)); } };
   ligarOrdem(ov,function(lista){ return fxOrdem(fx,lista); });
   fxPinta(fx);
   fxCarregaTokens(fx);
@@ -172,11 +207,12 @@ function fxViraModelo(fx){
   toastAcao("Modelo trocado: "+MESA.fichaModelo.length+" campos. As fichas que já existem não mudam.","Desfazer",function(){
     MESA.fichaModelo=antes; salvarMesa(); toast("Desfeito","ok"); });
 }
-/* arrastar: as secoes entre si e cada campo dentro do seu grupo (data-p: indice da secao + r ou n) */
+/* arrastar: as secoes entre si (sempre), os campos dentro do grupo da secao em edicao e as variacoes de token */
 function fxOrdem(fx,lista){
-  if(!fx.ed){ return null; }
-  if(lista.dataset.ordena==="fxsec"){ return function(l,de,para){ if(fichaMoveSecao(fx.c,de,para)){ fxRefaz(fx); } }; }
-  if(lista.dataset.ordena!=="fxcampo"){ return null; }
+  var k=lista.dataset.ordena;
+  if(k==="fxsec"){ return function(l,de,para){ if(fichaMoveSecao(fx.c,de,para)){ fxRefaz(fx); } }; }
+  if(k==="fxvar"){ return function(l,de,para){ if(moverNaLista(fxVars(fx),de,para)){ fxGravaVars(fx); } }; }
+  if(k!=="fxcampo"){ return null; }
   return function(l,de,para){
     var p=String(l.dataset.p||"");
     if(fichaMoveCampo(fx.c,Number.parseInt(p,10),p.slice(-1),de,para)){ fxRefaz(fx); }
@@ -190,9 +226,13 @@ function fxRefaz(fx,foco){
 }
 /* tira algo da ficha e oferece desfazer (comDesfazer guarda o guia e a mesa; a ficha e outra gravacao) */
 function fxTira(fx,msg,tira){
-  var antes=JSON.stringify(fx.c.campos);
+  var antes=JSON.stringify(fx.c);
   tira(); fxRefaz(fx);
-  toastAcao(msg,"Desfazer",function(){ fx.c.campos=JSON.parse(antes); fxRefaz(fx); toast("Desfeito","ok"); });
+  toastAcao(msg,"Desfazer",function(){
+    var c=JSON.parse(antes);
+    Object.keys(fx.c).forEach(function(k){ delete fx.c[k]; });
+    Object.assign(fx.c,c);
+    fxRefaz(fx); fxCarregaTokensDepois(fx); toast("Desfeito","ok"); });
 }
 function fxTokensHtml(fx){
   if(!fx.toks){ return htmlDe("t-ficha-tokens",{carregando:true,itens:[]}); }
@@ -201,20 +241,49 @@ function fxTokensHtml(fx){
       onde:t.mapaNome?(Vm("mapa")+" "+t.mapaNome+(t.ativo?" (ativo)":"")):"Em outro "+vmin("mapa"),
       oculto:GM&&!t.visivel,solto:!t.vinculo,podeSoltar:!!t.podeSoltar}; })});
 }
+function fxLapis(fx,chave,rotulo){ return htmlDe("t-ficha-lapis",{chave:chave,rotulo:rotulo,on:fx.ed===chave}); }
+/* o jogador da ficha (so o mestre escolhe): ninguem e ficha de NPC */
+function fxDonos(fx){
+  if(!GM||fx.ed!=="topo"||!fx.donos){ return []; }
+  var atual=fx.f.jogador?String(fx.f.donoId):"0", l=fx.donos.slice();
+  if(!l.some(function(o){ return o[0]===atual; })){ l.push([atual,fx.f.dono||"Outra pessoa"]); }
+  return l.map(function(o){ return {v:o[0],rot:o[0]==="0"?"Ninguém (ficha de "+vmin("npc")+")":o[1],on:o[0]===atual}; });
+}
 function fxPinta(fx){
-  var f=fx.f, c=fx.c, ov=fx.ov, b=$("#fxEd",ov);
+  var f=fx.f, c=fx.c, ov=fx.ov;
   if(!document.body.contains(ov)){ return; }
   ov.querySelector(".stit").textContent=f.nome+(GM&&!f.minha?" · "+f.dono:"");
-  var rot=fx.ed?"Terminar de editar":"Editar a ficha";
-  b.setAttribute("aria-pressed",String(fx.ed)); b.title=rot; b.setAttribute("aria-label",rot);
-  ov.classList.toggle("fxeditando",fx.ed);
-  fx.corpo.innerHTML=htmlDe("t-ficha-corpo",{ed:fx.ed,rola:!!fichaFormula(),nome:f.nome,dono:GM&&!f.minha?f.dono:"",
-    img:fichaIcone(f),proprio:!!c.img,tokenImg:(c.token||c.img)?IMG(c.token||c.img,"mini"):"",tokenProprio:!!c.token,inicial:fichaInicial(f.nome),visao:c.visao==null?"":String(c.visao),
-    mapa:!mapaBloqueado(),tokens:fxTokensHtml(fx),secoes:fichaSecoes(c)});
-  fxLigaJogo(fx); fxLigaTokens(fx);
-  if(fx.ed){ fxLigaIdentidade(fx); fxLigaValores(fx); fxLigaSecoes(fx); fxLigaCampos(fx); }
+  var vs=fichaVariantes(c);
+  fx.corpo.innerHTML=htmlDe("t-ficha-corpo",{edTopo:fx.ed==="topo",edTok:fx.ed==="tok",rola:!!fichaFormula(),nome:f.nome,
+    dono:GM&&!f.minha?f.dono:"",jogador:!!f.jogador,img:fichaIcone(f),proprio:!!c.img,inicial:fichaInicial(f.nome),
+    visao:c.visao==null?"":String(c.visao),donos:fxDonos(fx),mapa:!mapaBloqueado(),tokens:fxTokensHtml(fx),
+    lapisTopo:fxLapis(fx,"topo","o nome e o ícone"),lapisTok:fxLapis(fx,"tok","as variações do "+vmin("token")),
+    variantes:vs.map(function(v,i){ return {i:i,nome:v.nome||"",img:IMG(v.img,"mini")}; }),
+    secoes:fichaSecoes(c).map(function(s){ s.ed=fx.ed==="s:"+s.nome; s.lapis=fxLapis(fx,"s:"+s.nome,"a seção "+s.nome); return s; })});
+  fxLigaBlocos(fx); fxLigaJogo(fx); fxLigaTokens(fx);
+  $("#fxAddSec",fx.corpo).onclick=function(){ fxNovaSecao(fx); };
+  if(fx.ed==="topo"){ fxLigaIdentidade(fx); }
+  if(fx.ed==="tok"){ fxLigaVariantes(fx); }
+  if(fx.ed.startsWith("s:")){ fxLigaValores(fx); fxLigaSecoes(fx); fxLigaCampos(fx); }
 }
-/* fora do modo edicao: barra com + e -, caixa de marcar e numero que rola */
+/* o lapis (e o Pronto) abre um bloco e fecha o que estava aberto; fechar devolve o foco ao lapis do bloco */
+function fxLigaBlocos(fx){
+  $$("[data-fxed]",fx.corpo).forEach(function(b){ b.onclick=function(){
+    var k=b.dataset.fxed, abre=fx.ed!==k;
+    gravaFichaPendente(fx.f);
+    fx.ed=abre?k:"";
+    fxPinta(fx);
+    if(abre&&k==="topo"&&GM&&!fx.donos){ fxCarregaDonos(fx); }
+    var bloco="."+({topo:"fxtopo",tok:"fxtok"}[k]||"fxsec")+".ed";
+    var alvo=abre?($(bloco+" .nl",fx.corpo)||$(bloco+" :is(input,select,textarea,button:not(.alca))",fx.corpo))
+      :$('.edb[data-fxed="'+CSS.escape(k)+'"]',fx.corpo);
+    if(alvo){ focar(alvo); }
+  }; });
+}
+function fxCarregaDonos(fx){
+  mpOpcoesDono().then(function(l){ fx.donos=l; if(fx.ed==="topo"){ fxPinta(fx); focar($("#fxDono",fx.corpo)); } });
+}
+/* fora do bloco em edicao: barra com + e -, caixa de marcar e numero que rola */
 function fxLigaJogo(fx){
   var c=fx.c;
   $$("[data-fb]",fx.corpo).forEach(function(bt){ bt.onclick=function(e){
@@ -222,20 +291,32 @@ function fxLigaJogo(fx){
   $$("[data-fc]",fx.corpo).forEach(function(ck){ ck.onchange=function(){ c.campos[+ck.dataset.fc].val=ck.checked?"1":""; gravaFicha(fx.f); }; });
   $$("[data-fn]",fx.corpo).forEach(function(bt){ bt.onclick=function(){ fichaRola(c.campos[+bt.dataset.fn],fx.f.nome); }; });
 }
-/* nome, alcance da visao, icone e apagar */
+/* nome, jogador, alcance da visao, icone e apagar */
 function fxLigaIdentidade(fx){
-  var f=fx.f, c=fx.c, corpo=fx.corpo, nome=$("#fxNome",corpo), vis=$("#fxVisao",corpo), icx=$("#fxIconeX",corpo);
+  var f=fx.f, c=fx.c, corpo=fx.corpo, nome=$("#fxNome",corpo), vis=$("#fxVisao",corpo), icx=$("#fxIconeX",corpo), dono=$("#fxDono",corpo);
   nome.oninput=function(){ f.nome=nome.value.trim()||"Sem nome"; fx.ov.querySelector(".stit").textContent=f.nome; gravaFicha(f); };
   vis.oninput=function(){ if(vis.value===""){ delete c.visao; } else { c.visao=Math.min(100,Math.max(0,Number(vis.value)||0)); } gravaFicha(f); };
   $("#fxIcone",corpo).onclick=function(){ fichaEscolheImagem(f,c.img||"").then(function(r){ fxIcone(fx,r); }); };
   if(icx){ icx.onclick=function(){ fxIcone(fx,""); }; }
+  if(dono){ dono.onchange=function(){ fxTrocaDono(fx,dono.value); }; }
   $("#fxApaga",corpo).onclick=function(){ apagaFicha(f,fx.fecha); };
+}
+/* o mestre entrega a ficha a alguem da mesa (ou a devolve para si, como NPC); os tokens ligados vao junto */
+function fxTrocaDono(fx,v){
+  var f=fx.f;
+  api(cAPI("/fichas/"+f.id+"/dono"),{method:"PUT",body:{usuario:Number(v)||0}}).then(function(r){
+    f.dono=r.dono; f.donoId=r.donoId; f.jogador=!!r.jogador; f.minha=!!r.minha;
+    fxPinta(fx); pintaFichas(); focar($("#fxDono",fx.corpo));
+    toast(f.jogador?"A "+vmin("ficha")+" agora é de "+f.dono+".":"A "+vmin("ficha")+" virou ficha de "+vmin("npc")+".","ok");
+    fxCarregaTokens(fx);
+  }).catch(function(e){ toast(mensagemDeErro(e),"erro"); fxPinta(fx); });
 }
 /* r: o caminho escolhido, "" para tirar, null quando a pessoa fechou sem escolher */
 function fxIcone(fx,r){
   if(r==null){ return; }
   if(r){ fx.c.img=r; } else { delete fx.c.img; }
   fxRefaz(fx,"#fxIcone");
+  fxCarregaTokensDepois(fx);
 }
 /* valor, maximo e rotulo gravam a cada tecla, sem redesenhar: o foco fica onde a pessoa esta */
 function fxLigaValores(fx){
@@ -250,17 +331,22 @@ function fxLigaSecoes(fx){
   $$("[data-fs]",fx.corpo).forEach(function(e){ e.onchange=function(){ fxRenomeiaSecao(fx,+e.dataset.fs,e.value.trim().slice(0,60)); }; });
   $$("[data-fsx]",fx.corpo).forEach(function(b){ b.onclick=function(){
     var s=fichaSecoes(c)[+b.dataset.fsx];
-    if(s){ fxTira(fx,"Seção "+s.nome+" removida",function(){ c.campos=c.campos.filter(function(x){ return !fichaDaSecao(x,s.nome); }); }); } }; });
-  $("#fxAddSec",fx.corpo).onclick=function(){
-    var nomes=fichaSecoes(c).map(function(s){ return s.nome; }), n="Nova seção", k=2;
-    while(nomes.includes(n)){ n="Nova seção "+(k++); }
-    c.campos.push({sec:n,rot:"",tipo:"texto",val:"",max:""});
-    fxRefaz(fx,'[data-fs="'+nomes.length+'"]'); };
+    if(s){ fx.ed=""; fxTira(fx,"Seção "+s.nome+" removida",function(){ c.campos=c.campos.filter(function(x){ return !fichaDaSecao(x,s.nome); }); }); } }; });
+}
+/* a secao nova ja abre em edicao, com o foco no nome */
+function fxNovaSecao(fx){
+  var c=fx.c, nomes=fichaSecoes(c).map(function(s){ return s.nome; }), n="Nova seção", k=2;
+  while(nomes.includes(n)){ n="Nova seção "+(k++); }
+  gravaFichaPendente(fx.f);
+  c.campos.push({sec:n,rot:"",tipo:"texto",val:"",max:""});
+  fx.ed="s:"+n;
+  fxRefaz(fx,'[data-fs="'+nomes.length+'"]');
 }
 function fxRenomeiaSecao(fx,si,novo){
   var c=fx.c, s=fichaSecoes(c)[si];
   if(!s||novo===s.nome){ return; }
   c.campos.forEach(function(x){ if(fichaDaSecao(x,s.nome)){ x.sec=novo; } });
+  fx.ed="s:"+(novo||"Geral");
   var onde=fichaSecoes(c).findIndex(function(z){ return z.nome===(novo||"Geral"); });
   fxRefaz(fx,'[data-fs="'+onde+'"]');
 }
@@ -294,6 +380,40 @@ function fichaEscolheTipo(ancora,titulo,atual,remover,fn){
   menuSolto(ancora,htmlDe("t-menu",{titulo:titulo,itens:itens}),function(it){ fn(it.dataset.v); });
 }
 
+/* ---- as variacoes de token (desarmado, armado…): a imagem que o token mostra no mapa, trocada ali com um clique ---- */
+/* na primeira edicao, a imagem unica de antes ("token") vira a primeira variacao */
+function fxVars(fx){
+  if(!Array.isArray(fx.c.tokens)){ fx.c.tokens=fichaVariantes(fx.c).map(function(v){ return {id:v.id,nome:v.nome,img:v.img}; }); delete fx.c.token; }
+  return fx.c.tokens;
+}
+/* grava na hora: o servidor passa as variacoes aos tokens ligados, e a lista deles e relida depois */
+function fxGravaVars(fx,foco){
+  fxPinta(fx);
+  var e=foco&&$(foco,fx.corpo);
+  if(e){ focar(e); e.select?.(); }
+  fxCarregaTokensDepois(fx);
+}
+function fxCarregaTokensDepois(fx){
+  void Promise.resolve(gravaFicha(fx.f,true)).then(function(){ fxCarregaTokens(fx); });
+}
+function fxLigaVariantes(fx){
+  var vs=fxVars(fx);
+  $("#fxVarNova",fx.corpo).onclick=function(){
+    fichaEscolheImagem(fx.f,"").then(function(r){
+      if(!r){ return; }
+      vs.push({id:"v"+Date.now().toString(36),nome:"",img:r});
+      fxGravaVars(fx,'[data-fvn="'+(vs.length-1)+'"]');
+    }); };
+  $$("[data-fvn]",fx.corpo).forEach(function(e){ e.oninput=function(){ vs[+e.dataset.fvn].nome=e.value.slice(0,30); gravaFicha(fx.f); }; });
+  $$("[data-fvimg]",fx.corpo).forEach(function(b){ b.onclick=function(){
+    var v=vs[+b.dataset.fvimg];
+    fichaEscolheImagem(fx.f,v.img).then(function(r){ if(r){ v.img=r; fxGravaVars(fx,'[data-fvimg="'+b.dataset.fvimg+'"]'); } }); }; });
+  $$("[data-fvx]",fx.corpo).forEach(function(b){ b.onclick=function(){
+    var i=+b.dataset.fvx, v=vs[i];
+    fxTira(fx,"Variação "+(v.nome||(i+1))+" tirada",function(){ vs.splice(i,1); });
+    fxCarregaTokensDepois(fx); }; });
+}
+
 /* ---- os tokens da ficha nos mapas: quem pode pôr e ligar e o mestre e o dono da ficha ---- */
 function fxCarregaTokens(fx){
   if(mapaBloqueado()){ return; }
@@ -309,7 +429,7 @@ function fxRepintaTokens(fx){
   /* a imagem do token e o icone enquanto a ficha nao tem o seu: troca so o retrato, sem redesenhar (e sem tirar o foco) */
   var t=fx.toks.find(function(x){ return x.img; }), antes=f.tokenImg||"", av=$(".fxavaimg",fx.corpo);
   f.tokenImg=t?t.img:"";
-  if(antes===f.tokenImg||fx.c.img||!av){ return; }
+  if(antes===f.tokenImg||fx.c.img||fichaVariantes(fx.c).length||!av){ return; }
   av.replaceChildren(f.tokenImg?el("img",{src:IMG(f.tokenImg,"mini"),alt:"Ícone de "+f.nome}):el("span",{"aria-hidden":"true",text:fichaInicial(f.nome)}));
 }
 function fxLigaSoltar(fx){
@@ -322,20 +442,8 @@ function fxLigaTokens(fx){
   var por=$("#fxTokPor",fx.corpo), liga=$("#fxTokLiga",fx.corpo);
   if(!por){ return; }
   fxLigaSoltar(fx);
-  $("#fxTokImg",fx.corpo).onclick=function(){ fichaEscolheImagem(fx.f,fx.c.token||"").then(function(r){ fxImagemToken(fx,r); }); };
-  var x=$("#fxTokImgX",fx.corpo);
-  if(x){ x.onclick=function(){ fxImagemToken(fx,""); }; }
   por.onclick=function(){ fxPorToken(fx); };
   liga.onclick=function(){ fxLigaToken(fx); };
-}
-/* r: o caminho escolhido, "" para tirar, null quando fechou sem escolher. Grava na hora: o servidor passa a imagem
-   para os tokens ligados, e a lista deles e relida depois. */
-function fxImagemToken(fx,r){
-  if(r==null){ return; }
-  if(r){ fx.c.token=r; } else { delete fx.c.token; }
-  fxPinta(fx);
-  focar($("#fxTokImg",fx.corpo));
-  Promise.resolve(gravaFicha(fx.f,true)).then(function(){ fxCarregaTokens(fx); });
 }
 function fxPorToken(fx){
   var mapa=null;
@@ -465,49 +573,61 @@ function fichaDaIa(r){
   var o=typeof r==="string"?JSON.parse(r):r;
   return {nome:String(o.nome||"").trim(),campos:(o.campos||[]).map(fichaCampoLimpo).filter(function(x){ return x.rot; })};
 }
+/* Ler o PDF e pedir a IA demora: tudo corre numa tarefa (tarefaLonga), que no fim diz o que saiu.
+   Cada passo devolve {msg, tipo, ficha}; a ficha nova abre para conferir quando a pessoa da Ok. */
+function fimFicha(msg,tipo,ficha){ return {msg:msg,tipo:tipo||"aviso",ficha:ficha||null}; }
 /* PDF que e so imagem (escaneado, ou ficha que e toda arte): as paginas vao desenhadas para a IA,
    que le o que esta impresso. Sem IA neste servidor nao ha como ler. */
-function importarFichaImagem(lido,arq){
-  if(!IACFG){ toast("Esse PDF é só imagem. Para ler ficha escaneada ou desenhada, a IA precisa estar configurada."); return Promise.resolve(); }
-  toast("O PDF é só imagem: a IA está lendo as páginas…");
+function importarFichaImagem(lido,arq,h){
+  if(!IACFG){ return Promise.resolve(fimFicha("Esse PDF é só imagem. Para ler ficha escaneada ou desenhada, a IA precisa estar configurada.","erro")); }
+  h.passo("O PDF é só imagem: desenhando as páginas para a IA…",null);
   var lida=null;
   return paginasEmImagem(lido.doc,3)
-    .then(function(imgs){ return api(cAPI("/fichas/importar"),{method:"POST",body:{texto:"",imagens:imgs}}); })
+    .then(function(imgs){ h.passo("A IA está lendo as páginas…",null); return api(cAPI("/fichas/importar"),{method:"POST",body:{texto:"",imagens:imgs}}); })
     .then(function(r){
       lida=fichaDaIa(r);
-      if(!lida.campos.length){ toast("A IA não achou campos nessa ficha."); return null; }
-      return criaFicha(lida.nome||String(arq.name||"Ficha").replace(/\.pdf$/i,""),lida.campos,true);
+      if(!lida.campos.length){ return null; }
+      h.passo("Criando a "+vmin("ficha")+"…",null);
+      return criaFicha(lida.nome||String(arq.name||"Ficha").replace(/\.pdf$/i,""),lida.campos,false);
     })
-    .then(function(f){
-      if(!f){ return; }
+    .then(function(fi){
+      if(!lida.campos.length){ return fimFicha("A IA não achou campos nessa ficha."); }
+      if(!fi){ return fimFicha("Não deu para criar a ficha.","erro"); }
       var vazios=lida.campos.filter(function(x){ return !x.val; }).length;
-      toast("A IA leu "+lida.campos.length+" campos"+(vazios===lida.campos.length?" (ficha em branco: preencha os valores)":"")+". Confira e ajuste.");
+      return fimFicha("A IA leu "+lida.campos.length+" campos"+(vazios===lida.campos.length?" (ficha em branco: preencha os valores)":"")+". Confira e ajuste.","ok",fi);
     })
-    .catch(function(e){ toast("A IA não conseguiu ler a imagem"+(e?.message?": "+e.message:"")); });
+    .catch(function(e){ return fimFicha("A IA não conseguiu ler a imagem"+(e?.message?": "+e.message:""),"erro"); });
 }
 /* PDF com texto: com IA ela organiza os campos; sem IA, ou se ela falhar, vale a montagem local */
-function fichaMontada(lido,arq){
+function fichaMontada(lido,arq,h){
   var local=fichaDoLido(lido,arq.name);
   if(!IACFG){ return Promise.resolve(local); }
+  h.passo("A IA está organizando os campos…",null);
   var texto=(lido.campos.map(function(c){ return c.rot+": "+c.val; }).join("\n")+"\n--- TEXTO DAS PAGINAS ---\n"+lido.linhas.join("\n")).slice(0,40000);
   return api(cAPI("/fichas/importar"),{method:"POST",body:{texto:texto}}).then(function(r){
     var fi=fichaDaIa(r);
     if(!fi.campos.length){ throw new Error("vazio"); }
     return {nome:fi.nome||local.nome,campos:fi.campos};
-  }).catch(function(){ toast("A IA não respondeu; montei a ficha só com a leitura do PDF."); return local; });
+  }).catch(function(){ local.semIa=true; return local; });
 }
-function importarFichaTexto(lido,arq){
+function importarFichaTexto(lido,arq,h){
   var fi=null;
-  return fichaMontada(lido,arq).then(function(x){
+  return fichaMontada(lido,arq,h).then(function(x){
     fi=x;
-    if(!fi.campos.length){ toast("Li o PDF, mas não achei campos com rótulo e valor."); return null; }
-    return criaFicha(fi.nome,fi.campos,true);
-  }).then(function(f){ if(f){ toast("Li "+fi.campos.length+" campos do PDF. Confira e ajuste."); } });
+    if(!fi.campos.length){ return null; }
+    h.passo("Criando a "+vmin("ficha")+"…",null);
+    return criaFicha(fi.nome,fi.campos,false);
+  }).then(function(f){
+    if(!fi.campos.length){ return fimFicha("Li o PDF, mas não achei campos com rótulo e valor."); }
+    if(!f){ return fimFicha("Não deu para criar a ficha.","erro"); }
+    return fimFicha((fi.semIa?"A IA não respondeu; montei a ficha só com a leitura do PDF. ":"")+"Li "+fi.campos.length+" campos do PDF. Confira e ajuste.",fi.semIa?"aviso":"ok",f);
+  });
 }
 function importarFichaPdf(arq){
-  toast("Lendo o PDF…");
-  lerPdfFicha(arq).then(function(lido){
+  var h=tarefaLonga("Importando a "+vmin("ficha"),"Lendo "+arq.name+"…");
+  void lerPdfFicha(arq).then(function(lido){
     var semTexto=!lido.campos.length&&lido.linhas.join("").replace(/\s/g,"").length<20;
-    return semTexto?importarFichaImagem(lido,arq):importarFichaTexto(lido,arq);
-  }).catch(function(e){ toast("Não consegui ler esse PDF"+(e?.message?": "+e.message:"")); });
+    return semTexto?importarFichaImagem(lido,arq,h):importarFichaTexto(lido,arq,h);
+  }).catch(function(e){ return fimFicha("Não consegui ler esse PDF"+(e?.message?": "+e.message:""),"erro"); })
+    .then(function(r){ h.fim(r.msg,r.tipo,null,r.ficha?function(){ abrirFicha(r.ficha,{editar:true}); }:null); });
 }

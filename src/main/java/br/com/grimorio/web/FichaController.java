@@ -58,6 +58,7 @@ public class FichaController {
         List<Ficha> l = mestre ? fichas.findByCampanhaIdOrderByNomeAsc(cid)
                                : fichas.findByCampanhaIdAndUsuarioIdOrderByNomeAsc(cid, uid);
         Map<Long, String> nomes = new HashMap<>();
+        Map<Long, Boolean> deJogador = new HashMap<>();
         /* ficha sem icone mostra na lista a imagem de um token dela */
         Map<Long, String> deToken = tokens.imagens(cid, uid);
         List<Map<String, Object>> out = new ArrayList<>();
@@ -66,6 +67,9 @@ public class FichaController {
                     k -> usuarios.findById(k).map(Usuario::getNome).orElse("?"));
             Map<String, Object> m = mapa(f, uid, dono);
             m.put("tokenImg", deToken.getOrDefault(f.getId(), ""));
+            /* ficha de jogador e a de quem joga na campanha; a do mestre e de NPC. A lista separa as duas */
+            m.put("jogador", deJogador.computeIfAbsent(f.getUsuarioId(), k -> camp.papelDe(cid, k).map(p -> p != Papel.MESTRE).orElse(false)));
+            if (mestre) m.put("donoId", f.getUsuarioId());
             out.add(m);
         }
         return out;
@@ -83,6 +87,36 @@ public class FichaController {
         if (ext == null) return ResponseEntity.badRequest().body(Map.of("erro", "envie uma imagem PNG, JPG, WEBP ou GIF de até 10 MB"));
         var m = midia.gravarImagem(cid, "ficha-" + f.getId() + "-" + System.currentTimeMillis() + "." + ext, arquivo.getBytes());
         return ResponseEntity.ok(Map.of("arquivo", m.getArquivo()));
+    }
+
+    public static class CorpoDono { public Long usuario; }
+
+    /**
+     * O mestre entrega a ficha a uma pessoa da mesa: ela passa a ver e editar a ficha como se fosse dela, e os tokens
+     * ligados a ficha passam a ser controlados por ela. Sem ninguem ({@code usuario} vazio ou 0), a ficha volta para
+     * o mestre que pediu e vira ficha de NPC.
+     */
+    @PutMapping("/{id}/dono")
+    public ResponseEntity<?> dono(@PathVariable Long cid, @PathVariable Long id, @RequestBody CorpoDono c) {
+        Long uid = atual.id();
+        camp.exigeMestre(cid, uid);
+        Ficha f = fichas.findById(id).filter(x -> Objects.equals(x.getCampanhaId(), cid)).orElse(null);
+        if (f == null) return ResponseEntity.notFound().build();
+        Long novo = c == null || c.usuario == null || c.usuario <= 0 ? uid : c.usuario;
+        if (camp.papelDe(cid, novo).isEmpty()) return ResponseEntity.badRequest().body(Map.of("erro", "essa pessoa não está nesta campanha"));
+        if (!Objects.equals(novo, f.getUsuarioId())) {
+            if (fichas.countByCampanhaIdAndUsuarioId(cid, novo) >= MAX_POR_PESSOA)
+                return ResponseEntity.badRequest().body(Map.of("erro", "essa pessoa já tem fichas demais nesta campanha"));
+            f.setUsuarioId(novo);
+            f.setAtualizadoEm(Instant.now());
+            fichas.save(f);
+            mapas.donoDaFicha(cid, f.getId(), novo);
+        }
+        String nome = usuarios.findById(novo).map(Usuario::getNome).orElse("?");
+        Map<String, Object> m = mapa(f, uid, nome);
+        m.put("jogador", camp.papelDe(cid, novo).map(p -> p != Papel.MESTRE).orElse(false));
+        m.put("donoId", novo);
+        return ResponseEntity.ok(m);
     }
 
     // ---------- tokens da ficha no mapa (MapaFichas) ----------
@@ -135,7 +169,7 @@ public class FichaController {
         mapas.vidaDaFicha(cid, f.getId(), f.getConteudo());
         /* e o alcance da visao dela, na nevoa do mapa */
         mapas.visaoDaFicha(cid, f.getId(), f.getConteudo());
-        /* e a imagem do token dela */
+        /* e as variacoes de token dela */
         mapas.imagemDaFicha(cid, f.getId(), f.getConteudo());
         return ResponseEntity.ok(Map.of("ok", true));
     }

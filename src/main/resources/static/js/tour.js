@@ -94,7 +94,8 @@ function guiaNaTela(){
   if(GUIA_PAUSA||TOUR||!PRONTO)return;
   var id=guiaDaTela(); if(!id||guiaVisto(id)||!guiaVisto(guiaInicial()))return;
   setTimeout(function(){
-    if(!TOUR&&!CAMADAS.length&&guiaDaTela()===id&&!guiaVisto(id))abrirGuia(id);
+    /* com um bloco aberto no lugar (js/nolugar.js) o guia espera a proxima visita: abrir agora tiraria a pessoa do que digita */
+    if(!TOUR&&!CAMADAS.length&&!NL.k&&guiaDaTela()===id&&!guiaVisto(id))abrirGuia(id);
   },700);
 }
 
@@ -153,14 +154,14 @@ function guiaCampanha(){
   var ir=tourIr("home"), c=vmin("campanha");
   return [
     {ir:ir,t:"A página da "+c,x:"É a primeira tela quando você entra. Apresenta a "+c+" e reúne o que você quer ter sempre à vista. Nada daqui chega aos "+vmin("jogadores")+": o que eles veem fica na aba "+Vm("mesa")+"."},
-    {a:'[data-cp="cp-ed"]',ir:ir,t:"Nome e apresentação",x:"O lápis ao lado do título edita o nome, o sistema de regras e o texto de apresentação."},
+    {a:'[data-nl-abre="cp"]',ir:ir,t:"Nome e apresentação",x:"O lápis ao lado do título libera o nome, o sistema de regras e a apresentação para editar ali mesmo. Grava sozinho; Pronto fecha."},
     {a:".proxima",opc:1,ir:ir,t:"Próxima "+vmin("sessao"),x:"A primeira "+vmin("sessao")+" ainda não encerrada aparece em destaque, com o botão para abri-la direto. Ver todas leva à lista."},
     {a:'[aria-labelledby="passosT"]',opc:1,ir:ir,t:"Primeiros passos",x:"Enquanto a "+c+" está começando, uma lista mostra o que falta fazer, cada item com o botão que leva até lá. Dispensar esconde a lista."},
     {a:".seccols .sec-wrap[data-item]",opc:1,ir:ir,t:"Seções",x:"Regras da casa, método, perguntas para a "+vmin("mesa")+": as seções são suas. Cada uma pode ser texto corrido, lista de itens ou cartões com título e explicação."},
     {a:".seccols .sec-wrap[data-item] .alca",opc:1,ir:ir,t:"Mudar a ordem",x:"Arraste pelas três barrinhas. Com o foco nelas, as setas do teclado também movem, e um clique abre um menu para escolher a posição."},
-    {a:".seccols .sec-wrap[data-item] .edb",opc:1,ir:ir,t:"Editar e remover",x:"O lápis abre o formulário da seção. Remover não pergunta: faz e oferece desfazer por alguns segundos. Isso vale para todo o Grimório."},
+    {a:".seccols .sec-wrap[data-item] .edb",opc:1,ir:ir,t:"Editar e remover",x:"O lápis libera a seção no lugar: o texto vira campo onde ele está, grava sozinho e Pronto (ou Esc) fecha. Remover não pergunta: faz e oferece desfazer por alguns segundos. Isso vale para todo o Grimório."},
     {a:'[data-cp="sec-add"]',ir:ir,t:"Nova seção",x:"Acrescenta uma seção no fim. O tipo se escolhe no formulário."},
-    {a:'[aria-labelledby="idxT"]',opc:1,ir:ir,t:"Índice dos livros",x:"Com livros na Biblioteca, aparece o índice dos capítulos. Clique numa página (P12) para abrir o PDF direto nela. O lápis edita o índice."}
+    {a:'[aria-labelledby="idxT"]',opc:1,ir:ir,t:"Índice dos livros",x:"Com livros na Biblioteca, aparece o índice dos capítulos. Clique numa página (P12) para abrir o PDF direto nela. O lápis libera o índice: Enter abre a linha seguinte e Tab muda o nível."}
   ];
 }
 function guiaSessoes(){
@@ -184,14 +185,14 @@ function guiaSessoes(){
     {a:".cvwrap .cvtools",ir:quadro,t:"Zoom e "+vmin("territorio")+" novo",x:"Aproximar, afastar, enquadrar tudo e ⬡ para criar um "+vmin("territorio")+"."},
     {a:"#railFloat",ir:quadro,t:"O painel",x:"O que não pode faltar, eventos fixos, preparação, o elenco da "+s+" e as notas. Arraste pelo título, redimensione pelo canto ou use Posição e tamanho. O botão Painel mostra e esconde."},
     {a:'#railFloat [data-rb="obrig"]',ir:quadro,t:"Não pode faltar",x:"Junta as "+cs+" e os itens marcados como obrigatórios, para nada essencial ficar para trás. Clique no número para ir à "+vmin("cena")+"."},
-    {a:'#railFloat [data-rb="prep"]',ir:quadro,t:"Preparação e eventos fixos",x:"O que ter pronto, as regras que vão aparecer e os eventos que acontecem de qualquer jeito. O lápis de cada caixa edita."},
+    {a:'#railFloat [data-rb="prep"]',ir:quadro,t:"Preparação e eventos fixos",x:"O que ter pronto, as regras que vão aparecer e os eventos que acontecem de qualquer jeito. O lápis de cada caixa libera o texto para editar ali mesmo."},
     {a:"#railFloat details.rbox:nth-of-type(4) > summary",opc:1,ir:quadro,t:"O elenco da "+s,x:"NPCs, locais e "+vmin("evidencias")+" que esta "+s+" usa. + adicionar puxa do Elenco ou cria um novo, e o ✓ ao lado de cada um libera para a "+vmin("mesa")+" na hora."},
     {a:"#iniBtn",ir:quadro,t:"Iniciativa",x:"Abre a barra da ordem: Puxar elenco (ou do "+vmin("mapa")+"), + alguém, Rolar quem falta e Próximo para passar a vez. Os "+j+" veem a ordem no topo da "+Vm("mesa")+"; NPC oculto aparece como ???."},
     {a:"#libBtn",ir:quadro,t:"Liberar para a "+vmin("mesa"),x:"Escolha o que os "+j+" passam a ver, com o que é desta "+s+" marcado. Nada é liberado sozinho. Na tela deles, o que é novo chega como uma carta virando."},
     {a:"#encBtn",ir:quadro,t:"Encerrar",x:"Marca a "+s+" como encerrada, passa as "+cs+" não feitas (com os "+tr+" delas) para a próxima e oferece escrever o resumo para os "+j+"."},
     {a:'[data-vm="roteiro"]',ir:quadro,t:Vm("quadro")+" ou "+vmin("roteiro"),x:"A mesma "+s+" em lista, uma "+vmin("cena")+" depois da outra. No celular, ela já abre assim."},
     {a:".roteiro",ir:roteiro,t:"O "+vmin("roteiro"),x:"Cada "+vmin("cena")+" abre e fecha no lugar. Arraste pelas três barrinhas para reordenar e use + "+vmin("cena")+" no fim."},
-    {a:".roteiro details.scn",opc:1,ir:roteiro,t:"Os blocos da "+vmin("cena"),x:"Uma "+vmin("cena")+" é feita de blocos: leitura em voz alta, lista, quem está lá, para avançar, diálogo, segredo só seu (fica borrado até você clicar), testes, trilha e imagens. Escolha o tipo e use + bloco."},
+    {a:".roteiro details.scn",opc:1,ir:roteiro,t:"Os blocos da "+vmin("cena"),x:"Uma "+vmin("cena")+" é feita de blocos: leitura em voz alta, lista, quem está lá, para avançar, diálogo, segredo só seu (fica borrado até você clicar), testes, trilha e imagens. Escolha o tipo e use + bloco: ele já entra aberto. O lápis de cada bloco libera os campos no lugar, e numa lista Enter abre o item seguinte."},
     {ir:roteiro,t:"Durante o jogo",x:"No bloco de testes, Pedir manda o teste para a tela dos "+j+" rolarem. No bloco de trilha, um clique toca a faixa com troca suave. Com a "+vmin("cena")+" aberta numa janela, as setas passam para a anterior e a próxima"+(mapaBloqueado()?".":", e o ícone de "+vmin("mapa")+" abre o "+vmin("mapa")+" ligado a ela.")});
   return L;
 }
@@ -228,13 +229,13 @@ function guiaMesaMestre(){
     {ir:irMesa("resumos"),t:Vm("mesa"),x:"Esta aba mostra exatamente o que os "+j+" veem, seção por seção. É daqui que você publica os resumos e confere o que já foi liberado."},
     {a:".gmstrip",ir:irMesa("resumos"),t:"Visão do "+vmin("mestre"),x:"A faixa lembra que esta é a tela deles. Liberar conteúdo abre a mesma janela do "+vmin("quadro")+", com o elenco inteiro."},
     {a:"#view .mesanav",ir:irMesa("resumos"),t:"As seções",x:"Resumos, "+vmin("evidencias")+", quem é quem, "+vmin("referencia")+", "+vmin("fichas")+", anotações e mural. Para os "+j+", cada uma é uma aba."},
-    {a:"#mAddRes",ir:irMesa("resumos"),t:"Resumos",x:"Publique o que aconteceu em cada "+vmin("sessao")+": número, título, data e texto. O lápis edita e Remover tira. Encerrar uma "+vmin("sessao")+" também oferece escrever o resumo."},
+    {a:"#mAddRes",ir:irMesa("resumos"),t:"Resumos",x:"Publique o que aconteceu em cada "+vmin("sessao")+": número, título, data e texto. O lápis libera o resumo para editar no lugar e Remover tira. Encerrar uma "+vmin("sessao")+" também oferece escrever o resumo."},
     {a:'#view [data-msec="ev"]',ir:irMesa("ev"),t:Vm("evidencias"),x:"As "+vmin("evidencias")+" que você liberou, com a imagem e o texto da mesa."},
     {a:'#view [data-msec="quem"]',ir:irMesa("quem"),t:"Quem é quem",x:"NPCs e locais liberados, com o retrato e o que a mesa pode saber de cada um."},
-    {a:'#view [data-msec="regras"]',ir:irMesa("regras"),t:Vm("referencia"),x:"O resumo das regras, para consulta rápida. O lápis abre o editor, que também fica em Configurações."},
+    {a:'#view [data-msec="regras"]',ir:irMesa("regras"),t:Vm("referencia"),x:"O resumo das regras, para consulta rápida. O lápis libera os grupos para editar ali mesmo."},
     {a:"#fxModelo",ir:irMesa("fichas"),t:Vm("fichas")+" e modelo",x:"Você vê e edita as "+vmin("fichas")+" de todo mundo. Modelo da ficha define os campos e a rolagem que as novas recebem."},
     {a:"#fxPdf",ir:irMesa("fichas"),t:"Importar de PDF",x:"O PDF é lido no navegador; com a IA configurada, ela organiza os campos, até de ficha escaneada. Funciona melhor com ficha preenchível."},
-    {a:"#fxList",ir:irMesa("fichas"),t:"A ficha aberta",x:"Clicar num número rola o dado com o nome do campo e barras têm − e +. O lápis do topo edita ali mesmo: valores, rótulos, seções, campos novos e o ícone. Na ficha também se escolhe a imagem do "+vmin("token")+" e se põe o personagem num "+vmin("mapa")+" ou se liga a ela um "+vmin("token")+" já posto. Usar como modelo transforma os campos de uma ficha no modelo das próximas."},
+    {a:"#fxList",ir:irMesa("fichas"),t:"A ficha aberta",x:"Personagens primeiro, "+vmin("npcs")+" depois, com busca pelo nome. Na ficha, número rola o dado e barras têm − e +. Cada bloco tem o seu lápis: o topo (nome, ícone e o "+vmin("jogador")+" dono da ficha), as variações do "+vmin("token")+" (desarmado, armado…) e cada seção. Dali também se põe o personagem num "+vmin("mapa")+" ou se liga um "+vmin("token")+" já posto."},
     {a:"#mNotas",ir:irMesa("notas"),t:"Minhas anotações",x:"Um caderno só seu, guardado na sua conta."},
     {a:"#mPost",ir:irMesa("mural"),t:"Mural",x:"Recados que a "+vmin("mesa")+" toda lê. Você escreve aqui também e pode apagar qualquer recado."}
   ];
@@ -248,14 +249,14 @@ function guiaMapaMestre(){
   return [
     {ir:ir,t:Vm("mapa"),x:"Um tabuleiro ao vivo: imagem com grade, "+vmin("tokens")+", medição, paredes e névoa. Você prepara quantos "+vmin("mapas")+" quiser e mostra um de cada vez."},
     {a:"#mpAtiva",ir:ir,t:"Mostrar aos "+j,x:"Só o "+mp+" mostrado aparece para eles, e o chip ao lado do nome diz se veem."},
-    {a:"#mpToken",ir:ir,t:"Novo "+tk,x:"Avulso, de uma ficha ou de um NPC do elenco (o de NPC nasce escondido). A vida pode ficar ligada à ficha, e cada "+tk+" pode ter um dono que o move."},
+    {a:"#mpToken",ir:ir,t:"Novo "+tk,x:"Avulso, de uma ficha ou de um NPC do elenco (o de NPC nasce escondido). A vida pode ficar ligada à ficha, e cada "+tk+" pode ter um dono que o move. Com a ficha ligada, o duplo clique no "+tk+" abre a edição, com o atalho para a ficha, e as variações dela aparecem numa faixa em cima do "+tk+" selecionado."},
     {a:"#mpEd",ir:ir,t:"Ajustes do "+mp,x:"Imagem, grade, quanto vale cada casa, como conta a diagonal, quem move os "+vmin("tokens")+" e se dá para passar do deslocamento do "+vmin("turno")+"."},
     {a:"#mpPainel",ir:painel,t:"O painel",x:"Os "+vmin("mapas")+", as camadas, os "+vmin("tokens")+", os desenhos, as paredes e a névoa. Clicar num "+tk+" centraliza nele, e o lápis edita."},
     {a:'[data-mpf="selecionar"]',ir:ir,t:"Selecionar",x:"Arraste uma caixa para pegar vários itens; Shift soma. A seleção ganha ações no painel: trancar, esconder, frente e trás, mudar de camada e remover."},
     {a:'[data-mpf="ping"]',ir:ir,t:"Apontar",x:"Clique num ponto para todos verem onde você quer chamar atenção."},
     {a:"#mpRegua",ir:ir,t:"Régua",x:"Meça em linha reta ou pelo trajeto, ponto a ponto. As paredes contam, e o deslocamento do "+vmin("turno")+" entra na conta."},
     {a:"#mpArea",ir:ir,t:"Áreas",x:"Cone, círculo, linha ou explosão, para ver o alcance de um efeito. No painel, Fixar a área deixa o molde desenhado no "+mp+"."},
-    {a:"#mpDesBtn",ir:ir,t:"Desenhar",x:"Linha, círculo, retângulo, polígono e marcação. Cor, espessura, preenchimento e se os "+j+" veem ficam em Estilo do desenho, no painel."},
+    {a:"#mpDesBtn",ir:ir,t:"Desenhar",x:"Linha, círculo, retângulo, polígono, marcação e desenho livre. Cor, espessura, preenchimento e se os "+j+" veem ficam em Estilo do desenho, no painel."},
     {a:'[data-mpf="parede"]',ir:ir,t:"Paredes e portas",x:"Um clique por ponto, Enter termina. Parede barra o movimento e a visão; janela, só o movimento; porta fechada, os dois. No painel, cada porta abre e fecha."},
     {a:'[data-mpf="fog"]',ir:ir,t:"Névoa",x:"No painel, escolha a névoa: nenhuma, manual (só o que você revelar) ou pela visão dos personagens, que pode lembrar o que já foi explorado. Com esta ferramenta, desenhe áreas para revelar ou cobrir."},
     {a:'[data-mpf="pincel"]',ir:ir,t:"Pincel de névoa",x:"Pinte por cima do "+mp+" para revelar ou cobrir, com diâmetro, formato e borda escolhidos no painel. Ver como os "+j+" veem confere o resultado."},
@@ -274,7 +275,7 @@ function guiaTopoMestre(){
     {ir:ir,a:"#btnTrilha",t:Vm("trilha"),x:"Toca a trilha sonora com troca suave entre faixas. O que está tocando fica no topo, com pausar, parar e repetir."},
     {ir:ir,a:"#btnDados",t:"Dados",x:"Clique num dado ou escreva a rolagem: 2d6+3, 2d20kh1 (fica o maior), 4d6dl1 (sai o menor). Quem sorteia é o servidor. Você escolhe se a "+vmin("mesa")+" vê cada rolagem sua, e Pedir teste manda um pedido aos "+vmin("jogadores")+"."},
     {ir:ir,a:"#btnRol",t:"Rolagens da "+vmin("mesa"),x:"Um painel solto com as rolagens de todo mundo e os pedidos de teste, com um campo para rolar dali. Abre, fecha, move e muda de tamanho."},
-    {ir:ir,a:"#btnAjustes",t:"Configurações",x:"A "+vmin("campanha")+" (capa, tema sugerido, pacote), mesa e convites, vocabulário, "+vmin("referencia")+", busca, aparência, privacidade, guias e a sua conta."},
+    {ir:ir,a:"#btnAjustes",t:"Configurações",x:"A "+vmin("campanha")+" (capa, tema sugerido, pacote), mesa e convites, vocabulário, busca, aparência, privacidade, guias e a sua conta."},
     {ir:ir,a:"#btnAjustes",t:"Suporte",x:"Em Configurações › Suporte: escreva o que aconteceu, e a mensagem vai para quem cuida deste Grimório. Fora de uma "+vmin("campanha")+", o link também fica no rodapé."}
   ];
 }
@@ -317,7 +318,7 @@ function guiaFichas(){
     {a:'[data-msec="fichas"]',ir:ir,t:Vm("fichas"),x:"As fichas dos seus personagens. Só você e o "+vmin("mestre")+" veem."},
     {a:"#fxNova",ir:ir,t:"Nova ficha",x:"Cria uma ficha com os campos do modelo que o "+vmin("mestre")+" definiu. Dá para ter mais de uma."},
     {a:"#fxPdf",ir:ir,t:"Importar de PDF",x:"Escolha o PDF da ficha: ele é lido no seu navegador. Funciona melhor com ficha preenchível."},
-    {a:"#fxList",ir:ir,t:"Usar a ficha",x:"Clique numa ficha para abrir. Número rola o dado com o nome do campo, barras de vida têm − e +, e caixas marcam condições. O lápis edita na própria ficha, com o ícone do personagem, e dali você põe o seu "+vmin("token")+" no "+vmin("mapa")+" aberto."},
+    {a:"#fxList",ir:ir,t:"Usar a ficha",x:"Clique numa ficha para abrir. Número rola o dado com o nome do campo, barras de vida têm − e +, e caixas marcam condições. Cada bloco tem o seu lápis (o topo, as variações do "+vmin("token")+" e cada seção), e dali você põe o seu "+vmin("token")+" no "+vmin("mapa")+" aberto."},
     {ir:ir,t:"Os campos",x:"Texto curto, número (clicar rola), barra com atual e máximo, texto longo e caixa de marcar, organizados em seções."}
   ];
 }

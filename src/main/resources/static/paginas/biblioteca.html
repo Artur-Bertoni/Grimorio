@@ -8,7 +8,6 @@
   <div class="addrow"><button class="btn" id="bbUp">{{ aba === 'livros' ? 'Enviar PDFs' : (aba === 'trilha' ? 'Enviar faixas' : 'Enviar imagens') }}</button><button class="btn sec" id="bbPasta">Enviar uma pasta inteira</button></div>
   <div v-if="aba !== 'imagens'" class="aviso mt-3" v-html="texto"></div>
   <p v-else class="sm muted leitura-larga">Retratos, mapas e {{ vmin('evidencias') }}. Os {{ vmin('jogadores') }} só veem as que estiverem em algo que você liberou.</p>
-  <div id="bbProg" hidden class="mt-3 mb-3"><div class="prog"><span id="bbN"></span><span class="bar" style="width:13.75rem"><i id="bbB" style="width:0%"></i></span></div></div>
   <div id="bbList" class="mt-4"><p class="muted sm">carregando…</p></div>
   <details v-if="aba === 'livros'" class="mt-6"><summary class="sm muted" style="cursor:pointer">Avançado</summary>
     <div class="mt-3"><button class="btn sec" id="bbScan">Reescanear o volume</button>

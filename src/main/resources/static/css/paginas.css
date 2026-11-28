@@ -43,8 +43,8 @@ body.fora #btnBusca,body.fora #btnTrilha,body.fora .savest,body.jogador .savest{
 .rowhd{display:flex;align-items:center;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);
   text-transform:uppercase;color:var(--fg3)}
 .rowhd span{flex:1}
-.pick{display:flex;align-items:flex-start;gap:var(--s-2);flex-wrap:wrap}
-.pick img,.pick .semimg{width:4.5rem;height:4.5rem;object-fit:cover;border:1px solid var(--line2);border-radius:var(--r-xs);background:var(--bg3)}
+.pick{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+.pick img,.pick .semimg{width:3rem;height:3rem;object-fit:cover;border:1px solid var(--line2);border-radius:var(--r-xs);background:var(--bg3)}
 .pick .semimg{display:grid;place-items:center;text-align:center;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);
   color:var(--fg3);text-transform:uppercase}
 .pick .pkit{display:inline-flex;flex-direction:column}

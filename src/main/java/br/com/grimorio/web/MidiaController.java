@@ -139,7 +139,7 @@ public class MidiaController {
     public ResponseEntity<StreamingResponseBody> exportar(
             @PathVariable Long cid,
             @RequestParam(required = false) Boolean arquivos,
-            @RequestParam(required = false) Boolean imagens) {
+            @RequestParam(required = false) Boolean imagens) throws IOException {
         camp.exigeMestre(cid, atual.id());
         String nome = "campanha-" + cid + ".zip";
         /* "imagens" e o nome antigo do parametro, de quando so as imagens iam no pacote */
@@ -148,6 +148,8 @@ public class MidiaController {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nome + "\"")
+                /* o zip sai em fluxo, sem Content-Length: a tela usa isto para a barra de progresso */
+                .header("X-Tamanho-Estimado", String.valueOf(pacote.tamanhoEstimado(cid, comArquivos)))
                 .body(corpo);
     }
 

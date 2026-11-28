@@ -1,0 +1,13 @@
+<!-- Edicao no lugar (js/nolugar.js): o lapis de um bloco e o rodape do bloco aberto -->
+
+<!-- k: a chave do bloco; ed: ele esta aberto; rotulo: o nome do bloco para o leitor de tela -->
+<template id="t-nl-lapis">
+  <button type="button" class="edb ico" :data-nl-abre="k" :aria-pressed="String(ed)" :title="(ed ? 'Terminar de editar ' : 'Editar ') + rotulo" :aria-label="(ed ? 'Terminar de editar ' : 'Editar ') + rotulo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button>
+</template>
+
+<!-- adds: [{rot, p (a lista), novo (o molde em NL_NOVO)}]; tira: o texto do remover o bloco, ou vazio -->
+<template id="t-nl-fim">
+  <div class="nlfim"><button v-for="a in adds" type="button" class="addbtn" :data-nl-add="a.p" :data-nl-novo="a.novo || 'txt'">+ {{ a.rot }}</button>
+    <span class="cresce"></span><button v-if="tira" type="button" class="tbtn d encerra" data-nl-tira>{{ tira }}</button>
+    <button type="button" class="btn sec m" data-nl-pronto>Pronto</button></div>
+</template>

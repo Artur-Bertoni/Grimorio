@@ -46,10 +46,10 @@ function ligarSessoes(v){
 function editarSessao(s){
   var nova=!s, um=V("sessao").toLowerCase();
   var prox=D.sessoes.reduce(function(m,x){return Math.max(m,x.numero||0);},0)+1;
-  var campos=[{k:"numero",rot:"Número",tipo:"num"},{k:"titulo",rot:"Título",obrig:true},
+  var campos=[{k:"numero",rot:"Número",tipo:"num"},{k:"titulo",rot:"Título",obrig:true,larg:"mg"},
     {k:"resumo",rot:"O que deve acontecer",tipo:"area",linhas:4,dica:"Só você vê. O resumo para os jogadores é escrito ao encerrar."}];
   if(!nova)campos.push({k:"status",rot:"Situação",tipo:"sel",
-    ops:[["planejada","planejada"],["jogada","em andamento"],["encerrada","encerrada"]]});
+    ops:[["planejada","Planejada"],["jogada","Em andamento"],["encerrada","Encerrada"]]});
   formulario((nova?"Nova ":"Editar ")+um,campos,
     nova?{numero:prox,titulo:"",resumo:""}:{numero:s.numero,titulo:s.titulo,resumo:s.resumo,status:s.status||"planejada"},
     {salvar:function(w){
@@ -101,5 +101,5 @@ function aplicarEncerramento(s){
   $("#encDep",ov).onclick=function(){ ov.close(); };
   $("#encRes",ov).onclick=function(){ ov.close();
     var hoje=""; try{ hoje=new Date().toLocaleDateString("pt-BR"); }catch(error_){ /* falha aqui nao muda o que a pessoa ve */ }
-    editarResumo(-1,{n:s.numero,titulo:s.titulo,data:hoje,texto:""}); };
+    novoResumo({n:s.numero,titulo:s.titulo,data:hoje,texto:""}); };
 }

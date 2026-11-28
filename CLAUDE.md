@@ -68,7 +68,7 @@ src/main/resources/
                       controles.css (botão, aba, campo, chip, aviso) antes de pele.css, e de
                       pele.css em diante o tema
   static/js/          o JS que preenche e liga cada página ou componente (nucleo,
-                      componentes, camadas, tema, tour (guias), musica, cena, pagina-*, configuracoes,
+                      componentes, camadas, nolugar (edição no lugar), tema, tour (guias), musica, cena, pagina-*, configuracoes,
                       rotas, render…)
   static/paginas/legal.html, 404.html   privacidade/termos (públicas) e a página de endereço inexistente
   static/publico/     o JS das páginas públicas (tema, login, legal): a CSP não aceita script inline
@@ -132,6 +132,11 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
 - **Botão, aba, campo, chip e aviso moram só em `controles.css`.** Quatro variantes (`.btn`,
   `.btn.sec`, `.btn.dang`, `.btn.fant`) em três alturas (40, 32, 24px); o pequeno ganha área de
   toque invisível. Não crie outra classe de botão: use uma variante e um tamanho (`.btn.m`).
+- **Campo tem uma altura só (32px, letra de 14px)** em janela, Configurações e ficha. **Liga/desliga é
+  interruptor** (`<label class="sw"><input type="checkbox" role="switch">`); caixa de marcar fica para
+  escolher vários itens de uma lista. Os dois têm o desenho do site (nunca o do navegador) e, ligados,
+  clareiam em `--fg2`, sem dourado. Página de Configurações com várias partes tem um primário no máximo:
+  o "salvar" de cada parte é `.btn.sec.m`.
 - **O primário é preenchido** (`.btn`: fundo dourado, texto `--sobre-gold`) e há no máximo um por
   região. Alternância ligada (`.ibtn.on`, `aria-pressed`) usa fundo `--bg4`, nunca dourado, para
   não competir com o primário. Ação destrutiva numa barra é `.tbtn.d.encerra` (texto, sem borda).
@@ -149,6 +154,13 @@ devolve string, `render()` põe no lugar e `hydrateX(v)` liga os eventos por id 
   aria-modal, foco preso, fundo `inert`, foco devolvido a quem abriu). Menu solto é
   `menuSolto(ancora, html, escolheu)`; o que não tem volta usa `confirmar(texto, {titulo, sim})`,
   que devolve Promise (nunca `confirm()`/`prompt()` do navegador); o resto usa `comDesfazer`.
+  **Ação demorada** (enviar PDF, faixa ou imagem pela Biblioteca, reescanear, reler capítulos, importar ou exportar
+  pacote, criar campanha de modelo ou pacote, enviar modelos, importar ficha de PDF) passa por
+  `tarefaLonga(titulo, texto)` (`js/envio.js`): janela com a barra (`<progress>`), sem X, Esc nem Voltar, e o
+  navegador pergunta antes de fechar a aba até terminar. `h.passo(texto, fração)` (fração `null` é barra sem
+  medida), `h.envio(texto)` é o `onProg` do `upload()` e passa a "processando" ao chegar a 100%, e
+  `h.fim(msg, tipo, erros, depois)` mostra o resultado com Ok (`depois` roda ao fechar). Download grande usa
+  `baixarComProgresso(url, nome, h)`; o zip do pacote não tem tamanho, então o servidor manda `X-Tamanho-Estimado`.
   Aviso é `toast(msg, "ok"|"erro"|"aviso")` (sem tipo, ele adivinha pelo começo da frase) e fica
   numa pilha que pausa com o mouse. Atalho de teclado é `atalho({tecla, ctrl, quando, faz})`:
   ele já respeita campo de texto, janela aberta, tour e a preferência `grim_atalhos`. Tecla de
@@ -259,10 +271,19 @@ pedaços cortados pela névoa (`MapaTiles`).
 um monta uma planta em casas com semente (a prévia, o "Gerar outro" e o mapa criado saem iguais); as paredes saem das
 divisas entre zonas. O chão é pintado no navegador e enviado como imagem (o repositório não carrega arte); paredes,
 portas, móveis que barram, marcações e tokens vão em `elementos` no `POST /mapas`, gravados na mesma transação do mapa.
+O desenho tem a forma `livre` (traço à mão, até 100 pontos, sem encaixe); `traco` é do pincel de névoa, que tem largura.
 
-**Ficha e token**: a ficha guarda o ícone em `img` e a imagem do token em `token` (no JSON dela; sem `token`, o token
-usa o ícone: `MapaFichas.imagemDoToken`). Os tokens ligados (vínculo ligado) seguem essa imagem a cada gravação da
-ficha (`MapaVida.imagemDaFicha`), como seguem a vida e a visão; ficha sem imagem nenhuma não apaga a do token. Ela mostra os tokens ligados a ela nos mapas,
+**Ficha e token**: a ficha guarda o ícone em `img` e as **variações de token** em `tokens` (`[{id, nome, img}]`, a primeira
+é a padrão; ficha antiga com uma imagem só em `token` vale como uma variação). O token ligado guarda a cópia delas em
+`dados.vars` e a escolhida em `dados.variante` (`MapaFichas.vesteToken`, no pôr, no ligar, no token que nasce de ficha pelo
+mapa e a cada gravação da ficha via `MapaVida.imagemDaFicha`). No mapa, com só esse token selecionado, uma faixa em cima dele
+troca a variação com um clique (`mpPosicionaVariantes`); o servidor aceita só `variante`, do mestre ou do dono, e tira a
+imagem da cópia, nunca do pedido (`MapaRegras.variante`). O dono do token recebe o `fichaId` dele (para abrir a ficha pelo
+mapa); quem não é dono, não. Ficha sem imagem nenhuma não apaga a do token. **Dono da ficha**: o mestre entrega a ficha a
+alguém da mesa (`PUT /fichas/{id}/dono`), que passa a vê-la e editá-la, e os tokens ligados vão junto (`MapaVida.donoDaFicha`);
+sem ninguém, ela volta ao mestre. A lista separa personagens (`jogador`: o dono joga na campanha) de NPCs e tem busca pelo
+nome; as fichas também entram na busca do site (`fichasDaCampanha()`, que confere de que campanha a lista veio). O personagem
+do elenco pode apontar para uma ficha (`fichaId` no guia). A ficha mostra os tokens ligados a ela nos mapas,
 com "Pôr num mapa" e "Ligar um token já posto". Mestre mexe em qualquer mapa; o dono da ficha só no mapa ativo,
 numa peça por ficha, ao lado de uma peça dele (sem nenhuma, só se o mapa não tem névoa: no meio ele veria o que a
 névoa esconde) e só liga token que controla. Ligar faz o dono da ficha controlar o token. Sem ícone, a lista usa a
@@ -495,15 +516,33 @@ clima da última mesa aberta.
 
 ## Como o front edita
 
-**Tudo passa por formulário.** Não existe mais modo edição, tecla `E` nem
-`contentEditable`: digitar direto na página não tinha rótulo, perdia quebra de linha
-e ligava sem querer (ver `docs/decisoes.md`). **A exceção é a ficha de personagem**
-(`abrirFicha`, decisão do dono): a lista de campos num formulário ficava enorme, então o lápis do
-topo liga o modo edição na própria ficha. Cada valor, rótulo e seção vira um `<input>` de verdade com
-rótulo (`.inp.m`), grava sozinho com debounce e não redesenha a cada tecla; mudança de estrutura
-(campo novo, tipo, remover, arrastar) redesenha e oferece desfazer. Fora do modo, a ficha é de jogo
-(número rola, barra tem + e −). Cada item tem um botão **editar** que
-abre `formulario()`:
+**Bloco se edita no lugar, sem janela** (decisão do dono, 27/11/2026). Não existe modo edição da
+página inteira, tecla `E` nem `contentEditable` (ver `docs/decisoes.md`): cada bloco tem o **próprio lápis**,
+e só um bloco fica aberto por vez em toda a tela. Aberto, o bloco **não muda de desenho**: o texto vira um campo
+(`.nl`, em `controles.css`) no mesmo lugar, com a mesma letra, só com um fundo leve e um traço embaixo. Grava
+sozinho enquanto a pessoa digita; Pronto, o lápis de novo ou Esc fecham, limpam o item que ficou vazio e
+redesenham. O motor é `js/nolugar.js`:
+
+- A chave do bloco aberto é `NL.k` (`blk:{cena}:{i}`, `scn:{cena}`, `sec:{i}`, `cp`, `idx`, `rb:{caixa}`,
+  `ref`, `res:{i}`). `NL_ALVOS[prefixo](partes)` devolve o alvo `{obj, grava, abre, limpa, vazio, tira, remove,
+  fecha, mudou, tecla}`; o caminho de cada campo (`data-nl="itens.2.t"`) vale dentro de `obj`. Quem tem cópia de
+  trabalho (o índice dos livros, em linhas) a prepara em `NL_DADOS`.
+- O template recebe `ed`, a chave, o lápis (`nlLapis(k, rótulo)`) e o rodapé (`nlFim(adds, remover)`) prontos,
+  e põe `data-nlb="chave"` na raiz quando está aberto. Os mesmos elementos, com `v-if="ed"` trocando o texto pelo
+  campo: nada de cartão de editor. Item de lista de texto leva `data-nl-li` (Enter abre o seguinte, Backspace
+  no começo junta); `data-nl-add`, `data-nl-del` (com `data-nl-desfaz` usa `comDesfazer`), `data-nl-img`,
+  `data-nl-alt`, `data-nl-re` (o campo muda o desenho) e `data-nl-foco` estão descritos no topo do arquivo.
+- O que se cria já entra aberto (`novo:true`): bloco de cena, cena, seção, resumo, índice. Ficando vazio, o
+  Pronto o tira. Trocar de tela fecha o bloco (`render()` chama `nlFecha`), e o guia da aba não abre sozinho
+  com um bloco aberto.
+- Vale para os blocos de cena e o cabeçalho da cena, o nome e a apresentação da Campanha, as seções, o índice dos
+  livros, as caixas do painel da sessão, a **Consulta rápida** (na aba Mesa, que saiu de Configurações) e os
+  resumos da Mesa. **A ficha** (`abrirFicha`) tem o motor dela (`fx.ed`: "topo", "tok" ou "s:" + seção), com a
+  mesma regra de desenho: rótulo, valor e nome viram `.nl` onde estão, e a alça e o menu do campo (tipo, remover)
+  aparecem ao passar o mouse. Fora do modo, a ficha é de jogo (número rola, barra tem + e −).
+
+**O resto passa por formulário**: o que tem muitos campos que não aparecem na tela (Elenco, sessão, território,
+as janelas do mapa, Configurações). Cada item tem um botão **editar** que abre `formulario()`:
 
 ```js
 formulario("Editar · npc", [
@@ -517,8 +556,20 @@ formulario("Editar · npc", [
 ```
 
 - Tipos de campo: texto (padrão), `area`, `linhas` (textarea, um item por linha, vira
-  array), `num`, `sel` (`ops:[[valor,rótulo]]`), `check`, `faixa`, `img`, `imgs` e
-  `grupo` (linhas repetíveis com `campos` próprios e `novo()`).
+  array), `num`, `sel` (`ops:[[valor,rótulo]]`), `check` (é um **interruptor**, `role="switch"`),
+  `faixa`, `img`, `imgs`, `grupo` (linhas repetíveis com `campos` próprios e `novo()`) e `secao`
+  (só um título entre os campos: `{tipo:"secao", rot}`).
+- **Os campos ficam numa grade de 12 colunas e cada um ocupa o que o valor precisa** (`larg`: `p` um
+  quarto, `m` metade, `mg` três quartos, `g` a linha toda). Sem `larg` vale o tamanho do tipo
+  (`LARGURA_DO_TIPO`: número curto, escolha e texto curto pela metade, texto longo, lista e grupo na
+  linha toda). No celular, curto vira metade e o resto a linha toda. A janela do formulário tem 40rem
+  (54rem com `wide`), nunca a folha larga da ficha. A antiga opção `linha` e o `compacto` não existem mais.
+- Formulário longo se divide em `secao` e manda o que se usa pouco para **Avançado** (`av:true`), que
+  abre fechado; se o erro de validação cai lá dentro, ele abre sozinho.
+- **A dica vira um ⓘ ao lado do rótulo** (abre ao passar o mouse ou com o foco; o input continua
+  descrito por ela via `aria-describedby`). Escreva a dica curta; não existe mais a linha
+  "* campo obrigatório" (o asterisco no rótulo basta). `o.acao = {rot, faz}` põe um botão ao lado do
+  Cancelar que abre outra janela por cima, sem fechar o formulário.
 - O formulário trabalha numa **cópia**. O original só muda dentro de `salvar(copia)`.
   Fechar com mudança pendente pede confirmação.
 - **Remoção não pergunta "tem certeza?": faz e oferece desfazer** (`comDesfazer`), que
@@ -549,7 +600,7 @@ aba nova: escreva o template em `paginas/`, devolva `htmlDe(...)` numa `viewX()`
 os eventos numa `hydrateX(v)` e registre as duas no `render()` e em `renderTabs()`.
 
 As seções de Configurações (a engrenagem; no código, `S.view="ajustes"` e `viewAjustes`) reaproveitam as funções `abrirMembros`, `abrirCampanha`,
-`abrirVocabulario`, `abrirReferencia`, `abrirAdmin` e `abrirConta`: o segundo
+`abrirVocabulario`, `abrirAdmin` e `abrirConta`: o segundo
 parâmetro (`mk`) troca o overlay por `emPagina(alvo)`, que monta o mesmo HTML dentro
 da página.
 
@@ -564,6 +615,7 @@ cd scripts/teste-front && npm install      # uma vez
 node stub.mjs &
 node teste.mjs                             # FOTOS=pasta grava capturas das telas
 FOTOS=pasta node fotos-temas.mjs           # as telas principais em um tema de cada estilo
+FOTOS=pasta node fotos-formularios.mjs     # cada janela de edição e seção de Configurações (LARGURA=390 para o celular)
 node icones.mjs                            # refaz favicon, ícones e a prévia do convite a partir de logoSvg()
 ```
 

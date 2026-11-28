@@ -5,6 +5,26 @@
 .sheet{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);width:100%;max-width:53.75rem;
   margin:auto;box-shadow:var(--e3);display:flex;flex-direction:column;max-height:100%}
 .sheet.wide{max-width:min(93.75rem,100%)}
+/* janela de formulario: largura de leitura, nao a folha larga da ficha (a grade de campos e que se divide) */
+.sheet.formsheet{max-width:40rem}
+.sheet.formsheet.larga{max-width:54rem}
+/* tarefa demorada (tarefaLonga): a barra enquanto trabalha; sem X ate terminar */
+.sheet.tarefasheet{max-width:30rem}
+.ov.ocupada .x{display:none}
+.tarefa{display:flex;flex-direction:column;gap:var(--s-3)}
+.tarefa [data-andando]{display:flex;flex-direction:column;gap:var(--s-2)}
+.tarefa [hidden]{display:none}
+.tarefatx{margin:0;color:var(--fg);font-size:var(--fs-3);overflow-wrap:anywhere}
+.tarefapct{margin:0;min-height:1.2em;font-variant-numeric:tabular-nums}
+.tarefabar{appearance:none;-webkit-appearance:none;display:block;width:100%;height:.5rem;border:0;border-radius:var(--r-pill);background:var(--bg4);overflow:hidden;color:var(--blood)}
+.tarefabar::-webkit-progress-bar{background:var(--bg4);border-radius:var(--r-pill)}
+.tarefabar::-webkit-progress-value{background:var(--blood);border-radius:var(--r-pill);transition:width var(--dur-3) var(--ease)}
+.tarefabar::-moz-progress-bar{background:var(--blood);border-radius:var(--r-pill)}
+.tarefabar:indeterminate{background:linear-gradient(90deg,var(--bg4) 0 35%,var(--blood) 35% 65%,var(--bg4) 65%) 0 0/200% 100% var(--bg4)}
+.tarefabar:indeterminate::-webkit-progress-bar{background:transparent}
+.tarefabar:indeterminate::-moz-progress-bar{background:transparent}
+.tarefafim{margin:0;font-size:var(--fs-4);color:var(--fg)}
+.tarefaerros{margin:0;padding-left:var(--s-5);max-height:12rem;overflow:auto}
 .sheet.full{max-width:none}
 .shead{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) var(--s-3);border-bottom:1px solid var(--line);flex:0 0 auto}
 .shead .stit{font-family:var(--disp);font-size:var(--fs-5);font-weight:var(--fw-titulo);letter-spacing:var(--tr-fino);line-height:var(--lh-titulo);flex:1;min-width:0;overflow-wrap:anywhere}

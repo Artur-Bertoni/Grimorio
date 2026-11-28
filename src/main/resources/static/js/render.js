@@ -219,6 +219,8 @@ function render(){
   marcaCorpo(v,board);
   pintarMarca();
   var chave=chaveDaTela(), y=window.scrollY||0, mesma=(chave===ULT); ULT=chave;
+  /* bloco aberto no lugar (js/nolugar.js) fecha quando a tela muda: o que foi digitado ja esta gravado */
+  if(!mesma)nlFecha(true);
   var ativo=document.activeElement, focoSel=(mesma&&ativo&&v.contains(ativo))?seletorEstavel(ativo):null;
   document.body.classList.toggle("trocaaba",ULTV!==S.view); ULTV=S.view;
   var tela=telaAtual(), ok=desenhaTela(v,tela);

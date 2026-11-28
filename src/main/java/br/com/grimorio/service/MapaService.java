@@ -424,10 +424,10 @@ public class MapaService {
      */
     private void exigeDoJogador(MapaElemento x, Mapa m, CorpoElemento c, long uid) {
         Map<String, Object> d = c.dados == null ? Map.of() : c.dados;
-        boolean marca = d.containsKey("vida") || d.containsKey(K_MARCAS);
+        boolean marca = d.containsKey("vida") || d.containsKey(K_MARCAS) || d.containsKey(MapaFichas.K_VARIANTE);
         boolean mexe = d.containsKey("x") || d.containsKey("y");
         if (marca && !(x.getTipo() == MapaElemento.Tipo.TOKEN && x.getDono() == uid && x.isVisivel() && !base().trancado(x, m))) {
-            throw new CampanhaService.SemAcessoException("só o dono do token muda a vida e as marcas dele");
+            throw new CampanhaService.SemAcessoException("só o dono do token muda a vida, as marcas e a variação dele");
         }
         if (mexe || !marca) {
             if (!base().podeMoverPelasRegras(x, m, uid)) throw new CampanhaService.SemAcessoException("este token não é seu para mover");
@@ -534,9 +534,14 @@ public class MapaService {
         partes.vida().visaoDaFicha(cid, fichaId, conteudo);
     }
 
-    /** A imagem do token da ficha (ou o icone) mudou: os tokens vinculados a ela passam a usa-la. Chamado depois de gravar a ficha. */
+    /** As variacoes de token da ficha (ou o icone) mudaram: os tokens vinculados a ela ficam iguais. Chamado depois de gravar a ficha. */
     public void imagemDaFicha(long cid, long fichaId, String conteudo) {
         partes.vida().imagemDaFicha(cid, fichaId, conteudo);
+    }
+
+    /** A ficha mudou de dono: os tokens vinculados a ela passam a ser de quem ficou com ela. Chamado depois de gravar a ficha. */
+    public void donoDaFicha(long cid, long fichaId, long novoDono) {
+        partes.vida().donoDaFicha(cid, fichaId, novoDono);
     }
 
     /** Aponta um ponto do mapa: todos que veem o mapa recebem na hora, e nada fica gravado. */
@@ -608,6 +613,10 @@ public class MapaService {
         ObjectNode d = dadosDoTipo(t, om.createObjectNode(), c.dados, m);
         x.setCamada(MapaRegras.camada(c.camada, camadaPadrao(t, d)));
         x.setDono(t == MapaElemento.Tipo.TOKEN ? donoInicial(cid, c, d) : 0);
+        /* token que nasce de ficha ja vem com as variacoes dela (a imagem sai da ficha, nao do pedido) */
+        if (t == MapaElemento.Tipo.TOKEN && d.hasNonNull(K_FICHA)) {
+            fichas.findById(d.get(K_FICHA).asLong()).ifPresent(f -> MapaFichas.vesteToken(d, base().ler(f.getConteudo())));
+        }
         if (c.bloqueado != null) x.setBloqueado(c.bloqueado);
         if (c.visivel != null && !MapaBase.sempreVisivel(t)) x.setVisivel(c.visivel);
         x.setOrdem(ordem);

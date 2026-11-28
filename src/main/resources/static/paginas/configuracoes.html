@@ -20,8 +20,8 @@
 <template id="t-aj-privacidade">
   <h2 class="sec mb-3">Privacidade e acessibilidade</h2>
   <div class="form">
-    <label class="ck"><input type="checkbox" id="pvMetricas" v-attr:checked="metricas">Contar meu uso de forma anônima<span class="dica">O servidor soma quantas vezes cada tela é aberta por dia, sem guardar quem abriu, para quem administra saber o que é usado. Nada sai do servidor do Grimório.</span></label>
-    <label class="ck"><input type="checkbox" id="pvAtalhos" v-attr:checked="atalhos">Atalhos de uma tecla (a tecla / abre a busca)<span class="dica">Desligue se você usa leitor de tela, ditado ou acesso por voz: tecla solta pode disparar sem querer. Ctrl+K continua abrindo a busca.</span></label>
+    <label class="sw"><input type="checkbox" role="switch" id="pvMetricas" v-attr:checked="metricas"><span>Contar meu uso de forma anônima</span><span class="dica">O servidor soma quantas vezes cada tela é aberta por dia, sem guardar quem abriu, para quem administra saber o que é usado. Nada sai do servidor do Grimório.</span></label>
+    <label class="sw"><input type="checkbox" role="switch" id="pvAtalhos" v-attr:checked="atalhos"><span>Atalhos de uma tecla (a tecla / abre a busca)</span><span class="dica">Desligue se você usa leitor de tela, ditado ou acesso por voz: tecla solta pode disparar sem querer. Ctrl+K continua abrindo a busca.</span></label>
   </div>
   <p class="sm muted mt-4">Estas escolhas valem neste aparelho. Leia a <a class="dourado" href="/privacidade" target="_blank" rel="noopener">política de privacidade</a> e os <a class="dourado" href="/termos" target="_blank" rel="noopener">termos de uso</a>.</p>
 </template>
@@ -109,59 +109,48 @@
     <label class="rotulo"><span class="sr-only">Tema sugerido</span><select id="caTema" class="inp campo-medio"><option value="">sem sugestão</option><optgroup v-for="e in estilos" :label="e.nome"><option v-for="t in e.temas" v-attr:value="t.k" v-attr:selected="t.k === tema">{{ t.nome }}</option></optgroup></select></label>
     <p class="sm muted">Quem entra na {{ vmin('campanha') }} pela primeira vez vê a sugestão e escolhe se usa. Na lista de temas ela aparece marcada como sugerida.</p></div>
   <div class="fld"><span class="flb">Pacote da campanha</span>
-    <div class="addrow"><a class="btn sec" id="caExp" href="#">Exportar pacote</a><button class="btn sec" id="caImp">Importar pacote</button><label class="sm muted" style="display:flex;align-items:center;gap:.375rem"><input type="checkbox" id="caSub"> substituir guia e mesa</label></div>
+    <div class="addrow"><button type="button" class="btn sec" id="caExp">Exportar pacote</button><button class="btn sec" id="caImp">Importar pacote</button><label class="sw"><input type="checkbox" role="switch" id="caSub"><span>Substituir guia e mesa ao importar</span></label></div>
     <p class="sm muted">O pacote leva a campanha inteira: guia, mesa, fichas, livros em PDF, trilha, imagens e índices de busca. Importado em outra conta, abre igual, sem enviar nada de novo. Sem marcar a caixa, a importação só traz os arquivos e as fichas.</p></div>
   <div class="fld"><span class="flb">Zona de risco</span>
     <div class="addrow"><button class="btn dang" id="caDel">Apagar esta campanha</button></div>
     <p class="sm muted">Apaga guia, mesa, recados, anotações e toda a mídia. Não dá para desfazer.</p></div>
 </template>
 
-<!-- ---------- vocabulario e consulta rapida ---------- -->
+<!-- ---------- vocabulario ---------- -->
 
 <!-- termos: [{k, padrao, valor}] -->
 <template id="t-vocabulario">
   <p class="lead">Troque os nomes para o vocabulário do seu sistema. Vazio volta ao padrão.</p>
-  <div class="grid met"><div v-for="t in termos" class="c"><b class="sm muted">{{ t.padrao }}</b><input class="inp" :data-voc="t.k" :aria-label="t.padrao" v-attr:placeholder="t.padrao" v-attr:value="t.valor"></div></div>
+  <div class="fgrid vocgrid"><label v-for="t in termos" class="rotulo fc fc-p">{{ t.padrao }}<input class="inp" :data-voc="t.k" v-attr:placeholder="t.padrao" v-attr:value="t.valor"></label></div>
   <div class="addrow mt-4"><button class="btn" id="vcGo">Salvar</button></div>
 </template>
 
-<template id="t-referencia">
-  <p class="lead">O resumo de regras que fica na aba {{ Vm('mesa') }}, visível para os jogadores. Nada aqui vem pronto: é a sua mesa que escreve.</p>
-  <div id="rfBody" v-html="corpo"></div>
-</template>
-
-<template id="t-referencia-grupos">
-  <div v-for="(g, i) in grupos" class="fld"><span class="flb">Grupo {{ i + 1 }}</span>
-    <div class="addrow"><label class="rotulo cresce">Título do grupo<input class="inp" :data-rt="i" v-attr:value="g.t || ''"></label><button class="tbtn d" :data-rdel="i">Remover</button></div>
-    <label class="rotulo cresce">Itens (um por linha)<textarea class="inp" :data-ri="i" rows="5" style="width:100%;margin-top:.375rem">{{ (g.itens || []).join('\n') }}</textarea></label></div>
-  <div class="addrow"><button class="btn sec" id="rfAdd">Adicionar grupo</button><button class="btn" id="rfGo">Salvar</button></div>
-</template>
 
 <!-- ---------- administracao do servidor ---------- -->
 
 <template id="t-admin">
   <div class="fld"><span class="flb">Chave da IA</span>
-    <div class="addrow"><label class="rotulo cresce">Chave da API da Anthropic<input class="inp" id="iaK" type="password" placeholder="sk-ant-..." autocomplete="off"></label><label class="rotulo cresce">Modelo<input class="inp" id="iaM" placeholder="claude-sonnet-4-5"></label><button class="btn" id="iaKs">Salvar</button></div>
+    <div class="addrow"><label class="rotulo cresce">Chave da API da Anthropic<input class="inp" id="iaK" type="password" placeholder="sk-ant-..." autocomplete="off"></label><label class="rotulo cresce">Modelo<input class="inp" id="iaM" placeholder="claude-sonnet-4-5"></label><button class="btn sec m" id="iaKs">Salvar</button></div>
     <p class="sm muted" id="iaKst">…</p></div>
   <div class="fld"><span class="flb">Armazenamento</span><div id="adArm" class="sm"><p class="muted sm">carregando…</p></div>
     <div class="addrow mt-2"><button class="btn sec" id="adJunta">Juntar arquivos iguais agora</button></div>
     <p class="sm muted">O servidor já faz isso sozinho a cada inicialização. Use depois de subir arquivos direto no volume.</p></div>
   <div class="fld"><span class="flb">Sistema</span><div id="adSis" class="sm"><p class="muted sm">carregando…</p></div></div>
   <div class="fld"><span class="flb">E-mail do suporte</span>
-    <div class="addrow"><label class="rotulo cresce">E-mail que recebe o suporte<input class="inp" id="smD" type="email"></label></div>
-    <div class="addrow"><select id="smV" class="selmini"><option value="smtp">SMTP (Gmail, Outlook…)</option><option value="resend">Resend (HTTPS, grátis)</option><option value="brevo">Brevo (HTTPS, grátis)</option></select></div>
-    <div class="addrow" id="smKey" hidden><label class="rotulo cresce">Chave de API do provedor<input class="inp" id="smK" type="password" autocomplete="new-password"></label></div>
-    <div id="smSmtp"><div class="addrow"><label class="rotulo cresce">Servidor SMTP<input class="inp" id="smH" placeholder="ex.: smtp.gmail.com"></label><label class="rotulo cresce">Porta<input class="inp" id="smP" type="number" style="max-width:6.5rem"></label></div>
-      <div class="addrow"><label class="rotulo cresce">Usuário do SMTP<input class="inp" id="smU" autocomplete="off"></label><label class="rotulo cresce">Senha do SMTP<input class="inp" id="smS" type="password" autocomplete="new-password"></label></div></div>
-    <div class="addrow"><label class="rotulo cresce">Remetente<input class="inp" id="smR"></label></div>
-    <div class="addrow"><button class="btn" id="smOk">Salvar</button><button class="btn sec" id="smT">Enviar e-mail de teste</button></div>
+    <div class="fgrid"><label class="rotulo fc fc-m">E-mail que recebe o suporte<input class="inp" id="smD" type="email"></label>
+      <label class="rotulo fc fc-m">Envio por<select id="smV" class="inp"><option value="smtp">SMTP (Gmail, Outlook…)</option><option value="resend">Resend (HTTPS, grátis)</option><option value="brevo">Brevo (HTTPS, grátis)</option></select></label>
+      <label class="rotulo fc fc-m" id="smKey" hidden>Chave de API do provedor<input class="inp" id="smK" type="password" autocomplete="new-password"></label>
+      <div class="fgrid fc fc-g" id="smSmtp"><label class="rotulo fc fc-mg">Servidor SMTP<input class="inp" id="smH" placeholder="ex.: smtp.gmail.com"></label><label class="rotulo fc fc-p">Porta<input class="inp" id="smP" type="number"></label>
+        <label class="rotulo fc fc-m">Usuário do SMTP<input class="inp" id="smU" autocomplete="off"></label><label class="rotulo fc fc-m">Senha do SMTP<input class="inp" id="smS" type="password" autocomplete="new-password"></label></div>
+      <label class="rotulo fc fc-m">Remetente<input class="inp" id="smR"></label></div>
+    <div class="addrow"><button class="btn sec m" id="smOk">Salvar</button><button class="btn fant m" id="smT">Enviar e-mail de teste</button></div>
     <p class="sm muted" id="smDica"></p><p class="sm muted" id="smSt">…</p></div>
   <div class="fld"><span class="flb">Mensagens de suporte</span><div id="adSup" class="suplist"><p class="muted sm">carregando…</p></div></div>
   <div class="fld"><span class="flb">Cadastro</span>
-    <label class="sm" style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="adReg"> Habilitar a criação de contas.</label>
+    <label class="sw"><input type="checkbox" role="switch" id="adReg"><span>Habilitar a criação de contas</span></label>
     <p class="sm muted">Desligado, só entra quem receber um link de convite.</p></div>
   <div class="fld"><span class="flb">Mapa (tabletop)</span>
-    <label class="sm" style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="adMapa"> Liberar a aba Mapa para todos.</label>
+    <label class="sw"><input type="checkbox" role="switch" id="adMapa"><span>Liberar a aba Mapa para todos</span></label>
     <p class="sm muted">Desligado (o padrão enquanto o tabletop está em obra), só a administração abre o mapa; os outros veem o aviso "em construção". Quem já está com a página aberta precisa recarregar.</p></div>
   <div class="fld"><span class="flb">Contas</span><div id="adUs"><p class="muted sm">carregando…</p></div>
     <div class="addrow mt-2"><label class="rotulo cresce">Login<input class="inp" id="auL"></label><label class="rotulo cresce">Nome<input class="inp" id="auN"></label><label class="rotulo cresce">Senha<input class="inp" id="auS" type="password"></label><button class="btn sec" id="auGo">Criar</button></div></div>

@@ -26,12 +26,13 @@ function hydrateBiblioteca(v){
         api(cAPI("/midia/"+b.dataset.pub),{method:"PUT",body:{publico:b.dataset.v==="1"}})
           .then(function(){ recarregaIndice(); lista(); })
           .catch(function(e){ b.disabled=false; toast(mensagemDeErro(e),"erro"); }); }; });
-      $$("[data-reidx]",alvo).forEach(function(b){ b.onclick=function(){ b.disabled=true; b.textContent="lendo…";
+      $$("[data-reidx]",alvo).forEach(function(b){ b.onclick=function(){
+        var h=tarefaLonga("Relendo o livro","Lendo o PDF de novo para refazer capítulos e busca…");
         api(cAPI("/midia/"+b.dataset.reidx+"/reindexar"),{method:"POST"}).then(function(r){ r=r||{};
           recarregaIndice(); if(aqui())lista();
-          toast(r.comCapitulo?(r.comCapitulo+" de "+r.paginas+" páginas ganharam capítulo")
-            :"Índice refeito. Este PDF não traz sumário interno, então fica sem capítulos"); })
-        .catch(function(e){ b.disabled=false; b.textContent="Reler capítulos"; toast(mensagemDeErro(e),"erro"); }); }; });
+          h.fim(r.comCapitulo?(r.comCapitulo+" de "+r.paginas+" páginas ganharam capítulo.")
+            :"Índice refeito. Este PDF não traz sumário interno, então fica sem capítulos.","ok"); })
+        .catch(function(e){ h.fim("Não consegui reler o livro: "+mensagemDeErro(e),"erro"); }); }; });
       $$("[data-ren]",alvo).forEach(function(b){ b.onclick=function(){ renomearLivro(b.dataset.ren,b.dataset.nome,lista); }; });
       $$("[data-cated]",alvo).forEach(function(b){ b.onclick=function(){ var ct=b.dataset.cated;
         editarCategoria(ct,(porCat&&porCat[ct])||[],function(){ if(aqui())lista(); }); }; });
@@ -52,22 +53,24 @@ function hydrateBiblioteca(v){
   }
   lista();
 
-  function progresso(i,tot,nome,frac){ var box=$("#bbProg",v); if(!box)return;
-    box.hidden=false; $("#bbN",v).textContent=(i+1)+"/"+tot+" · "+nome;
-    $("#bbB",v).style.width=Math.round(((i+(frac||0))/tot)*100)+"%"; }
+  /* um arquivo depois do outro, com a barra da tarefa; um que falha nao para os outros */
+  var TITULO={livros:"Enviando livros",trilha:"Enviando faixas",imagens:"Enviando imagens"}[k];
   function fila(arqs,fn){
     if(!arqs.length){ toast("Nenhum arquivo desse tipo no que você escolheu"); return; }
-    var i=0,erros=[];
+    var i=0,erros=[], h=tarefaLonga(TITULO);
+    function rotulo(){ return (arqs.length>1?"Arquivo "+(i+1)+" de "+arqs.length+": ":"")+arqs[i].name; }
+    function terminou(){
+      recarregaCatalogo(); recarregaIndice(); if(aqui())lista();
+      var ok=arqs.length-erros.length;
+      if(!erros.length){ h.fim(arqs.length===1?"Arquivo enviado e pronto para usar.":arqs.length+" arquivos enviados e prontos para usar.","ok"); return; }
+      h.fim(ok?ok+" de "+arqs.length+" enviados. Estes falharam:":"Nenhum arquivo entrou:",ok?"aviso":"erro",erros);
+    }
     (function passo(){
-      if(i>=arqs.length){ var box=$("#bbProg",v); if(box)box.hidden=true;
-        recarregaCatalogo(); recarregaIndice(); lista();
-        toast(erros.length?(arqs.length-erros.length)+" enviados, "+erros.length+" falharam: "+erros[0]
-                          :arqs.length+(arqs.length===1?" arquivo enviado":" arquivos enviados"));
-        return; }
-      var f=arqs[i];
-      progresso(i,arqs.length,f.name,0);
-      fn(f,function(fr){ progresso(i,arqs.length,f.name,fr); })
-        .catch(function(e){ erros.push(f.name+" ("+((e&&e.message)||e)+")"); })
+      if(i>=arqs.length){ terminou(); return; }
+      var f=arqs[i], tx=rotulo();
+      h.passo(tx,i/arqs.length);
+      fn(f,function(fr){ if(fr>=1)h.passo(tx+" · processando no servidor…",null); else h.passo(tx,(i+fr)/arqs.length); })
+        .catch(function(e){ erros.push(f.name+": "+mensagemDeErro(e)); })
         .then(function(){ i++; passo(); });
     })();
   }
@@ -93,11 +96,10 @@ function hydrateBiblioteca(v){
   var up=$("#bbUp",v); if(up)up.onclick=function(){ manda(false); };
   var pa=$("#bbPasta",v); if(pa)pa.onclick=function(){ manda(true); };
   var sc=$("#bbScan",v); if(sc)sc.onclick=function(){
-    sc.disabled=true; sc.textContent="Procurando…";
-    api(cAPI("/midia/reescanear"),{method:"POST"}).then(function(r){
-      sc.disabled=false; sc.textContent="Reescanear o volume";
-      recarregaCatalogo(); recarregaIndice(); lista();
+    var h=tarefaLonga("Reescaneando o volume","Procurando arquivos novos e lendo os PDFs que chegaram…");
+    api(cAPI("/midia/reescanear"),{method:"POST"}).then(function(r){ r=r||{};
+      recarregaCatalogo(); recarregaIndice(); if(aqui())lista();
       var n=(r.pdfs||0)+(r.audios||0)+(r.imagens||0);
-      toast(n?((r.pdfs||0)+" PDFs, "+(r.audios||0)+" faixas e "+(r.imagens||0)+" imagens registrados"):"Nada novo no volume");
-    }).catch(function(e){ sc.disabled=false; sc.textContent="Reescanear o volume"; toast(mensagemDeErro(e),"erro"); }); };
+      h.fim(n?((r.pdfs||0)+" PDFs, "+(r.audios||0)+" faixas e "+(r.imagens||0)+" imagens registrados."):"Nada novo no volume.","ok");
+    }).catch(function(e){ h.fim("O reescaneamento falhou: "+mensagemDeErro(e),"erro"); }); };
 }

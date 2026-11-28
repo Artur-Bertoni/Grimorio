@@ -4,7 +4,8 @@
   <p class="lead"><span v-if="mestre" data-solta>Você vê as fichas de todo mundo. Cada {{ vmin('jogador') }} vê só as dele.</span><span v-else data-solta>Só você e o {{ vmin('mestre') }} veem as suas fichas.</span></p>
   <div class="addrow"><button class="btn" id="fxNova">+ ficha</button><button class="btn sec" id="fxPdf">Importar de PDF</button><input type="file" id="fxArq" accept="application/pdf,.pdf" aria-label="PDF da ficha" hidden><button v-if="mestre" class="btn sec" id="fxModelo">Modelo da ficha</button><button v-if="mestre" class="btn sec" id="fxLivros">Montar pelos livros</button></div>
   <p class="sm muted m0 mt-2">O PDF é lido no seu navegador{{ ia ? ' e a IA organiza os campos' : '' }}. Funciona melhor com ficha preenchível; PDF que é só foto escaneada não tem texto para ler.</p>
-  <div id="fxList" class="cadgrid mt-4"><p class="empty">Carregando…</p></div>
+  <div class="sfield fxbusca mt-4"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><input id="fxBusca" type="search" v-attr:value="busca" placeholder="Buscar ficha pelo nome" aria-label="Buscar ficha pelo nome" autocomplete="off"></div>
+  <div id="fxList" class="mt-4"><p class="empty">Carregando…</p></div>
 </template>
 
 <!-- Ficha pelos livros (js/fichas-livros.js): o que a leitura dos PDFs achou, para o mestre conferir.
@@ -21,82 +22,101 @@
     <button type="button" class="btn fant" id="flTermos">Termos da busca</button></div>
 </template>
 
-<!-- fichas: [{id, nome, dono (vazio quando nao precisa aparecer), campos, img (o icone da ficha ou, sem ele, o de um token
-     dela; ja passado por IMG), inicial, barras:[{rot, val, max}]}] -->
+<!-- A lista: grupos [{titulo, fichas:[{id, nome, dono (vazio quando nao precisa aparecer), campos, img (o icone da ficha
+     ou, sem ele, a variacao de token ou um token dela; ja passado por IMG), inicial, barras:[{rot, val, max}]}]}].
+     vazia: nao ha ficha nenhuma; semBusca: ha fichas, mas nenhuma com o nome buscado. titulo vazio: um grupo so, sem titulo. -->
 <template id="t-fichas-lista">
-  <button v-for="f in fichas" class="cad fxcard" :data-ficha="f.id"><span class="fxlava" aria-hidden="true"><img v-if="f.img" :src="f.img" alt="" loading="lazy"><span v-else data-solta>{{ f.inicial }}</span></span><div class="cb"><b>{{ f.nome }}</b>
-    <p>{{ f.dono ? 'de ' + f.dono + ' · ' : '' }}{{ f.campos }} campos</p>
-    <div class="ct2"><span v-for="x in f.barras" class="chip">{{ x.rot }} {{ x.val || 0 }}/{{ x.max }}</span></div></div></button>
-  <p v-if="!fichas.length" class="empty" style="grid-column:1/-1">Nenhuma ficha ainda. Crie uma ou importe um PDF.</p>
+  <section v-for="g in grupos" class="fxgrupo" v-attr:aria-label="g.titulo || null"><h3 v-if="g.titulo" class="fxgtit">{{ g.titulo }}<span class="chip">{{ g.fichas.length }}</span></h3>
+    <div class="cadgrid"><button v-for="f in g.fichas" class="cad fxcard" :data-ficha="f.id"><span class="fxlava" aria-hidden="true"><img v-if="f.img" :src="f.img" alt="" loading="lazy"><span v-else data-solta>{{ f.inicial }}</span></span><div class="cb"><b>{{ f.nome }}</b>
+      <p>{{ f.dono ? 'de ' + f.dono + ' · ' : '' }}{{ f.campos }} campos</p>
+      <div class="ct2"><span v-for="x in f.barras" class="chip">{{ x.rot }} {{ x.val || 0 }}/{{ x.max }}</span></div></div></button></div></section>
+  <p v-if="vazia" class="empty">Nenhuma ficha ainda. Crie uma ou importe um PDF.</p>
+  <p v-else-if="semBusca" class="empty">Nenhuma ficha com esse nome.</p>
 </template>
 
-<!-- A ficha aberta. ed: modo edicao (o lapis do topo); fora dele a ficha e de jogo (numero rola, barra tem + e -).
-     secoes: [{si, nome, resto:[{x, i, k, pc}], nums:[{x, i, k}]}]; i e o indice do campo na ficha, k a posicao dentro
-     do grupo (e o que o arrastar move; data-p e a secao e o grupo, r ou n). img: o icone ja passado por IMG; tokenImg: a imagem que o token usa (a propria ou o icone), tokenProprio: se a
-     ficha tem imagem propria de token; tokens: o t-ficha-tokens ja preenchido. -->
+<!-- O lapis de cada bloco (o topo, os tokens e cada secao): rotulo e o nome do bloco; on: o bloco esta em edicao -->
+<template id="t-ficha-lapis">
+  <button type="button" class="edb ico" :data-fxed="chave" :aria-pressed="String(on)" :title="(on ? 'Terminar de editar ' : 'Editar ') + rotulo" :aria-label="(on ? 'Terminar de editar ' : 'Editar ') + rotulo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button>
+</template>
+
+<!-- A ficha aberta, editada bloco a bloco: cada bloco (o topo, os tokens, cada secao) tem o seu lapis, e so um fica
+     aberto por vez. Aberto, o bloco tem o mesmo desenho: rotulo, valor e nome viram campos (.nl) onde o texto estava. Fora da edicao a ficha e de jogo (numero rola, barra tem + e -).
+     edTopo, edTok: o topo ou os tokens estao em edicao; lapisTopo, lapisTok: o t-ficha-lapis de cada um, ja preenchido.
+     secoes: [{si, nome, ed, lapis, resto:[{x, i, k, pc}], nums:[{x, i, k, r}]}]; i e o indice do campo na ficha, k a posicao
+     dentro do grupo (o que o arrastar move; data-p e a secao e o grupo, r ou n).
+     img: o icone ja passado por IMG; proprio: a ficha tem icone proprio. donos: [{v, rot, on}] (so o mestre, no topo).
+     variantes: [{i, nome, img (por IMG)}]; tokens: o t-ficha-tokens ja preenchido. -->
 <template id="t-ficha-corpo">
-  <div class="fxtopo">
+  <div :class="edTopo ? 'fxtopo ed' : 'fxtopo'">
     <div class="fxava"><span class="fxavaimg"><img v-if="img" :src="img" :alt="'Ícone de ' + nome"><span v-else aria-hidden="true">{{ inicial }}</span></span>
-      <span v-if="ed" class="addrow"><button type="button" class="btn sec m" id="fxIcone">{{ proprio ? 'Trocar ícone' : '+ Ícone' }}</button><button v-if="proprio" type="button" class="tbtn d" id="fxIconeX">Tirar</button></span></div>
-    <div v-if="ed" class="form fxid">
-      <label><span class="frotx">Nome do personagem</span><input class="inp" id="fxNome" v-attr:value="nome" autocomplete="off" required></label>
-      <label><span class="frotx">Alcance da visão (casas)</span><input class="inp" id="fxVisao" type="number" min="0" max="100" step="1" inputmode="numeric" v-attr:value="visao" aria-describedby="fxVisaoD"><span class="dica" id="fxVisaoD">Quanto este personagem enxerga na névoa do {{ vmin('mapa') }}. Vazio usa o alcance padrão do {{ vmin('mapa') }}; 0 é cego.</span></label>
+      <span v-if="edTopo" class="addrow"><button type="button" class="btn sec m" id="fxIcone">{{ proprio ? 'Trocar ícone' : '+ Ícone' }}</button><button v-if="proprio" type="button" class="tbtn d" id="fxIconeX">Tirar</button></span></div>
+    <div v-if="edTopo" class="fxid"><h3 class="fxnome"><input class="nl" id="fxNome" v-attr:value="nome" placeholder="Nome do personagem" aria-label="Nome do personagem" autocomplete="off" required></h3>
+      <p v-if="donos.length" class="muted m0"><select class="nl" id="fxDono" :aria-label="Vm('jogador') + ' dono da ficha (sem ninguém, é ficha de ' + vmin('npc') + ')'"><option v-for="o in donos" v-attr:value="o.v" v-attr:selected="o.on ? true : null">{{ o.rot }}</option></select></p>
+      <p class="muted sm m0">Enxerga <input class="nl curto" id="fxVisao" type="number" min="0" max="100" step="1" inputmode="numeric" v-attr:value="visao" placeholder="o padrão" aria-label="Enxerga quantas casas na névoa (vazio usa o padrão do mapa; 0 é cego)"> casas na névoa</p>
+      <div class="fxfim"><button type="button" class="tbtn d encerra" id="fxApaga">Apagar a ficha</button><button type="button" class="btn sec m" data-fxed="topo">Pronto</button></div>
     </div>
-    <div v-else class="fxid"><h3 class="fxnome">{{ nome }}</h3><p v-if="dono" class="muted m0">de {{ dono }}</p><p v-if="visao !== ''" class="muted sm m0">Enxerga {{ visao }} {{ visao === '1' ? 'casa' : 'casas' }} na névoa</p></div>
-    <section v-if="mapa" class="fxtok" aria-labelledby="fxTokT"><h4 id="fxTokT">{{ Vm('tokens') }}</h4>
-      <div class="fxtokimg"><img v-if="tokenImg" class="fxtokava" :src="tokenImg" alt=""><span v-else class="fxtokava" aria-hidden="true"></span>
-        <span class="cresce"><b>Imagem do {{ vmin('token') }}</b><span class="muted sm">{{ tokenProprio ? 'Os ' + vmin('tokens') + ' ligados usam esta imagem.' : (proprio ? 'Sem imagem própria: usa o ícone.' : 'Sem imagem: escolha uma ou ponha um ícone.') }}</span></span>
-        <button type="button" class="btn sec m" id="fxTokImg">{{ tokenProprio ? 'Trocar' : 'Escolher' }}</button><button v-if="tokenProprio" type="button" class="tbtn d" id="fxTokImgX" :aria-label="'Tirar a imagem do ' + vmin('token')">Tirar</button></div>
+    <div v-else class="fxid"><h3 class="fxnome">{{ nome }}</h3><p v-if="dono" class="muted m0">{{ jogador ? 'de ' + dono : vmin('npc') + ' · ' + dono }}</p><p v-if="visao !== ''" class="muted sm m0">Enxerga {{ visao }} {{ visao === '1' ? 'casa' : 'casas' }} na névoa</p></div>
+    <span class="fxlapis" v-html="lapisTopo"></span>
+
+    <section v-if="mapa" :class="edTok ? 'fxtok ed' : 'fxtok'" aria-labelledby="fxTokT"><div class="fxbhd"><h4 id="fxTokT">{{ Vm('tokens') }}</h4><span data-solta v-html="lapisTok"></span></div>
+      <p v-if="!variantes.length && !edTok" class="muted sm m0">{{ img ? 'Sem variações: o ' + vmin('token') + ' usa o ícone.' : 'Sem imagem de ' + vmin('token') + '. Use o lápis para pôr uma ou mais variações.' }}</p>
+      <ul v-if="variantes.length" class="fxvars" v-attr:data-ordena="edTok ? 'fxvar' : null">
+        <li v-for="v in variantes" class="fxvar" v-attr:data-item="edTok ? String(v.i) : null" v-attr:data-alca="edTok ? '' : null">
+          <button v-if="edTok" type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover a variação ' + (v.nome || (v.i + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button>
+          <img class="fxtokava" :src="v.img" alt="">
+          <span v-if="edTok" class="cresce"><input class="nl" :data-fvn="v.i" v-attr:value="v.nome" placeholder="Nome (ex.: armado)" :aria-label="'Nome (ex.: armado) da variação ' + (v.i + 1)" autocomplete="off"></span>
+          <span v-else class="cresce">{{ v.nome || ('Variação ' + (v.i + 1)) }}<span v-if="v.i === 0" class="muted sm"> · padrão</span></span>
+          <span v-if="edTok" data-solta><button type="button" class="tbtn" :data-fvimg="v.i">Imagem</button>
+            <button type="button" class="tbtn d ico" :data-fvx="v.i" :title="'Tirar a variação ' + (v.nome || (v.i + 1))" :aria-label="'Tirar a variação ' + (v.nome || (v.i + 1))"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></span></li></ul>
+      <div v-if="edTok" class="fxfim"><button type="button" class="addbtn" id="fxVarNova">+ Variação</button><button type="button" class="btn sec m" data-fxed="tok">Pronto</button></div>
+      <p v-if="edTok" class="dica m0">A primeira é a padrão. No {{ vmin('mapa') }}, selecione o {{ vmin('token') }} e escolha a variação na faixa que aparece em cima dele.</p>
+      <h5 class="fxsub">No {{ vmin('mapa') }}</h5>
       <div id="fxTokList"><span data-solta v-html="tokens"></span></div>
       <div class="addrow"><button type="button" class="btn sec m" id="fxTokPor">Pôr num {{ vmin('mapa') }}</button><button type="button" class="btn fant m" id="fxTokLiga">Ligar um {{ vmin('token') }} já posto</button></div></section>
   </div>
 
-  <p v-if="!secoes.length && !ed" class="empty">Ficha vazia. Use o lápis para pôr os campos.</p>
-  <div v-if="secoes.length" class="fxsecs" v-attr:data-ordena="ed ? 'fxsec' : null">
-    <section v-for="s in secoes" :class="ed ? 'fxsec ed' : 'fxsec'" v-attr:data-item="ed ? String(s.si) : null">
-      <div v-if="ed" class="fxsechd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover a seção ' + s.nome + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><input class="inp m fxsecnome" :data-fs="s.si" v-attr:value="s.nome" aria-label="Nome da seção" autocomplete="off"><button type="button" class="tbtn d ico" :data-fsx="s.si" :title="'Remover a seção ' + s.nome" :aria-label="'Remover a seção ' + s.nome"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
-      <h4 v-else>{{ s.nome }}</h4>
+  <p v-if="!secoes.length" class="empty">Ficha vazia. Use “+ Seção” para começar.</p>
+  <div v-if="secoes.length" class="fxsecs" data-ordena="fxsec">
+    <section v-for="s in secoes" :class="s.ed ? 'fxsec ed' : 'fxsec'" :data-item="s.si">
+      <div class="fxsechd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover a seção ' + s.nome + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><h4 v-if="s.ed" class="cresce"><input class="nl" :data-fs="s.si" v-attr:value="s.nome" placeholder="Nome da seção" aria-label="Nome da seção" autocomplete="off"></h4><h4 v-else class="cresce">{{ s.nome }}</h4><button v-if="s.ed" type="button" class="tbtn d ico" :data-fsx="s.si" :title="'Remover a seção ' + s.nome" :aria-label="'Remover a seção ' + s.nome"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button><span data-solta v-html="s.lapis"></span></div>
 
-      <div v-if="ed && s.resto.length" class="fxeds" data-ordena="fxcampo" :data-p="s.si + 'r'">
-        <div v-for="o in s.resto" class="fxed" :data-item="o.k">
-          <div class="fxedhd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover o campo ' + (o.x.rot || (o.k + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><input class="inp m fxrot" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"><button type="button" class="tbtn ico" :data-fmenu="o.i" :title="'Tipo e remover: ' + (o.x.rot || 'campo')" :aria-label="'Tipo e remover: ' + (o.x.rot || 'campo')"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg></button></div>
-          <div v-if="o.x.tipo === 'barra'" class="fxedbar"><input class="inp m" :data-fv="o.i" v-attr:value="o.x.val" inputmode="numeric" :aria-label="'Valor atual de ' + (o.x.rot || 'campo')" autocomplete="off"><span aria-hidden="true">/</span><input class="inp m" :data-fm="o.i" v-attr:value="o.x.max" inputmode="numeric" :aria-label="'Máximo de ' + (o.x.rot || 'campo')" placeholder="máx." autocomplete="off"></div>
-          <label v-else-if="o.x.tipo === 'check'" class="fxck"><input type="checkbox" :data-fc="o.i" v-attr:checked="!!o.x.val && o.x.val !== '0'"> Marcado</label>
-          <textarea v-else-if="o.x.tipo === 'area'" class="inp m" :data-fv="o.i" rows="3" :aria-label="'Valor de ' + (o.x.rot || 'campo')">{{ o.x.val }}</textarea>
-          <input v-else class="inp m" :data-fv="o.i" v-attr:value="o.x.val" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off">
+      <div v-if="s.ed && s.resto.length" class="fxresto" data-ordena="fxcampo" :data-p="s.si + 'r'">
+        <div v-for="o in s.resto" class="fxedl" :data-item="o.k">
+          <div v-if="o.x.tipo === 'barra'" class="fxbar"><span><input class="nl" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"></span><div class="fxtrilho"><i :style="'width:' + o.pc + '%'"></i></div><b class="fxedv"><input class="nl curto" :data-fv="o.i" v-attr:value="o.x.val" inputmode="numeric" :aria-label="'Valor atual de ' + (o.x.rot || 'campo')" autocomplete="off"> / <input class="nl curto" :data-fm="o.i" v-attr:value="o.x.max" inputmode="numeric" placeholder="máx." :aria-label="'máx. de ' + (o.x.rot || 'campo')" autocomplete="off"></b></div>
+          <div v-else-if="o.x.tipo === 'check'" class="fxck"><input type="checkbox" :data-fc="o.i" v-attr:checked="!!o.x.val && o.x.val !== '0'" :aria-label="'Marcado: ' + (o.x.rot || 'campo')"><input class="nl" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"></div>
+          <div v-else-if="o.x.tipo === 'area'" class="fxarea"><span><input class="nl" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"></span><p><textarea class="nl" :data-fv="o.i" rows="1" :aria-label="'Valor de ' + (o.x.rot || 'campo')">{{ o.x.val }}</textarea></p></div>
+          <div v-else class="fxtxt"><span><input class="nl curto" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"></span><b><input class="nl" :data-fv="o.i" v-attr:value="o.x.val" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off"></b></div>
+          <span class="fxedac" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover o campo ' + (o.x.rot || (o.k + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn ico" :data-fmenu="o.i" :title="'Tipo e remover: ' + (o.x.rot || 'campo')" :aria-label="'Tipo e remover: ' + (o.x.rot || 'campo')"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg></button></span>
         </div>
       </div>
-      <span v-if="!ed" data-solta><span v-for="o in s.resto" data-solta>
+      <span v-if="!s.ed" data-solta><span v-for="o in s.resto" data-solta>
         <div v-if="o.x.tipo === 'barra'" class="fxbar"><span>{{ o.x.rot }}</span><div class="fxtrilho"><i :style="'width:' + o.pc + '%'"></i></div><button class="tbtn" :data-fb="o.i" data-d="-1" aria-label="Menos">−</button><b>{{ o.x.val || 0 }}{{ parseFloat(o.x.max) ? ' / ' + o.x.max : '' }}</b><button class="tbtn" :data-fb="o.i" data-d="1" aria-label="Mais">+</button></div>
         <label v-else-if="o.x.tipo === 'check'" class="fxck"><input type="checkbox" :data-fc="o.i" v-attr:checked="!!o.x.val && o.x.val !== '0'"> {{ o.x.rot }}</label>
         <div v-else-if="o.x.tipo === 'area'" class="fxarea"><span>{{ o.x.rot }}</span><p>{{ o.x.val }}</p></div>
         <div v-else class="fxtxt"><span>{{ o.x.rot }}</span><b>{{ o.x.val }}</b></div>
       </span></span>
 
-      <div v-if="ed && s.nums.length" class="fxnums" data-ordena="fxcampo" :data-p="s.si + 'n'">
-        <div v-for="o in s.nums" class="fxnum fxnumed" :data-item="o.k" data-alca>
-          <input class="inp m fxnumv" :data-fv="o.i" v-attr:value="o.x.val" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off">
-          <input class="inp m fxrot" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off">
-          <span class="fxnumac"><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover o campo ' + (o.x.rot || (o.k + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn ico" :data-fmenu="o.i" :title="'Tipo e remover: ' + (o.x.rot || 'campo')" :aria-label="'Tipo e remover: ' + (o.x.rot || 'campo')"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg></button></span>
-        </div>
+      <div v-if="s.ed && s.nums.length" class="fxnums" data-ordena="fxcampo" :data-p="s.si + 'n'">
+        <div v-for="o in s.nums" class="fxnum fxnumed" :data-item="o.k"><b><input class="nl" :data-fv="o.i" v-attr:value="o.x.val" :aria-label="'Valor de ' + (o.x.rot || 'campo')" autocomplete="off"></b><span><input class="nl" :data-fr="o.i" v-attr:value="o.x.rot" placeholder="Rótulo" aria-label="Rótulo do campo" autocomplete="off"></span>
+          <span class="fxedac" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover o campo ' + (o.x.rot || (o.k + 1)) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn ico" :data-fmenu="o.i" :title="'Tipo e remover: ' + (o.x.rot || 'campo')" :aria-label="'Tipo e remover: ' + (o.x.rot || 'campo')"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg></button></span></div>
       </div>
-      <div v-if="!ed && s.nums.length" class="fxnums"><span v-for="o in s.nums" data-solta>
+      <div v-if="!s.ed && s.nums.length" class="fxnums"><span v-for="o in s.nums" data-solta>
         <button v-if="rola || o.r" class="fxnum" :class="{dados:o.r}" :data-fn="o.i" title="Clique para rolar"><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button>
         <button v-else class="fxnum" :data-fn="o.i" disabled><b>{{ o.x.val === '' ? '–' : o.x.val }}</b><span>{{ o.x.rot }}</span></button></span></div>
 
-      <button v-if="ed" type="button" class="addbtn" :data-fadd="s.si">+ Campo</button>
+      <div v-if="s.ed" class="fxfim"><button type="button" class="addbtn" :data-fadd="s.si">+ Campo</button><button type="button" class="btn sec m" :data-fxed="'s:' + s.nome">Pronto</button></div>
     </section>
   </div>
-  <div v-if="ed" class="fxfim"><button type="button" class="btn sec m" id="fxAddSec">+ Seção</button><button type="button" class="tbtn d encerra" id="fxApaga">Apagar a ficha</button></div>
+  <div class="fxfim fxbase"><button type="button" class="btn sec m" id="fxAddSec">+ Seção</button></div>
 </template>
 
-<!-- Os tokens ligados a ficha: itens [{id, nome, img (ja passado por IMG), onde, oculto, solto, podeSoltar}] -->
+<!-- Os tokens ligados a ficha nos mapas: itens [{id, nome, img (ja passado por IMG), onde, oculto, solto, podeSoltar}] -->
 <template id="t-ficha-tokens">
   <p v-if="carregando" class="muted sm m0">Carregando…</p>
-  <p v-else-if="!itens.length" class="muted sm m0">Nenhum {{ vmin('token') }} ligado a esta {{ vmin('ficha') }} ainda.</p>
+  <p v-else-if="!itens.length" class="muted sm m0">Nenhum {{ vmin('token') }} desta {{ vmin('ficha') }} num {{ vmin('mapa') }} ainda.</p>
   <ul v-else class="fxtoks"><li v-for="t in itens"><img v-if="t.img" class="mpava" :src="t.img" alt="" loading="lazy"><span v-else class="mpava" aria-hidden="true"></span><span class="cresce"><b>{{ t.nome }}</b><span class="muted sm"> · {{ t.onde }}</span> <span v-if="t.oculto" class="chip">oculto</span> <span v-if="t.solto" class="chip">não segue a ficha</span></span><button v-if="t.podeSoltar" type="button" class="tbtn" :data-fxsolta="t.id" :aria-label="'Desligar ' + t.nome + ' desta ficha'">Desligar</button></li></ul>
 </template>
 
 <template id="t-ficha-cabeca">
-  <button v-if="mestre" class="ibtn" id="fxMod" title="Os campos desta ficha viram o modelo das próximas">Usar como modelo</button><button class="ibtn ico" id="fxEd" aria-pressed="false" title="Editar a ficha" aria-label="Editar a ficha"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button>
+  <button v-if="mestre" class="ibtn" id="fxMod" title="Os campos desta ficha viram o modelo das próximas">Usar como modelo</button>
 </template>

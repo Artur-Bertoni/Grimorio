@@ -40,37 +40,52 @@ function ajustesBusca(alvo){
         c.canonicas=o; grava(); }}); };
 }
 
-/* Indice dos livros: atalhos para paginas do PDF, escritos como linhas de texto.
-   Sem prefixo e um grupo; "-" e um item do grupo; "--" e um subitem. */
-function indiceParaLinhas(d){ var l=[];
-  function ln(pre,o){ l.push(pre+o.t+(o.p?" | "+o.p:"")); }
-  (d.grupos||[]).forEach(function(g){ ln("",g);
-    (g.itens||[]).forEach(function(it){ ln("- ",it); (it.sub||[]).forEach(function(s){ ln("-- ",s); }); }); });
+/* Indice dos livros: atalhos para paginas do PDF, em tres niveis (grupo, item, subitem). Editado no lugar
+   (js/nolugar.js), numa copia em linhas: cada linha e {n (o nivel), t, p}, do jeito que a lista aparece.
+   Enter abre a linha seguinte no mesmo nivel, Tab e Shift+Tab mudam o nivel, Backspace na linha vazia a tira. */
+function indicePlano(d){ var l=[];
+  (d.grupos||[]).forEach(function(g){ l.push({n:0,t:g.t,p:g.p||""});
+    (g.itens||[]).forEach(function(it){ l.push({n:1,t:it.t,p:it.p||""});
+      (it.sub||[]).forEach(function(s){ l.push({n:2,t:s.t,p:s.p||""}); }); }); });
   return l; }
-function linhasParaIndice(l){ var gs=[],g=null,it=null;
-  (l||[]).forEach(function(x){ var m=/^(-{0,2})\s*(.*?)\s*(?:\|\s*p?\.?\s*(\d+))?\s*$/.exec(x); if(!m||!m[2])return;
-    var o={t:m[2]}; if(m[3])o.p=+m[3];
-    if(m[1]==="--"&&it){ (it.sub=it.sub||[]).push(o); }
-    else if(m[1]&&g){ it=o; g.itens.push(o); }
+/* linha que nao tem pai no nivel de cima sobe de nivel: um item antes de qualquer grupo vira grupo */
+function planoParaIndice(l){ var gs=[],g=null,it=null;
+  (l||[]).forEach(function(x){ var t=String(x.t||"").trim(); if(!t)return;
+    var o={t:t}, p=Number.parseInt(x.p,10); if(p>0)o.p=p;
+    if(x.n===2&&it){ (it.sub=it.sub||[]).push(o); }
+    else if(x.n>=1&&g){ it=o; g.itens.push(o); }
     else { g=o; g.itens=[]; it=null; gs.push(g); } });
   return gs; }
-function editarIndice(){
-  var c=D.campanha, abs=Object.keys(LIB.docs||{});
-  formulario("Índice dos livros",[{k:"titulo",rot:"Título da seção"},
-      {k:"livros",rot:"Livros",tipo:"grupo",um:"livro",novo:function(){return {doc:abs[0]||"",nome:"",linhas:[]};},
-       campos:[{k:"doc",rot:"Abreviação do livro",
-          dica:"Como aparece na Biblioteca"+(abs.length?" ("+abs.join(", ")+")":"")+". É por ela que o atalho acha o PDF."},
-        {k:"nome",rot:"Nome que aparece"},
-        {k:"linhas",rot:"Entradas",tipo:"linhas",linhas:10,
-         dica:"Uma por linha: Título | página. Comece com - para um item dentro do anterior e com -- para um subitem."}]}],
-    {titulo:c.indiceTitulo||"Índice dos livros",
-     livros:c.indiceAS.map(function(d){return {doc:d.doc,nome:d.nome,linhas:indiceParaLinhas(d)};})},
-    {wide:true,salvar:function(w){
+NL_DADOS.idx=function(){
+  var c=D.campanha, livros=c.indiceAS.map(function(d){ return {doc:d.doc,nome:d.nome,linhas:indicePlano(d)}; });
+  return {titulo:c.indiceTitulo||"Índice dos livros",livros:livros.length?livros:[NL_NOVO.livro()]};
+};
+NL_ALVOS.idx=function(){
+  var w=NL.dados; if(!w)return null;
+  return {obj:w,
+    abre:function(x){ x.livros.forEach(function(l){ if(!l.linhas.length)l.linhas.push({n:0,t:"",p:""}); }); },
+    grava:function(){ var c=D.campanha;
       c.indiceTitulo=String(w.titulo||"").trim()||"Índice dos livros";
-      c.indiceAS=(w.livros||[]).filter(function(l){return String(l.doc||"").trim();}).map(function(l){
+      c.indiceAS=w.livros.filter(function(l){ return String(l.doc||"").trim(); }).map(function(l){
         var ab=String(l.doc).trim().toUpperCase();
-        return {doc:ab,nome:String(l.nome||"").trim()||nomeDoc(ab),grupos:linhasParaIndice(l.linhas)}; });
-      save(); render(); }});
+        return {doc:ab,nome:String(l.nome||"").trim()||nomeDoc(ab),grupos:planoParaIndice(l.linhas)}; });
+      save(); },
+    tecla:function(e,o){ return teclaDoIndice(e,o,w); }};
+};
+function teclaDoIndice(e,o,w){
+  var m=/^livros\.(\d+)\.linhas\.(\d+)\.t$/.exec(o.p); if(!m)return false;
+  var l=w.livros[+m[1]].linhas, i=+m[2], x=l[i], c=o.c, pre="livros."+m[1]+".linhas.";
+  var a=nlAlvo(NL.k);
+  if(e.key==="Enter"&&!e.shiftKey){
+    var resto=c.value.slice(c.selectionEnd); x.t=c.value.slice(0,c.selectionStart);
+    l.splice(i+1,0,{n:x.n,t:resto,p:""}); nlRefaz(a,pre+(i+1)+".t",0); return true; }
+  if(e.key==="Tab"){
+    var teto=i?Math.min(2,l[i-1].n+1):0, n=e.shiftKey?Math.max(0,x.n-1):Math.min(teto,x.n+1);
+    if(n===x.n)return true;
+    x.n=n; nlRefaz(a,pre+i+".t",c.selectionStart); return true; }
+  if(e.key==="Backspace"&&!c.value&&l.length>1){
+    l.splice(i,1); var ant=Math.max(0,i-1); nlRefaz(a,pre+ant+".t"); return true; }
+  return false;
 }
 
 /* Livro novo: a pessoa confere nome e abreviacao antes de subir. A abreviacao e a

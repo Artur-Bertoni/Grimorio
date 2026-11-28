@@ -68,7 +68,7 @@ function mpItemArea(e,i){
   var d=e.dados||{}, f=d.forma==="traco"?"Pincel":(MP_FORMAS_FOG.find(function(o){ return o[0]===d.forma; })||MP_FORMAS_FOG[0])[1];
   return {id:e.id,nome:(d.revela?"Revela":"Cobre")+" · "+f.toLowerCase()+" "+(i+1),sel:mpEhSel(e.id),trancado:mpTrancado(e)};
 }
-var MP_NOME_FORMA={linha:"Linha",circulo:"Círculo",retangulo:"Retângulo",poligono:"Polígono",marca:"Marcação"};
+var MP_NOME_FORMA={linha:"Linha",circulo:"Círculo",retangulo:"Retângulo",poligono:"Polígono",marca:"Marcação",livre:"Desenho livre"};
 function mpItemDesenho(e){
   var d=e.dados||{};
   return {id:e.id,nome:(MP_NOME_FORMA[d.forma]||"Desenho")+(d.rotulo?" · "+d.rotulo:""),sel:mpEhSel(e.id),trancado:mpTrancado(e),oculto:e.visivel===false};
@@ -149,7 +149,7 @@ function mpMostraAtalhos(){
   if(GM){
     g[1].itens.splice(1,0,{teclas:["S"],faz:"Selecionar vários (Shift soma)"});
     g.push({titulo:"Só para o "+vmin("mestre"),itens:[
-      {teclas:["L","O","B","P","M"],faz:"Linha, círculo, retângulo, polígono e marcação"},
+      {teclas:["L","O","B","P","M","D"],faz:"Linha, círculo, retângulo, polígono, marcação e desenho livre"},
       {teclas:["W"],faz:"Parede (um clique por ponto, Enter termina)"},
       {teclas:["N"],faz:"Área de névoa"},
       {teclas:["F"],faz:"Pincel de névoa"},
@@ -374,26 +374,29 @@ function mpEditaMapa(){
     colunas:Math.max(1,Math.round(m.largura/mpNum(g.tam,70))),linhas:Math.max(1,Math.round(m.altura/mpNum(g.tam,70))),
     ox:g.ox,oy:g.oy,escala:String(g.escala??1.5).replace(".",","),unidade:g.unidade||"m",diagonal:g.diagonal||"121",quem:r.quem||"dono",limite:r.limite||"aviso",cenaId:m.cenaId||""};
   var tamanho=m.imagem?[]:[
-    {k:"colunas",rot:"Casas na largura",tipo:"num",obrig:true,linha:"tam",dica:"Sem imagem, o tamanho do "+vmin("mapa")+" é o da grade."},
-    {k:"linhas",rot:"Casas na altura",tipo:"num",obrig:true,linha:"tam"}];
+    {k:"colunas",rot:"Casas na largura",tipo:"num",obrig:true,dica:"Sem imagem, o tamanho do "+vmin("mapa")+" é o da grade."},
+    {k:"linhas",rot:"Casas na altura",tipo:"num",obrig:true}];
   formulario("Editar · "+vmin("mapa"),[
     {k:"nome",rot:"Nome",obrig:true},
+    {k:"cenaId",rot:Vm("cena")+" ligada",tipo:"sel",ops:mpOpcoesCena()},
     {k:"imagem",rot:"Imagem do "+vmin("mapa"),tipo:"img"}].concat(tamanho,[
-    {k:"tipo",rot:"Grade",tipo:"sel",linha:"grade",ops:[["quadrado","Quadrada"],["hex","Hexagonal"],["nenhum","Sem grade"]]},
-    {k:"tam",rot:"Tamanho da casa (px)",tipo:"num",linha:"grade",dica:"Ajuste até a grade cobrir as casas desenhadas."},
-    {k:"opac",rot:"Opacidade da grade (%)",tipo:"num",linha:"grade",dica:"0 esconde a grade."},
-    {k:"ox",rot:"Deslocamento horizontal (px)",tipo:"num",linha:"desl"},
-    {k:"oy",rot:"Deslocamento vertical (px)",tipo:"num",linha:"desl",dica:"Empurram a grade para alinhar com o desenho."},
-    {k:"escala",rot:"Cada casa vale",valida:mpNumeroValido,ph:"1,5",linha:"medida"},
-    {k:"unidade",rot:"Unidade",ph:"m, pés, km",linha:"medida"},
-    {k:"diagonal",rot:"Distância na diagonal",tipo:"sel",linha:"medida",ops:[["121","Alternada: 1, 2, 1…"],["1","Uma casa por casa"],["eu","Em linha reta"]],
-      dica:"Vale para a régua e para o deslocamento. No hexágono conta-se hexágono a hexágono."},
-    {k:"quem",rot:"Quem move os "+vmin("tokens"),tipo:"sel",linha:"regras",ops:[["dono","Cada "+vmin("jogador")+" move só o seu"],["todos","Qualquer "+vmin("jogador")+" move qualquer um"]],
-      dica:"O mestre move todos. Um "+vmin("token")+" também pode ser liberado no formulário dele."},
-    {k:"limite",rot:"Passar do deslocamento do turno",tipo:"sel",linha:"regras",ops:[["aviso","Só avisa quem passou"],["bloqueio","Não deixa mover"]],
+    {tipo:"secao",rot:"Grade"},
+    {k:"tipo",rot:"Formato",tipo:"sel",larg:"p",ops:[["quadrado","Quadrada"],["hex","Hexagonal"],["nenhum","Sem grade"]]},
+    {k:"tam",rot:"Casa (px)",tipo:"num",dica:"Ajuste até a grade cobrir as casas desenhadas na imagem."},
+    {k:"opac",rot:"Opacidade (%)",tipo:"num",dica:"0 esconde a grade."},
+    {tipo:"secao",rot:"Medida"},
+    {k:"escala",rot:"Cada casa vale",valida:mpNumeroValido,ph:"1,5",larg:"p"},
+    {k:"unidade",rot:"Unidade",ph:"m, pés, km",larg:"p"},
+    {k:"diagonal",rot:"Diagonal",tipo:"sel",ops:[["121","Alternada: 1, 2, 1…"],["1","Uma casa por casa"],["eu","Em linha reta"]],
+      dica:"Como a régua e o deslocamento contam a diagonal. No hexágono conta-se hexágono a hexágono."},
+    {tipo:"secao",rot:"Turno"},
+    {k:"quem",rot:"Quem move os "+vmin("tokens"),tipo:"sel",ops:[["dono","Cada "+vmin("jogador")+" move só o seu"],["todos","Qualquer "+vmin("jogador")+" move qualquer um"]],
+      dica:"O "+vmin("mestre")+" move todos. Um "+vmin("token")+" também pode ser liberado no formulário dele."},
+    {k:"limite",rot:"Passou do deslocamento",tipo:"sel",ops:[["aviso","Só avisa"],["bloqueio","Não deixa mover"]],
       dica:"Vale para os "+vmin("tokens")+" com deslocamento por turno. O "+vmin("mestre")+" nunca é barrado."},
-    {k:"cenaId",rot:Vm("cena")+" ligada",tipo:"sel",ops:mpOpcoesCena()}
-  ]),copia,{wide:true,rotRemover:"Apagar "+vmin("mapa"),
+    {k:"ox",rot:"Deslocar a grade na horizontal (px)",tipo:"num",larg:"m",av:true},
+    {k:"oy",rot:"Deslocar a grade na vertical (px)",tipo:"num",larg:"m",av:true,dica:"Empurram a grade para alinhar com o desenho da imagem."}
+  ]),copia,{rotRemover:"Apagar "+vmin("mapa"),
     salvar:function(c){
       var T=c.tam||70, semImg=!c.imagem, dim=semImg?{largura:Math.round(Math.max(1,c.colunas||1)*T),altura:Math.round(Math.max(1,c.linhas||1)*T)}:{};
       mpSalvaMapa({...dim,nome:c.nome,imagem:c.imagem||"",cenaId:c.cenaId||"",regras:{quem:c.quem,limite:c.limite},
@@ -468,8 +471,8 @@ function mpTokenDeFicha(){
       var f=fs.find(function(x){ return String(x.id)===String(id); });
       if(!f){ return null; }
       var c=fichaDados(f);
-      /* a imagem do token da ficha e, sem ela, o icone (mesma regra de MapaFichas.imagemDoToken) */
-      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,img:c.token||c.img||"",fichaId:f.id,vinculo:true,...mpVidaDaFicha(f),...mpVisaoDaFicha(f)}});
+      /* a variacao padrao do token da ficha e, sem ela, o icone (o servidor poe as outras variacoes) */
+      return mpCriaElemento({dados:{...mpMeioDaTela(),nome:f.nome,img:fichaVariantes(c)[0]?.img||c.img||"",fichaId:f.id,vinculo:true,...mpVidaDaFicha(f),...mpVisaoDaFicha(f)}});
     });
   }).catch(function(e){ if(e){ toast(e.message||"não consegui ler as "+vmin("fichas"),"erro"); } });
 }
@@ -493,39 +496,47 @@ function mpOpcoesDono(){
 }
 function mpEditaToken(el){
   if(!GM){ return; }
-  mpOpcoesDono().then(function(donos){
-    var d=el.dados||{};
+  Promise.all([mpOpcoesDono(),carregaFichas().catch(function(){ return []; })]).then(function(rs){
+    var donos=rs[0], d=el.dados||{}, vars=mpVariantes(el);
     if(!donos.some(function(o){ return o[0]===String(el.dono||0); })){ donos.push([String(el.dono),"Outra pessoa"]); }
+    var unidade=mpUnidade()||"unidades do "+vmin("mapa");
     var campos=[
       {k:"nome",rot:"Nome",obrig:true},
-      {k:"img",rot:"Imagem",tipo:"img"},
-      {k:"tam",rot:"Tamanho",tipo:"sel",ops:MP_TAMANHOS,linha:"geo"},
-      {k:"rot",rot:"Rotação (graus)",tipo:"num",linha:"geo"},
-      {k:"desl",rot:"Deslocamento por turno ("+(mpUnidade()||"unidades do mapa")+")",tipo:"num",linha:"geo",
-        dica:"Rotação: para onde o "+vmin("token")+" está virado (0 é para cima). Deslocamento: quanto anda por turno, na unidade do "+vmin("mapa")+" (0 é sem limite)."},
-      {k:"visao",rot:"Alcance da visão (casas)",tipo:"num",dica:"Quanto este personagem enxerga com a névoa pela visão ligada (só vale para quem tem dono). Vazio usa o da "+vmin("ficha")+" e, sem ele, o padrão do "+vmin("mapa")+" ("+mpVisaoPadraoDoMapa()+"). 0 é cego."},
-      {k:"dono",rot:"Quem controla",tipo:"sel",ops:donos,dica:"Com a iniciativa em andamento, o jogador só move o token na vez da entrada que aponta para ele (na iniciativa)."},
-      {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
-      {k:"livre",rot:"Qualquer "+vmin("jogador")+" pode mover",tipo:"check"},
-      {k:"camada",rot:"Camada",tipo:"sel",ops:MP_CAMADAS.map(function(c){ return [c,mpCamadaNome(c)]; })},
-      {k:"bloqueado",rot:"Trancado",tipo:"check",dica:"Trancado, ninguém move nem edita este "+vmin("token") +", nem você, até destrancar."},
-      {k:"vidaMax",rot:"Vida máxima",tipo:"num",linha:"vida",dica:"0 tira a barra de vida."},
-      {k:"vida",rot:"Vida atual",tipo:"num",linha:"vida"},
-      {k:"vidaPublica",rot:"Os "+vmin("jogadores")+" veem a vida deste "+vmin("token"),tipo:"check"},
+      {k:"ficha",rot:Vm("ficha"),tipo:"sel",ops:[["","Nenhuma"]].concat(fichasDaCampanha().map(function(f){ return [String(f.id),f.nome+(f.jogador?" · "+f.dono:"")]; })),
+        dica:"Ligado a uma "+vmin("ficha")+", o "+vmin("token")+" segue a vida, a visão e as variações dela, e passa a ser de quem é dono da "+vmin("ficha")+"."},
+      vars.length>1?{k:"variante",rot:"Variação",tipo:"sel",ops:vars.map(function(v,i){ return [v.id,v.nome||"Variação "+(i+1)]; }),
+        dica:"A imagem vem da "+vmin("ficha")+". No "+vmin("mapa")+", a faixa em cima do "+vmin("token")+" selecionado troca com um clique."}:{k:"img",rot:"Imagem",tipo:"img"},
+      {k:"tam",rot:"Tamanho",tipo:"sel",ops:MP_TAMANHOS,larg:"p"},
+      {tipo:"secao",rot:"Vida e marcas"},
+      {k:"vida",rot:"Vida atual",tipo:"num"},
+      {k:"vidaMax",rot:"Vida máxima",tipo:"num",dica:"0 tira a barra de vida."},
+      {k:"vidaPublica",rot:"Os "+vmin("jogadores")+" veem a vida",tipo:"check"},
       {k:"marcas",rot:"Marcas (condições, efeitos, status)",tipo:"grupo",um:"marca",
         novo:function(){ return {t:"",c:"aviso"}; },
-        campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]}];
-    if(d.fichaId!=null){ campos.push({k:"vinculo",rot:"Ligado à "+vmin("ficha")+" de origem",tipo:"check"}); }
+        campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]},
+      {tipo:"secao",rot:"Movimento e visão"},
+      {k:"desl",rot:"Deslocamento",tipo:"num",ph:unidade,dica:"Quanto anda por turno, em "+unidade+". 0 é sem limite."},
+      {k:"visao",rot:"Visão (casas)",tipo:"num",dica:"Quanto enxerga com a névoa pela visão ligada (só vale para quem tem dono). Vazio usa o da "+vmin("ficha")+" e, sem ele, o padrão do "+vmin("mapa")+" ("+mpVisaoPadraoDoMapa()+"). 0 é cego."},
+      {k:"dono",rot:"Quem controla",tipo:"sel",ops:donos,dica:"Com a iniciativa em andamento, o "+vmin("jogador")+" só move o "+vmin("token")+" na vez da entrada que aponta para ele."},
+      {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
+      {k:"livre",rot:"Qualquer "+vmin("jogador")+" pode mover",tipo:"check"},
+      {k:"rot",rot:"Rotação (graus)",tipo:"num",av:true,dica:"Para onde o "+vmin("token")+" está virado; 0 é para cima."},
+      {k:"camada",rot:"Camada",tipo:"sel",av:true,ops:MP_CAMADAS.map(function(c){ return [c,mpCamadaNome(c)]; })},
+      {k:"bloqueado",rot:"Trancado",tipo:"check",av:true,dica:"Trancado, ninguém move nem edita este "+vmin("token")+", nem você, até destrancar."}];
+    if(d.fichaId!=null){ campos.push({k:"vinculo",rot:"Segue a "+vmin("ficha")+" de origem",tipo:"check",av:true}); }
     var tam=MP_TAMANHOS.some(function(o){ return Number(o[0])===Number(d.tam); })?String(Number(d.tam)):"1";
-    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,visao:d.visao==null?null:d.visao,dono:String(el.dono||0),
+    formulario("Editar · "+vmin("token"),campos,{nome:d.nome||"",ficha:d.fichaId==null?"":String(d.fichaId),variante:d.variante||vars[0]?.id||"",img:d.img||"",tam:tam,rot:d.rot||0,desl:d.desl||0,visao:d.visao==null?null:d.visao,dono:String(el.dono||0),
       visivel:el.visivel!==false,livre:!!d.livre,vinculo:d.vinculo!==false,camada:mpCamadaDe(el),bloqueado:!!el.bloqueado,
-      vidaMax:d.vidaMax||0,vida:d.vida||0,vidaPublica:!!d.vidaPublica,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{rotRemover:"Remover do "+vmin("mapa"),wide:true,compacto:true,
+      vidaMax:d.vidaMax||0,vida:d.vida||0,vidaPublica:!!d.vidaPublica,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{rotRemover:"Remover do "+vmin("mapa"),
+      acao:d.fichaId==null?null:{rot:"Abrir a "+vmin("ficha"),faz:function(){ abrirFichaPorId(d.fichaId); }},
       salvar:function(c){
         if(el.bloqueado&&c.bloqueado){ toast("Está trancado: desmarque “Trancado” para salvar mudanças.","aviso"); return; }
         var max=Math.max(0,Number(c.vidaMax)||0), vida=Math.max(0,Number(c.vida)||0);
+        var aparencia=vars.length>1?{variante:c.variante}:{img:c.img||""};
         mpMudaElemento(el,{dono:Number(c.dono)||0,visivel:!!c.visivel,camada:c.camada,bloqueado:!!c.bloqueado,
-          dados:{nome:c.nome,img:c.img||"",tam:Number(c.tam)||1,rot:c.rot??0,desl:Math.max(0,Number(c.desl)||0),visao:c.visao==null||c.visao===""?null:Math.max(0,Number(c.visao)||0),livre:!!c.livre,vinculo:!!c.vinculo,
+          dados:{nome:c.nome,...aparencia,tam:Number(c.tam)||1,rot:c.rot??0,desl:Math.max(0,Number(c.desl)||0),visao:c.visao==null||c.visao===""?null:Math.max(0,Number(c.visao)||0),livre:!!c.livre,vinculo:!!c.vinculo,
             vidaMax:max,vida:vida,vidaPublica:!!c.vidaPublica,marcas:(c.marcas||[]).filter(function(m){ return String(m.t||"").trim(); })}})
+          .then(function(){ return mpTrocaFichaDoToken(el,d.fichaId==null?"":String(d.fichaId),c.ficha||""); })
           .catch(function(){ /* aviso em mpGrava */ });
       },
       remover:function(){ mpRemoveElemento(el).catch(function(){ /* aviso em mpGrava */ }); }});
@@ -540,7 +551,7 @@ function mpEditaParede(el){
     {k:"kind",rot:"Tipo",tipo:"sel",ops:MP_PAREDES,dica:"Parede barra o movimento e a visão; janela só o movimento; porta fechada barra os dois."},
     {k:"aberta",rot:"Porta aberta (só vale para porta)",tipo:"check"},
     {k:"bloqueado",rot:"Trancada",tipo:"check",dica:"Trancada, ninguém move nem edita, nem você, até destrancar."}
-  ],{kind:d.kind||"parede",aberta:!!d.aberta,bloqueado:!!el.bloqueado},{rotRemover:"Remover a parede",compacto:true,
+  ],{kind:d.kind||"parede",aberta:!!d.aberta,bloqueado:!!el.bloqueado},{rotRemover:"Remover a parede",
     salvar:function(c){
       if(el.bloqueado&&c.bloqueado){ toast("Está trancada: desmarque “Trancada” para salvar mudanças.","aviso"); return; }
       mpMudaElemento(el,{bloqueado:!!c.bloqueado,dados:{kind:c.kind,aberta:!!c.aberta}},"não consegui salvar a parede").catch(function(){ /* aviso em mpGrava */ });
@@ -557,12 +568,12 @@ function mpEditaFog(el){
   ];
   if(traco){
     campos.splice(1,0,
-      {k:"casas",rot:"Diâmetro do pincel (casas)",tipo:"num",linha:"pin"},
-      {k:"ponta",rot:"Formato",tipo:"sel",ops:MP_PONTAS,linha:"pin"},
-      {k:"borda",rot:"Borda",tipo:"sel",ops:[["macia","Macia"],["firme","Firme"]],linha:"pin"});
+      {k:"casas",rot:"Diâmetro (casas)",tipo:"num"},
+      {k:"ponta",rot:"Formato",tipo:"sel",ops:MP_PONTAS,larg:"p"},
+      {k:"borda",rot:"Borda",tipo:"sel",ops:[["macia","Macia"],["firme","Firme"]],larg:"p"});
   }
   formulario("Editar · "+(traco?"pincel de névoa":"área de névoa"),campos,
-    {revela:d.revela!==false,bloqueado:!!el.bloqueado,casas:Math.round(mpNum(d.larg,70)/T*100)/100,ponta:d.ponta||"redondo",borda:d.suave===false?"firme":"macia"},{rotRemover:"Remover a área",compacto:true,
+    {revela:d.revela!==false,bloqueado:!!el.bloqueado,casas:Math.round(mpNum(d.larg,70)/T*100)/100,ponta:d.ponta||"redondo",borda:d.suave===false?"firme":"macia"},{rotRemover:"Remover a área",
     salvar:function(c){
       if(el.bloqueado&&c.bloqueado){ toast("Está trancada: desmarque “Trancada” para salvar mudanças.","aviso"); return; }
       var dados={revela:!!c.revela};
@@ -573,17 +584,32 @@ function mpEditaFog(el){
 }
 
 /* O jogador muda, no token que e dele, a vida atual (ate o maximo que o mestre pos) e as marcas. */
+/* Liga o token a outra ficha (ou a nenhuma) pelas rotas da ficha: e la que o servidor veste o token com ela */
+function mpTrocaFichaDoToken(el,antes,depois){
+  if(antes===depois){ return Promise.resolve(); }
+  var tira=antes?api(cAPI("/fichas/"+antes+"/tokens/"+el.id),{method:"DELETE"}):Promise.resolve();
+  return tira.then(function(){
+    return depois?api(cAPI("/fichas/"+depois+"/tokens"),{method:"POST",body:{mapa:MP.id,elemento:el.id}}):null;
+  }).then(function(r){
+    if(r?.id){ mpGuarda(r); } else if(el.dados){ delete el.dados.fichaId; delete el.dados.vinculo; delete el.dados.vars; delete el.dados.variante; }
+    mpRedesenhaTokens(); mpPintaPainel();
+    toast(depois?Vm("token")+" ligado à "+vmin("ficha")+".":Vm("token")+" desligado da "+vmin("ficha")+".","ok");
+  }).catch(function(e){ toast(mensagemDeErro(e),"erro"); });
+}
 function mpEditaMeuToken(el){
   if(GM||!el.meu){ return; }
-  var d=el.dados||{}, max=mpNum(d.vidaMax,0);
+  var d=el.dados||{}, max=mpNum(d.vidaMax,0), vars=mpVariantes(el);
   var campos=[];
+  if(vars.length>1){ campos.push({k:"variante",rot:"Variação",tipo:"sel",ops:vars.map(function(v,i){ return [v.id,v.nome||"Variação "+(i+1)]; })}); }
   if(max>0){ campos.push({k:"vida",rot:"Vida atual (máximo "+mpFmt(max)+")",tipo:"num"}); }
   campos.push({k:"marcas",rot:"Marcas (condições, efeitos, status)",tipo:"grupo",um:"marca",
     novo:function(){ return {t:"",c:"aviso"}; },
     campos:[{k:"t",rot:"Marca",ph:"Envenenado, Concentrado…"},{k:"c",rot:"Cor",tipo:"sel",ops:MP_CORES}]});
-  formulario("Seu "+vmin("token")+" · "+(d.nome||""),campos,{vida:d.vida||0,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{compacto:true,
+  formulario("Seu "+vmin("token")+" · "+(d.nome||""),campos,{variante:d.variante||vars[0]?.id||"",vida:d.vida||0,marcas:(d.marcas||[]).map(function(m){ return {t:m.t,c:m.c}; })},{
+    acao:d.fichaId==null?null:{rot:"Abrir a "+vmin("ficha"),faz:function(){ abrirFichaPorId(d.fichaId); }},
     salvar:function(c){
       var dados={marcas:(c.marcas||[]).filter(function(m){ return String(m.t||"").trim(); })};
+      if(vars.length>1){ dados.variante=c.variante; }
       if(max>0){ dados.vida=Math.min(max,Math.max(0,Number(c.vida)||0)); }
       mpMudaElemento(el,{dados:dados}).catch(function(){ /* aviso em mpGrava */ });
     }});
@@ -632,16 +658,16 @@ function mpNovaMarca(p){
 }
 function mpEditaDesenho(el){
   if(!GM){ return; }
-  var d=el.dados||{}, marca=d.forma==="marca", cheia=!marca&&d.forma!=="linha";
+  var d=el.dados||{}, marca=d.forma==="marca", cheia=!marca&&!mpFormaAberta(d.forma);
   var campos=[{k:"rotulo",rot:marca?"Texto":"Texto no desenho",obrig:marca,ph:marca?"":"Opcional"},
-    {k:"cor",rot:"Cor",tipo:"sel",ops:MP_CORES,linha:"traco"},
-    {k:"esp",rot:"Espessura",tipo:"num",linha:"traco"}];
+    {k:"cor",rot:"Cor",tipo:"sel",ops:MP_CORES,larg:"p"},
+    {k:"esp",rot:"Espessura",tipo:"num"}];
   if(cheia){ campos.push({k:"preench",rot:"Preencher",tipo:"check"}); }
   campos.push({k:"camada",rot:"Camada",tipo:"sel",ops:MP_CAMADAS.map(function(c){ return [c,mpCamadaNome(c)]; })},
     {k:"visivel",rot:"Visível para os "+vmin("jogadores"),tipo:"check"},
     {k:"bloqueado",rot:"Trancado",tipo:"check",dica:"Trancado, ninguém move nem edita, nem você, até destrancar."});
   formulario("Editar · desenho",campos,{rotulo:d.rotulo||"",cor:d.cor||"ouro",esp:d.esp||3,preench:mpNum(d.preench,0)>0,
-    camada:mpCamadaDe(el),visivel:el.visivel!==false,bloqueado:!!el.bloqueado},{rotRemover:"Remover o desenho",compacto:true,
+    camada:mpCamadaDe(el),visivel:el.visivel!==false,bloqueado:!!el.bloqueado},{rotRemover:"Remover o desenho",
     salvar:function(c){
       if(el.bloqueado&&c.bloqueado){ toast("Está trancado: desmarque “Trancado” para salvar mudanças.","aviso"); return; }
       mpMudaElemento(el,{visivel:!!c.visivel,camada:c.camada,bloqueado:!!c.bloqueado,
@@ -695,7 +721,7 @@ atalho({tecla:"v",quando:mpTeclado,faz:function(){ mpFerramenta("mover"); }});
 function mpFocoLivre(e){ return !e.target?.closest?.("button,a,select,input,textarea,[role=button]"); }
 function mpMestre(){ return mpTeclado()&&GM; }
 atalho({tecla:"s",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="selecionar"?"mover":"selecionar"); }});
-[["l","linha"],["o","circulo"],["b","retangulo"],["p","poligono"],["m","marca"]].forEach(function(t){
+[["l","linha"],["o","circulo"],["b","retangulo"],["p","poligono"],["m","marca"],["d","livre"]].forEach(function(t){
   atalho({tecla:t[0],quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta===t[1]?"mover":t[1]); }});
 });
 atalho({tecla:"w",quando:mpMestre,faz:function(){ mpFerramenta(MP.ferramenta==="parede"?"mover":"parede"); }});

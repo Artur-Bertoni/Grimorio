@@ -224,6 +224,13 @@ function tokensDaFicha(cid, fid) {
   }
   return out;
 }
+/* como MapaFichas.vesteToken: a copia das variacoes da ficha (vars), a escolhida e a imagem dela; sem variacao, o icone */
+function vesteToken(d, conteudo) {
+  const vs = (Array.isArray(conteudo.tokens) ? conteudo.tokens : conteudo.token ? [{ id: 't', nome: '', img: conteudo.token }] : []).filter(v => v && v.img);
+  if (!vs.length) { delete d.vars; delete d.variante; if (conteudo.img) d.img = conteudo.img; return; }
+  const v = vs.find(x => x.id === d.variante) || vs[0];
+  d.vars = vs.map(x => ({ id: x.id, nome: x.nome || '', img: x.img })); d.variante = v.id; d.img = v.img;
+}
 function rotaFichaTokens(M, p, b, res) {
   const m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)\/(tokens|imagem)(?:\/(\d+))?$/);
   if (!m) return false;
@@ -233,7 +240,7 @@ function rotaFichaTokens(M, p, b, res) {
   if (M === 'GET') { envia(res, 200, tokensDaFicha(cid, f.id)); return true; }
   let conteudo = {}; try { conteudo = JSON.parse(f.json); } catch { conteudo = {}; }
   if (M === 'DELETE') {
-    for (const mp of MAPAS[cid] || []) for (const e of mp.els) if (e.id === Number(m[4])) { delete e.dados.fichaId; delete e.dados.vinculo; mp.seq++; }
+    for (const mp of MAPAS[cid] || []) for (const e of mp.els) if (e.id === Number(m[4])) { for (const k of ['fichaId', 'vinculo', 'vars', 'variante']) delete e.dados[k]; mp.seq++; }
     res.writeHead(204, { 'Set-Cookie': 'XSRF-TOKEN=t0; Path=/' }); res.end(); return true;
   }
   const mp = (MAPAS[cid] || []).find(x => x.id === Number(b.mapa));
@@ -241,12 +248,14 @@ function rotaFichaTokens(M, p, b, res) {
   let e;
   if (b.elemento == null) {
     e = { id: ++MAPA_SEQ, tipo: 'TOKEN', camada: 'personagens', dono: ST.perfil.id, visivel: true, bloqueado: false, ordem: mp.els.length,
-      dados: { x: mp.largura / 2, y: mp.altura / 2, tam: 1, rot: 0, nome: f.nome, img: conteudo.token || conteudo.img || '', fichaId: f.id, vinculo: true } };
+      dados: { x: mp.largura / 2, y: mp.altura / 2, tam: 1, rot: 0, nome: f.nome, img: '', fichaId: f.id, vinculo: true } };
+    vesteToken(e.dados, conteudo);
     mp.els.push(e);
   } else {
     e = mp.els.find(x => x.id === Number(b.elemento));
     if (!e) { envia(res, 404, { erro: 'não encontrado' }); return true; }
-    Object.assign(e.dados, { fichaId: f.id, vinculo: true }, conteudo.token || conteudo.img ? { img: conteudo.token || conteudo.img } : {});
+    Object.assign(e.dados, { fichaId: f.id, vinculo: true });
+    vesteToken(e.dados, conteudo);
   }
   mp.seq++;
   envia(res, 200, elJson(mp, e, mestreEm(cid))); return true;
@@ -366,7 +375,7 @@ function rotaMapa(M, p, b, req, res) {
     if (M === 'POST' && mestre) {
       const d = b.dados || {};
       if (b.tipo === 'DESENHO') {
-        if (!['linha', 'circulo', 'retangulo', 'poligono', 'marca'].includes(d.forma) || !Array.isArray(d.pts) || !d.pts.length) { envia(res, 400, { erro: 'forma de desenho inválida' }); return true; }
+        if (!['linha', 'circulo', 'retangulo', 'poligono', 'marca', 'livre'].includes(d.forma) || !Array.isArray(d.pts) || !d.pts.length) { envia(res, 400, { erro: 'forma de desenho inválida' }); return true; }
         const e = { id: ++MAPA_SEQ, tipo: 'DESENHO', camada: b.camada || 'decoracao', dono: 0, visivel: b.visivel !== false, bloqueado: !!b.bloqueado, ordem: mp.els.length,
           dados: { forma: d.forma, pts: d.pts, cor: d.cor || 'ouro', esp: d.esp || 3, preench: d.preench || 0, rotulo: d.rotulo || '' } };
         mp.els.push(e); mp.seq++; registra(mp, 'criar', e, null); envia(res, 200, elJson(mp, e, true)); return true;
@@ -385,6 +394,12 @@ function rotaMapa(M, p, b, req, res) {
     const e = mp.els.find(x => String(x.id) === m[4] && (mestre || x.visivel));
     if (!e) { envia(res, 404, { erro: 'não encontrado' }); return true; }
     if (M === 'PUT') {
+      /* a troca de variacao: a imagem sai da copia do token, nunca do pedido (como MapaRegras.variante) */
+      const trocaVar = v => { const x = (e.dados.vars || []).find(q => q.id === v); if (x) { e.dados.variante = x.id; e.dados.img = x.img; } };
+      if (!mestre && e.dono === ST.perfil.id && 'variante' in (b.dados || {})) {
+        const antes = structuredClone(e); trocaVar(b.dados.variante);
+        mp.seq++; registra(mp, 'mudar', e, antes); envia(res, 200, elJson(mp, e, false)); return true;
+      }
       if (!mestre && e.dono === ST.perfil.id && ('vida' in (b.dados || {}) || 'marcas' in (b.dados || {}))) {
         const antes = structuredClone(e); if (b.dados.vida != null) e.dados.vida = Math.min(b.dados.vida, e.dados.vidaMax || b.dados.vida); if (b.dados.marcas) e.dados.marcas = b.dados.marcas;
         mp.seq++; registra(mp, 'mudar', e, antes); envia(res, 200, elJson(mp, e, false)); return true;
@@ -394,7 +409,9 @@ function rotaMapa(M, p, b, req, res) {
       let passou = false;
       if (mestre) {
         if (trancado(mp, e) && !(b.bloqueado === false && e.bloqueado && !camadaTrancada(mp, e))) { envia(res, 409, { erro: 'Está trancado: destranque para mexer.' }); return true; }
-        Object.assign(e.dados, d);
+        const { variante: vq, vars: _vars, ...resto } = d;
+        Object.assign(e.dados, resto);
+        if (vq != null) trocaVar(vq);
         for (const k of ['visao', 'visaoFicha']) if (e.dados[k] === null || e.dados[k] === '') delete e.dados[k];
         if (e.tipo === 'PAREDE' && e.dados.kind !== 'porta') e.dados.aberta = false;
         if (b.dono != null) e.dono = b.dono; if (b.visivel != null) e.visivel = b.visivel; if (b.camada) e.camada = b.camada; if (b.bloqueado != null) e.bloqueado = b.bloqueado;
@@ -523,15 +540,22 @@ http.createServer(async (req, res) => {
     if ((m = p.match(/^\/__sse\/(\d)$/))) { SEM_SSE = m[1] === '0'; return envia(res, 200, { ok: true }); }
     if (M === 'PUT') {
       if (p === '/api/admin/config') { ST.ultConfig = b; return envia(res, 200, { ok: true }); }
+      /* o mestre entrega a ficha a alguem da mesa (0: volta para ele, ficha de NPC) */
+      if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)\/dono$/))) {
+        const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
+        const quem = ST.membros.find(x => x.usuarioId === (Number(b.usuario) || ST.perfil.id)) || ST.membros[0];
+        Object.assign(f, { donoId: quem.usuarioId, dono: quem.nome, jogador: quem.papel !== 'MESTRE', minha: quem.usuarioId === ST.perfil.id });
+        return envia(res, 200, f);
+      }
       if ((m = p.match(/^\/api\/c\/(\d+)\/fichas\/(\d+)$/))) {
         const f = (FICHAS[m[1]] || []).find(x => x.id === Number(m[2])); if (!f) return envia(res, 404, {});
         f.nome = b.nome || f.nome; f.json = b.json || f.json;
         /* como o servidor: o alcance da ficha vai para a copia dos tokens ligados a ela */
-        let v, img; try { const j = JSON.parse(f.json); v = j.visao; img = j.token || j.img; } catch { v = null; }
+        let v, conteudo = {}; try { conteudo = JSON.parse(f.json); v = conteudo.visao; } catch { v = null; }
         for (const mp of MAPAS[m[1]] || []) for (const e of mp.els) {
           if (e.tipo !== 'TOKEN' || e.dados.fichaId !== f.id || !e.dados.vinculo) continue;
           if (v == null || v === '') delete e.dados.visaoFicha; else e.dados.visaoFicha = Number(v);
-          if (img) e.dados.img = img;
+          vesteToken(e.dados, conteudo);
           mp.seq++;
         }
         return envia(res, 200, { ok: true });

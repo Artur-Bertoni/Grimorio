@@ -78,6 +78,7 @@ function mpPinta(){
   mpPintaFog(ctx,v.z,cor);
   mpPintaFerramentas(ctx,v.z,cor);
   mpPintaMedidas(ctx,v.z,cor);
+  mpPosicionaVariantes();
   mpAgendaAnimacao();
 }
 /* Imersao: as bordas do mapa escurecem na cor de fundo do tema, como uma mesa iluminada no meio */
@@ -643,7 +644,7 @@ function mpTerminaArraste(a,e,cancelou){
   /* um clique solto com a regua ou a area apaga a medida; arrastar deixa ela na tela ate o proximo clique ou Esc */
   if(a.m==="r"&&(!a.moveu||cancelou)){ MP.regua=null; }
   if(a.m==="a"){ if(!a.moveu||cancelou){ MP.area=null; } mpPintaPainel(); }
-  if(a.m==="d"||a.m==="dp"||a.m==="dm"){ mpTerminaDesenho(a,cancelou); }
+  if(a.m==="d"||a.m==="dp"||a.m==="dm"||a.m==="dl"){ mpTerminaDesenho(a,cancelou); }
   if(a.m==="pn"){ mpTerminaPincel(a,cancelou); }
   if(a.m==="s"){ mpTerminaCaixa(a,cancelou); }
 }
@@ -767,11 +768,19 @@ function mpComecaDesenho(e,p,f){
   var a=mpPontoDesenho(e,p), base={sx:e.clientX,sy:e.clientY,moveu:false,forma:f,p:a};
   if(f==="marca"){ base.m="dm"; return base; }
   if(f==="poligono"||f==="parede"){ base.m="dp"; return base; }
+  /* o traco livre segue a mao, sem encaixe na grade */
+  if(f==="livre"){ MP.rascunho={forma:f,pts:[[p.x,p.y]]}; base.m="dl"; return base; }
   MP.rascunho={forma:f,pts:[[a.x,a.y],[a.x,a.y]]};
   base.m="d";
   return base;
 }
 function mpTerminaDesenho(a,cancelou){
+  if(a.m==="dl"){
+    var rl=MP.rascunho; MP.rascunho=null;
+    /* o servidor guarda ate 100 pontos: o traco comprido e afinado, mantendo o comeco e o fim */
+    if(!cancelou&&a.moveu&&rl?.pts.length>=2){ mpCriaForma("livre",mpAfinaTraco(rl.pts)); } else { mpDesenha(); }
+    return;
+  }
   if(a.m==="d"){
     var r=MP.rascunho; MP.rascunho=null;
     if(!cancelou&&a.moveu&&r&&Math.hypot(r.pts[1][0]-r.pts[0][0],r.pts[1][1]-r.pts[0][1])>=2){ mpCriaForma(r.forma,r.pts); }
@@ -822,6 +831,10 @@ function mpSegueArraste(arr,e){
     MP.regua.b=mpPontoDaRegua(e,mpMundo(e));
   } else if(m==="a"){
     MP.area.b=mpPontoDaArea(e,mpMundo(e));
+  } else if(m==="dl"){
+    /* um ponto a cada 3 px da tela: o traco fica liso sem encher o desenho de pontos */
+    var q=mpMundo(e), pl=MP.rascunho.pts, u=pl[pl.length-1];
+    if(Math.hypot(q.x-u[0],q.y-u[1])*mpVista().z>=3){ pl.push([q.x,q.y]); }
   } else if(m==="d"){
     var b=mpPontoDesenho(e,mpMundo(e));
     MP.rascunho.pts[1]=[b.x,b.y];

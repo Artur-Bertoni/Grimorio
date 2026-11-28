@@ -55,7 +55,8 @@ class MapaBase {
     /** o que o jogador recebe de um token: o vinculo com ficha e com o elenco fica com o mestre */
     private static final Set<String> DADOS_DO_JOGADOR = Set.of("x", "y", "tam", "rot", "nome", "img", K_MARCAS);
     /** de quem pode mover o token vai tambem o deslocamento do turno: o jogador precisa ver quanto resta */
-    private static final Set<String> DADOS_DE_QUEM_MOVE = Set.of("x", "y", "tam", "rot", "nome", "img", K_MARCAS, "desl", K_VISAO, MapaRegras.K_VISAO_FICHA, K_USADO);
+    private static final Set<String> DADOS_DE_QUEM_MOVE = Set.of("x", "y", "tam", "rot", "nome", "img", K_MARCAS, "desl", K_VISAO, MapaRegras.K_VISAO_FICHA, K_USADO,
+            MapaFichas.K_VARS, MapaFichas.K_VARIANTE);
     /** a barra de vida: o dono do token sempre ve; os outros so quando o mestre torna publica */
     private static final Set<String> DADOS_DA_VIDA = Set.of("vida", K_VIDA_MAX);
 
@@ -232,6 +233,8 @@ class MapaBase {
     private Set<String> dadosVisiveis(MapaElemento e, Mapa m, long uid, ObjectNode d) {
         Set<String> ok = new HashSet<>(e.getDono() == uid || podeMoverPelasRegras(e, m, uid) ? DADOS_DE_QUEM_MOVE : DADOS_DO_JOGADOR);
         if (e.getDono() == uid || d.path("vidaPublica").asBoolean(false)) ok.addAll(DADOS_DA_VIDA);
+        /* o dono sabe de que ficha o token e: e por ela que ele abre a ficha a partir do mapa */
+        if (e.getDono() == uid) ok.add(K_FICHA);
         return ok;
     }
 }

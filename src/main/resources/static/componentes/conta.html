@@ -23,15 +23,16 @@
     <p class="lead m0"><b class="dourado">{{ login }}</b></p>
     <p class="sm muted">O login não muda: é a chave dos convites e de tudo que você já criou.</p></section>
   <section class="fld form" aria-labelledby="cnNomeT"><h3 class="flb" id="cnNomeT">Nome na mesa</h3>
-    <label>Como a mesa te vê<input class="inp" id="cnNome" v-attr:value="nome" autocomplete="name"></label>
-    <div class="linha"><button type="button" class="btn" id="cnNomeOk">Salvar o nome</button></div></section>
+    <div class="fgrid"><label class="fc fc-m">Como a mesa te vê<input class="inp" id="cnNome" v-attr:value="nome" autocomplete="name"></label></div>
+    <div class="linha"><button type="button" class="btn sec m" id="cnNomeOk">Salvar o nome</button></div></section>
   <section class="fld form" aria-labelledby="cnEmailT"><h3 class="flb" id="cnEmailT">E-mail de recuperação</h3>
-    <label>E-mail<input class="inp" id="cnEmail" type="email" autocomplete="email" v-attr:value="email" aria-describedby="cnEmailD"><span class="dica" id="cnEmailD">Opcional. Só serve para receber o link de redefinir a senha se você esquecer. Ninguém da mesa vê. Deixe vazio para tirar.</span></label>
-    <div class="linha"><button type="button" class="btn" id="cnEmailOk">Salvar o e-mail</button></div></section>
+    <div class="fgrid"><label class="fc fc-m">E-mail<input class="inp" id="cnEmail" type="email" autocomplete="email" v-attr:value="email" aria-describedby="cnEmailD"></label></div>
+    <p class="dica m0" id="cnEmailD">Opcional. Só serve para receber o link de redefinir a senha se você esquecer. Ninguém da mesa vê. Deixe vazio para tirar.</p>
+    <div class="linha"><button type="button" class="btn sec m" id="cnEmailOk">Salvar o e-mail</button></div></section>
   <section class="fld form" aria-labelledby="cnSenhaT"><h3 class="flb" id="cnSenhaT">Trocar a senha</h3>
-    <label>Senha atual<input class="inp" id="cnAtual" type="password" autocomplete="current-password"></label>
-    <label>Senha nova<input class="inp" id="cnNova" type="password" autocomplete="new-password" aria-describedby="cnSenhaD"></label>
-    <label>Repita a senha nova<input class="inp" id="cnNova2" type="password" autocomplete="new-password"></label>
-    <p class="sm muted m0" id="cnSenhaD">6 caracteres ou mais, com letra, número e caractere especial. Pedimos a atual de propósito: sessão esquecida aberta em navegador alheio não deve virar conta perdida.</p>
-    <div class="linha"><button type="button" class="btn" id="cnSenhaOk">Trocar a senha</button></div></section>
+    <div class="fgrid"><label class="fc fc-p">Senha atual<input class="inp" id="cnAtual" type="password" autocomplete="current-password"></label>
+      <label class="fc fc-p">Senha nova<input class="inp" id="cnNova" type="password" autocomplete="new-password" aria-describedby="cnSenhaD"></label>
+      <label class="fc fc-p">Repita a nova<input class="inp" id="cnNova2" type="password" autocomplete="new-password"></label></div>
+    <p class="dica m0" id="cnSenhaD">6 caracteres ou mais, com letra, número e caractere especial. Pedimos a atual de propósito: sessão esquecida aberta em navegador alheio não deve virar conta perdida.</p>
+    <div class="linha"><button type="button" class="btn sec m" id="cnSenhaOk">Trocar a senha</button></div></section>
 </template>

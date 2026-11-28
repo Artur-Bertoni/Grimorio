@@ -94,6 +94,49 @@ sem isso.
 - **Fim de linha.** Os arquivos do repositório têm LF no disco e o Git avisa de CRLF; scripts
   de troca de texto precisam normalizar `\r\n` antes de comparar.
 
+## Formulários e campos (27/11/2026)
+
+O dono revisou todas as telas de edição e achou confuso: campo maior que o valor (número de 2
+dígitos com 1000px), campos fora de simetria, caixa de marcar padrão do navegador, formulários
+de 15 campos empilhados. Decisões dele, que não se refazem:
+
+- **Liga/desliga é interruptor**; caixa de marcar só para marcar vários itens de uma lista. Os dois
+  com o desenho do site.
+- **Largura pelo tipo, em grade** de 12 colunas, janela de 40rem (54rem a larga), simétrica.
+- **Formulário longo em seções, com "Avançado" fechado**, e **a dica num ⓘ** ao lado do rótulo.
+
+O que mudou: o motor do `formulario()` (template `t-campo`, `camposHtml`, `LARGURA_DO_TIPO`), o
+bloco de campos do `controles.css` (altura única de 32px, interruptor, caixa, ⓘ, grade, seção,
+Avançado), os formulários do token, do mapa, do personagem, da sessão, da cena, do território e
+da iniciativa, e as Configurações (Conta, Vocabulário, e-mail da Administração; um primário por
+página). Para olhar de novo: `scripts/teste-front/fotos-formularios.mjs` captura cada janela.
+
+## Tarefas demoradas (27/11/2026)
+
+Pedido do dono: importar e exportar PDF, áudio e pacote mostram uma barra de progresso, prendem a tela até
+terminar e dizem no fim o que aconteceu. Antes cada lugar fazia de um jeito (texto no botão, barra solta na
+Biblioteca, só um toast) e dava para sair da tela no meio do envio. Agora é tudo `tarefaLonga()`; ação nova
+que leve mais que uns segundos usa ela. Upload que chega a 100% ainda espera o servidor (ler o PDF, desempacotar):
+a barra vira "sem medida" com o texto dizendo isso, para não parecer travada.
+
+## Edição no lugar (27/11/2026)
+
+Pedido do dono: clicar no lápis de um bloco libera o bloco ali mesmo, como na ficha, sem janela e sem trocar o
+desenho por um formulário. "Só fica um leve filtro atrás do texto indicando que posso clicar e editar." E menos
+contraste entre o campo e o fundo do bloco. Decisões dele, que não se refazem:
+
+- **Todo bloco que é conteúdo edita no lugar**: blocos e cabeçalho da cena, Campanha (nome, apresentação, seções,
+  índice), painel da sessão, Consulta rápida e resumos da Mesa, ficha. Elenco, sessão, território e as janelas do
+  mapa continuam em formulário (têm campos que não aparecem na tela).
+- **Grava sozinho, com Pronto** (também o lápis de novo ou Esc). O que se cria já entra aberto; vazio, some.
+- **A Consulta rápida saiu de Configurações**: edita na aba Mesa, onde ela aparece.
+- **Na ficha, tudo no lugar**: tipo, remover e arrastar viram controles pequenos ao lado do campo.
+
+O que cuidar: o campo `.nl` herda a letra do texto que substitui e tem margem negativa para não mexer o
+recuo; dentro de linha com ornamento ou outro texto (eyebrow, chip) use `.nl.curto`, senão ele quebra a linha e
+a tela pula (aconteceu com o sistema de regras acima do título). O `toggle` de um `<details>` chega depois do
+redesenho: o do elemento antigo fechava o resumo novo (`hydrateMesa` confere se ele ainda está na tela).
+
 ## Pendências conhecidas (o que um próximo passo pode atacar)
 
 **Rodada 4 (21/11/2026)**: front e backend auditados e, no mesmo dia, tudo aplicado (Parte 3 de

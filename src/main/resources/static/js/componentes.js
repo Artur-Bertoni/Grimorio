@@ -6,6 +6,7 @@
    Arquivo novo de template precisa entrar nesta lista (o do mapa entrou com o tabletop). */
 var TEMPLATES=[
   "componentes/marca.html",
+  "componentes/nolugar.html",
   "componentes/navegacao.html",
   "componentes/estado.html",
   "componentes/quadro.html",

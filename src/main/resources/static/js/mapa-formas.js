@@ -3,7 +3,10 @@
 
 /* Da de baixo para a de cima: e a ordem em que o canvas desenha. O servidor guarda so o id. */
 var MP_CAMADAS=["cenario","objetos","personagens","npcs","decoracao"];
-var MP_FORMAS=["linha","circulo","retangulo","poligono","marca"];
+/* livre: o traco a mao, um caminho aberto (sem preenchimento) */
+var MP_FORMAS=["linha","circulo","retangulo","poligono","marca","livre"];
+/* forma que e so traco: nao fecha nem preenche */
+function mpFormaAberta(f){ return f==="linha"||f==="livre"; }
 /* Nome de cor, nao cor: o canvas traduz cada um para um token do tema (a cor escolhida pelo mestre
    nunca vira texto, so traco e faixa). */
 var MP_CORES=[["ouro","Dourado"],["sangue","Vermelho"],["neutro","Neutro"],["ok","Verde"],["aviso","Laranja"]];
@@ -98,6 +101,7 @@ function mpAcertaDesenho(e,wx,wy,z){
   if(d.forma==="marca"){ return Math.hypot(wx-p[0][0],wy-p[0][1])<=Math.max(10,12/z); }
   if(p.length<2){ return false; }
   if(d.forma==="linha"){ return mpDistSeg(wx,wy,p[0],p[1])<=tol; }
+  if(d.forma==="livre"){ return p.some(function(q,i){ return i>0&&mpDistSeg(wx,wy,p[i-1],q)<=tol; }); }
   if(d.forma==="circulo"){
     var r=Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1]), dc=Math.hypot(wx-p[0][0],wy-p[0][1]);
     return cheio?dc<=r+tol:Math.abs(dc-r)<=tol;
@@ -115,6 +119,7 @@ function mpTracaForma(ctx,forma,p){
   ctx.beginPath();
   if(forma==="linha"){ ctx.moveTo(p[0][0],p[0][1]); ctx.lineTo(p[1][0],p[1][1]); return; }
   if(forma==="circulo"){ ctx.arc(p[0][0],p[0][1],Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1]),0,Math.PI*2); return; }
+  if(forma==="livre"){ p.forEach(function(pt,i){ if(i){ ctx.lineTo(pt[0],pt[1]); } else { ctx.moveTo(pt[0],pt[1]); } }); return; }
   var q=forma==="retangulo"?mpPtsRetangulo(p):p;
   q.forEach(function(pt,i){ if(i){ ctx.lineTo(pt[0],pt[1]); } else { ctx.moveTo(pt[0],pt[1]); } });
   ctx.closePath();
@@ -144,7 +149,7 @@ function mpPintaDesenho(ctx,e,z,cor){
   } else {
     mpTracaForma(ctx,d.forma,p);
     var pre=mpNum(d.preench,0);
-    if(pre>0&&d.forma!=="linha"){ var a=ctx.globalAlpha; ctx.globalAlpha=a*pre; ctx.fill(); ctx.globalAlpha=a; }
+    if(pre>0&&!mpFormaAberta(d.forma)){ var a=ctx.globalAlpha; ctx.globalAlpha=a*pre; ctx.fill(); ctx.globalAlpha=a; }
     ctx.stroke();
   }
   ctx.restore();
@@ -206,7 +211,7 @@ function mpPintaRascunho(ctx,z,cor){
     r.pts.forEach(function(q){ ctx.beginPath(); ctx.arc(q[0],q[1],4/z,0,Math.PI*2); ctx.fill(); });
   } else {
     mpTracaForma(ctx,r.forma,pts);
-    if(e.preench>0&&r.forma!=="linha"){ ctx.globalAlpha=e.preench; ctx.fill(); ctx.globalAlpha=1; }
+    if(e.preench>0&&!mpFormaAberta(r.forma)){ ctx.globalAlpha=e.preench; ctx.fill(); ctx.globalAlpha=1; }
     ctx.stroke();
   }
   ctx.restore();
@@ -271,4 +276,41 @@ function mpFixaArea(){
   MP.area=null;
   if(f.k==="c"){ mpCriaDesenho("circulo",[[f.x,f.y],[f.x+f.r,f.y]]); } else { mpCriaDesenho("poligono",f.pts); }
   mpDesenha(); mpPintaPainel();
+}
+
+/* ---------- variacoes do token ----------
+   A ficha pode dar ao token mais de uma imagem (desarmado, armado…): o servidor guarda a copia em dados.vars. Com so
+   esse token selecionado, uma faixa de miniaturas aparece em cima dele, e um clique troca a imagem no mesmo token.
+   Quem troca e o mestre e o dono do token (o servidor confere). A faixa e DOM sobre o canvas, reposta a cada quadro. */
+function mpVariantes(el){ return Array.isArray(el?.dados?.vars)?el.dados.vars:[]; }
+var MPVAR_CHAVE="";
+function mpVarianteAlvo(){
+  if(MP.multi.length||MP.sel==null||MP.arrastando){ return null; }
+  var el=mpEl(MP.sel);
+  if(!el||el.tipo!=="TOKEN"||mpOculto(el)||mpVariantes(el).length<2||!(GM||el.meu)){ return null; }
+  return el;
+}
+function mpPosicionaVariantes(){
+  if(!MPC?.wrap){ return; }
+  var box=$("#mpVarsBox",MPC.wrap), tk=mpVarianteAlvo();
+  if(!tk){ if(box){ box.hidden=true; } MPVAR_CHAVE=""; return; }
+  if(!box){ box=el("div",{id:"mpVarsBox","class":"mpvarsbox"}); MPC.wrap.appendChild(box); }
+  var vs=mpVariantes(tk), d=tk.dados, chave=tk.id+"|"+(d.variante||"")+"|"+vs.map(function(v){ return v.id+v.img; }).join(",");
+  if(chave!==MPVAR_CHAVE){
+    MPVAR_CHAVE=chave;
+    box.innerHTML=htmlDe("t-mapa-variantes",{nome:d.nome||Vm("token"),vars:vs.map(function(v,i){
+      return {id:v.id,nome:v.nome||"Variação "+(i+1),img:IMG(v.img,"mini"),on:(d.variante||vs[0].id)===v.id}; })});
+    $$("[data-mpvar]",box).forEach(function(b){ b.onclick=function(){ mpTrocaVariante(tk,b.dataset.mpvar); }; });
+  }
+  var v=mpVista(), p=mpPosNaTela(tk), R=mpRaio(tk), x=p[0]*v.z+v.x, y=(p[1]-R)*v.z+v.y;
+  box.hidden=x<0||y<0||x>MPC.w||y>MPC.h;
+  box.style.left=x+"px"; box.style.top=y+"px";
+}
+/* troca na hora na tela (a imagem e a da copia que o servidor deu) e o servidor confirma; se ele recusar, volta */
+function mpTrocaVariante(el,id){
+  var d=el.dados, v=mpVariantes(el).find(function(x){ return x.id===id; });
+  if(!v||d.variante===id){ return; }
+  var antes={variante:d.variante,img:d.img};
+  d.variante=id; d.img=v.img; mpDesenha();
+  mpMudaElemento(el,{dados:{variante:id}},"não consegui trocar a variação").catch(function(){ d.variante=antes.variante; d.img=antes.img; mpDesenha(); });
 }

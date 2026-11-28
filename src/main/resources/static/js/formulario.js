@@ -33,14 +33,22 @@ var LEITOR_DE_CAMPO={
   linhas:function(n){ return String(n.value||"").split("\n").map(function(x){ return x.trim(); }).filter(Boolean); }
 };
 
-/* campos: [{k, rot, tipo, dica, ph, obrig, ops, linhas, um, novo, campos, valida}]
-   tipo: texto (padrao) | area | linhas | num | sel | check | faixa | senha | img | imgs | grupo
+/* campos: [{k, rot, tipo, dica, ph, obrig, ops, linhas, um, novo, campos, valida, larg, av}]
+   tipo: texto (padrao) | area | linhas | num | sel | check | faixa | senha | img | imgs | grupo | secao
+   check e um interruptor (liga/desliga); secao so poe um titulo entre os campos.
+   larg: quanto da linha o campo ocupa (p um quarto, m metade, mg tres quartos, g a linha toda); sem ele, vale o
+   tamanho do que o tipo guarda (LARGURA_DO_TIPO). av: o campo vai para "Avancado", fechado ate a pessoa abrir.
+   dica: vira o (i) ao lado do rotulo, e continua descrevendo o campo para o leitor de tela.
    valida(valor, copia): opcional, devolve a mensagem de erro do campo ou ""
    Trabalha numa copia; o original so muda em o.salvar(copia). */
 var FORMN=0;
+/* numero e curto; escolha, texto curto e interruptor ocupam metade; texto longo, imagem e lista, a linha toda */
+var LARGURA_DO_TIPO={num:"p",sel:"m",check:"m",senha:"m",faixa:"m",texto:"m",area:"g",linhas:"g",img:"m",imgs:"g",grupo:"g"};
+/* so estes tem um controle so, que o <label for> nomeia; imagem e lista sao um grupo, nomeado pelo titulo */
+var TIPO_COM_LABEL={texto:1,area:1,linhas:1,num:1,sel:1,faixa:1,senha:1};
 function formulario(titulo,campos,valor,o){
   o=o||{};
-  var w=structuredClone(valor||{}), ini="", fechando=false, GR={}, ov, fid="f"+(++FORMN)+"-";
+  var w=structuredClone(valor||{}), ini="", fechando=false, GR={}, ov, fid="f"+(++FORMN)+"-", avAberto=false;
   /* o grupo se repete por dentro: o HTML de cada linha sai daqui, campo a campo */
   function campoHtml(c,pre){
     var p=pre+c.k, v=pget(w,p), linhas=[];
@@ -49,27 +57,22 @@ function formulario(titulo,campos,valor,o){
       linhas=(Array.isArray(v)?v:[]).map(function(x,i){
         return c.campos.map(function(sc){ return campoHtml(sc,p+"."+i+"."); }).join(""); });
     }
-    return htmlDe("t-campo",{c:c,p:p,v:v,linhas:linhas,fid:fid});
+    if(c.tipo==="secao"){ return htmlDe("t-campo-secao",{rot:c.rot}); }
+    var tipo=c.tipo||"texto", dica=c.dica||(tipo==="linhas"?"Um item por linha.":"");
+    return htmlDe("t-campo",{c:c,p:p,v:v,linhas:linhas,fid:fid,larg:c.larg||LARGURA_DO_TIPO[tipo]||"m",liga:!!TIPO_COM_LABEL[tipo],dica:dica});
   }
-  /* Campos seguidos com o mesmo "linha" ficam lado a lado, numa grade que quebra sozinha: campo curto
-     (numero, escolha) nao precisa ocupar a largura inteira. Sem "linha", o campo segue em coluna. */
-  function camposEmLinhas(){
-    var out=[], i=0;
-    while(i<campos.length){
-      var c=campos[i];
-      if(!c.linha){ out.push(campoHtml(c,"")); i++; continue; }
-      var grupo=[];
-      while(i<campos.length&&campos[i].linha===c.linha){ grupo.push(campoHtml(campos[i],"")); i++; }
-      out.push('<div class="fgrade">'+grupo.join("")+"</div>");
-    }
-    return out.join("");
+  /* Os campos numa grade de 12 colunas, cada um com a largura do que guarda; os marcados com av vao para
+     "Avancado", que fica como a pessoa deixou (aberto ou fechado) quando o formulario se redesenha. */
+  function camposHtml(){
+    var normal=[], av=[];
+    campos.forEach(function(c){ (c.av?av:normal).push(campoHtml(c,"")); });
+    return htmlDe("t-formulario-campos",{normal:normal.join(""),av:av.join(""),avAberto:avAberto});
   }
   function corpo(){
     GR={};
     return htmlDe("t-formulario-corpo",{intro:o.intro||"",rotSalvar:o.rotSalvar||"Salvar",
-      temObrig:campos.some(function(c){ return c.obrig; }),
-      rotRemover:o.remover?(o.rotRemover||"Remover"):"",
-      campos:camposEmLinhas(),
+      rotRemover:o.remover?(o.rotRemover||"Remover"):"",rotAcao:o.acao?.rot||"",
+      campos:camposHtml(),
       faixas:Object.keys(LIB.faixas||{}).map(function(k){ return LIB.faixas[k].nome; })});
   }
   function colher(){
@@ -110,6 +113,11 @@ function formulario(titulo,campos,valor,o){
     $("[data-no]",ov).onclick=function(){ ov.close(); };
     var d=$("[data-del]",ov);
     if(d)d.onclick=function(){ fechando=true; ov.close(); o.remover(); };
+    /* acao ao lado (o.acao = {rot, faz}): abre outra janela por cima, sem fechar nem salvar este formulario */
+    var ac=$("[data-acao]",ov);
+    if(ac)ac.onclick=function(){ o.acao.faz(); };
+    var av=$("[data-favanc]",ov);
+    if(av)av.addEventListener("toggle",function(){ avAberto=av.open; });
     ligaImagens(); ligaGrupos();
   }
   /* Valida tudo de uma vez: cada campo obrigatorio vazio ganha a mensagem embaixo dele,
@@ -134,13 +142,15 @@ function formulario(titulo,campos,valor,o){
       marcaErro(campo,msg);
       if(msg){ n++; primeiro=primeiro||campo; } });
     if(!primeiro)return true;
+    /* o primeiro erro pode estar dentro do Avancado fechado: abre antes de levar o foco */
+    var det=primeiro.closest("details");
+    if(det&&!det.open){ det.open=true; avAberto=true; }
     primeiro.focus(); primeiro.scrollIntoView?.({block:"center"});
     anunciar(n===1?"Um campo precisa de atenção.":n+" campos precisam de atenção.",true);
     return false;
   }
-  ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{wide:!!o.wide,firme:true,foco:false,back:o.back});
-  /* compacto: campos mais baixos e em colunas mais estreitas, para formularios longos (o do token) */
-  if(o.compacto){ ov.querySelector(".form")?.classList.add("compacto"); }
+  /* a janela do formulario tem largura de leitura: 40rem, ou 54rem com wide (nao a folha larga da ficha) */
+  ov=overlay(titulo,htmlDe("t-formulario",{corpo:corpo()}),{cls:"formsheet"+(o.wide?" larga":""),firme:true,foco:false,back:o.back});
   var fecha=ov.close;
   ov.close=function(){
     if(fechando){ fecha(); return; }

@@ -47,12 +47,15 @@ function mesaSec(){
     var l=(MESA.resumos||[]).map(function(r,ix){return {r:r,ix:ix};})
       .sort(function(a,b){ return ((+b.r.n||0)-(+a.r.n||0))||(dataNum(b.r.data)-dataNum(a.r.data)); });
     if(S.resAb==null&&l.length)S.resAb=l[0].ix;
-    return htmlDe("t-mesa-resumos",{mestre:GM,aberto:S.resAb,resumos:l.map(function(o){ var r=o.r;
-      return {i:o.ix,n:r.n,titulo:r.titulo,data:r.data,tem:!!r.texto,linhas:linhasDe(r.texto)}; })});
+    return htmlDe("t-mesa-resumos",{mestre:GM,aberto:S.resAb,resumos:l.map(function(o){ var r=o.r, k="res:"+o.ix, ed=nlEd(k);
+      return {i:o.ix,k:k,ed:ed,n:r.n,titulo:r.titulo,data:r.data,texto:r.texto,tem:!!r.texto,linhas:linhasDe(r.texto),
+        lapis:GM?nlLapis(k,"o resumo "+(r.titulo||"sem título")):"",fim:ed?nlFim([],"Remover resumo"):""}; })});
   }
   if(k==="ev")return htmlDe("t-mesa-ev",{ev:MESA.ev||[]});
   if(k==="quem")return htmlDe("t-mesa-quem",{npcs:MESA.npcs||[],locais:MESA.locais||[]});
-  if(k==="regras")return htmlDe("t-mesa-regras",{mestre:GM,grupos:PUBD().referencia||[]});
+  if(k==="regras"){ var ed=nlEd("ref");
+    return htmlDe("t-mesa-regras",{mestre:GM,ed:ed,grupos:ed?D.campanha.referencia:(PUBD().referencia||[]),
+      lapis:GM?nlLapis("ref","a "+vmin("referencia")):"",fim:ed?nlFim([{rot:"grupo",p:"referencia",novo:"grupo"}]):""}); }
   if(k==="fichas")return fichasSecHtml();
   if(k==="notas")return htmlDe("t-mesa-notas");
   if(k==="mural")return htmlDe("t-mesa-mural");
@@ -61,9 +64,10 @@ function mesaSec(){
 function hydrateMesa(){
   var v=$("#view");
   if(S.msec==="fichas")ligarFichas();
-  ligarRefEditar();
   $$("[data-msec]",v).forEach(function(b){ b.onclick=function(){ S.msec=b.dataset.msec; render(); }; });
   $$("details.resitem",v).forEach(function(d){ d.addEventListener("toggle",function(){
+    /* o toggle chega depois do redesenho: o de um resumo que ja saiu da tela fecharia o novo */
+    if(!v.contains(d))return;
     var i=+d.dataset.res;
     if(d.open){ S.resAb=i; $$("details.resitem[open]",v).forEach(function(x){ if(x!==d)x.open=false; }); }
     else if(S.resAb===i)S.resAb=-1; }); });
@@ -72,42 +76,54 @@ function hydrateMesa(){
   $$("[data-mev]",v).forEach(function(f){ f.onclick=function(){
     var x=MESA.ev[+f.dataset.mev]; if(x&&x.img)projetar(x.img,x.nome); }; });
   var ml=$("#mLib",v); if(ml)ml.onclick=abrirLiberar;
-  var ar=$("#mAddRes",v); if(ar)ar.onclick=function(){ editarResumo(-1); };
-  $$("[data-mres]",v).forEach(function(b){ b.onclick=function(){ editarResumo(+b.dataset.mres); }; });
+  var ar=$("#mAddRes",v); if(ar)ar.onclick=function(){ novoResumo(); };
   $$("[data-mresd]",v).forEach(function(b){ b.onclick=function(){
     var i=+b.dataset.mresd;
     comDesfazer("Resumo removido",function(){ MESA.resumos.splice(i,1); S.resAb=null; salvarMesa(); }); }; });
   if(S.msec==="notas")carregarNotas();
   if(S.msec==="mural")carregarMural();
 }
-/* data do resumo: dd/mm/aaaa, com mascara enquanto digita e conferida ao salvar */
-function mascaraData(inp){
-  inp.setAttribute("inputmode","numeric"); inp.setAttribute("maxlength","10"); inp.setAttribute("autocomplete","off");
-  inp.addEventListener("input",function(){
-    var d=inp.value.replace(/\D/g,"").slice(0,8), o=d.slice(0,2);
-    if(d.length>2)o+="/"+d.slice(2,4); if(d.length>4)o+="/"+d.slice(4);
-    inp.value=o; });
-}
+/* data do resumo: dd/mm/aaaa, conferida ao fechar */
 function dataValida(s){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||"")); if(!m)return false;
   var d=new Date(+m[3],+m[2]-1,+m[1]);
   return d.getFullYear()===+m[3]&&d.getMonth()===+m[2]-1&&d.getDate()===+m[1]; }
 function dataNum(s){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||"")); return m?(+m[3])*10000+(+m[2])*100+(+m[1]):0; }
 function hojeBr(){ var d=new Date(), p=function(n){ return (n<10?"0":"")+n; };
   return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear(); }
-function editarResumo(i,pre){
-  var novo=(i<0), prox=(MESA.resumos||[]).reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1;
-  var r=novo?(pre||{n:prox,titulo:"",data:hojeBr(),texto:""}):MESA.resumos[i];
-  var ov=overlay(novo?"Novo resumo":"Editar resumo",htmlDe("t-resumo-form",{n:r.n||1,titulo:r.titulo||"",data:r.data||""}));
-  $("#rX",ov).value=r.texto||"";
-  mascaraData($("#rD",ov));
-  $("#rOk",ov).onclick=function(){
-    var dt=$("#rD",ov).value.trim();
-    if(dt&&!dataValida(dt)){ toast("Data inválida: use dd/mm/aaaa"); $("#rD",ov).focus(); return; }
-    var o={n:+$("#rN",ov).value||1,titulo:$("#rT",ov).value.trim(),data:dt,texto:$("#rX",ov).value};
-    if(novo)MESA.resumos.push(o); else MESA.resumos[i]=o;
-    S.resAb=novo?MESA.resumos.length-1:i;
-    salvarMesa(); ov.close(); render(); toast("Publicado para a mesa"); };
+/* Resumo no lugar (js/nolugar.js): o novo entra na lista ja aberto. pre: o que ja se sabe (encerrar uma sessao
+   traz o numero e o titulo dela) */
+function novoResumo(pre){
+  MESA.resumos=MESA.resumos||[];
+  var prox=MESA.resumos.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1;
+  MESA.resumos.push(pre||{n:prox,titulo:"",data:hojeBr(),texto:""});
+  var i=MESA.resumos.length-1;
+  S.view="mesa"; S.msec="resumos"; S.resAb=i; render();
+  nlAbre("res:"+i,{novo:true,foco:pre?"texto":"titulo"});
 }
+NL_ALVOS.res=function(i){
+  var n=+i, r=(MESA.resumos||[])[n];
+  if(!r)return null;
+  return {obj:r,grava:salvarMesa,
+    vazio:function(x){ return !String(x.titulo||"").trim()&&!String(x.texto||"").trim(); },
+    tira:function(){ MESA.resumos.splice(n,1); S.resAb=null; },
+    fecha:function(x){ x.titulo=String(x.titulo||"").trim(); x.n=+x.n||1;
+      if(x.data&&!dataValida(x.data)){ toast("A data não ficou certa e saiu do resumo. Use dd/mm/aaaa.","aviso"); x.data=""; } },
+    remove:function(){ comDesfazer("Resumo removido",function(){ MESA.resumos.splice(n,1); S.resAb=null; salvarMesa(); }); },
+    /* a data ganha as barras enquanto a pessoa digita: 12012026 vira 12/01/2026 */
+    mudou:function(p,c){ if(p!=="data")return;
+      var d=c.value.replace(/\D/g,"").slice(0,8), o=d.slice(0,2);
+      if(d.length>2)o+="/"+d.slice(2,4);
+      if(d.length>4)o+="/"+d.slice(4);
+      if(o!==c.value)c.value=o;
+      r.data=o; }};
+};
+/* a consulta rapida e do guia (o mestre edita) e vai para a mesa a cada gravacao */
+NL_ALVOS.ref=function(){
+  var c=D.campanha;
+  return {obj:c,grava:function(){ save(); salvarMesa(); },
+    abre:function(x){ if(!x.referencia.length)x.referencia.push(NL_NOVO.grupo()); },
+    limpa:function(x){ nlLimpa(x.referencia); }};
+};
 function abrirLiberar(){
   var s=(S.view==="sessao")?curSess():null;
   /* o que esta na sessao aberta vem primeiro */
@@ -123,8 +139,6 @@ function abrirLiberar(){
   var fechar=ov.close; ov.close=function(){ fechar(); render(); };
 }
 /* notas privadas */
-function ligarRefEditar(){ var b=document.getElementById("refEd");
-  if(b)b.onclick=function(){ abrirReferencia(); }; }
 /* a caixa de anotacoes cresce pelo canto e lembra o tamanho neste aparelho */
 function ligaTamNota(t){
   try{ var g=JSON.parse(localStorage.getItem("grim_notas_tam")||"null");

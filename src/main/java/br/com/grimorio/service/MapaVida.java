@@ -24,7 +24,7 @@ import static br.com.grimorio.service.MapaBase.K_VISAO;
 
 /**
  * O token vinculado a uma ficha anda junto com ela, nos dois sentidos: a vida mexida no mapa vai para a
- * barra da ficha, e a barra, o alcance da visao ou a imagem do token mexidos na ficha vao para os tokens dela.
+ * barra da ficha, e a barra, o alcance da visao, as variacoes de token e o dono mexidos na ficha vao para os tokens dela.
  */
 @Component
 class MapaVida {
@@ -35,7 +35,6 @@ class MapaVida {
     private final MapaBase base;
     private final MapaAvisos avisos;
     private final TransactionTemplate tx;
-    private static final String K_IMG = "img";
     private final ObjectMapper om = JsonMapper.builder().build();
 
     MapaVida(MapaRepo mapas, MapaElementoRepo elementos, FichaRepo fichas, MapaBase base, MapaAvisos avisos,
@@ -106,21 +105,27 @@ class MapaVida {
     }
 
     /**
-     * A imagem do token da ficha (ou, sem ela, o icone) mudou: os tokens vinculados passam a usa-la. Ficha sem
-     * nenhuma das duas nao apaga a imagem que o token ja tem. Chamado pelo controller depois de gravar a ficha.
+     * As variacoes de token da ficha (ou o icone) mudaram: os tokens vinculados ficam com a copia nova e com a imagem
+     * da variacao em que estavam (MapaFichas.vesteToken). Chamado pelo controller depois de gravar a ficha.
      */
     void imagemDaFicha(long cid, long fichaId, String conteudo) {
-        String alvo = MapaFichas.imagemDoToken(base.ler(conteudo));
-        if (alvo.isEmpty()) return;
+        ObjectNode c = base.ler(conteudo);
         for (MapaElemento e : elementos.findByCampanhaIdAndTipo(cid, MapaElemento.Tipo.TOKEN)) {
             ObjectNode d = base.ler(e.getDados());
             boolean ligado = d.path(K_VINCULO).asBoolean(false) && d.path(K_FICHA).asLong(-1) == fichaId;
-            if (ligado && !alvo.equals(d.path(K_IMG).asString(""))) {
-                sincronizaDados(cid, e.getId(), e.getMapaId(), x -> {
-                    x.put(K_IMG, alvo);
-                    return true;
-                });
-            }
+            if (ligado && MapaFichas.vesteToken(d, c)) sincronizaDados(cid, e.getId(), e.getMapaId(), x -> MapaFichas.vesteToken(x, c));
+        }
+    }
+
+    /** A ficha passou a ser de outra pessoa: os tokens ligados a ela passam a ser controlados por quem ficou com a ficha. */
+    void donoDaFicha(long cid, long fichaId, long novoDono) {
+        for (MapaElemento e : elementos.findByCampanhaIdAndTipo(cid, MapaElemento.Tipo.TOKEN)) {
+            ObjectNode d = base.ler(e.getDados());
+            if (d.path(K_FICHA).asLong(-1) != fichaId || !d.path(K_VINCULO).asBoolean(false) || e.getDono() == novoDono) continue;
+            sincronizaElemento(cid, e.getId(), e.getMapaId(), x -> {
+                x.setDono(novoDono);
+                return true;
+            });
         }
     }
 
@@ -139,13 +144,20 @@ class MapaVida {
      * de ninguem). {@code muda} devolve falso quando nao havia nada a mudar: ai nada e gravado nem avisado.
      */
     private void sincronizaDados(long cid, long eid, long mid, Predicate<ObjectNode> muda) {
+        sincronizaElemento(cid, eid, mid, x -> {
+            ObjectNode d = base.ler(x.getDados());
+            if (!muda.test(d)) return false;
+            x.setDados(om.writeValueAsString(d));
+            return true;
+        });
+    }
+
+    /** O mesmo, para o que nao e dado (o dono): {@code muda} mexe no elemento e diz se mudou algo. */
+    private void sincronizaElemento(long cid, long eid, long mid, Predicate<MapaElemento> muda) {
         MapaFeito f = base.travado(mid, () -> tx.execute(s -> {
             MapaElemento x = elementos.findById(eid).orElse(null);
             Mapa m = mapas.findById(mid).orElse(null);
-            if (x == null || m == null) return null;
-            ObjectNode d = base.ler(x.getDados());
-            if (!muda.test(d)) return null;
-            x.setDados(om.writeValueAsString(d));
+            if (x == null || m == null || !muda.test(x)) return null;
             elementos.save(x);
             m.setSeq(m.getSeq() + 1);
             mapas.save(m);

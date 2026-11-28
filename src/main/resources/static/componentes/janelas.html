@@ -24,6 +24,23 @@
   <div class="formft"><button type="button" class="btn sec" data-nao>{{ nao }}</button><span class="esp"></span><button type="button" :class="'btn' + (perigo ? ' dang' : '')" data-sim>{{ sim }}</button></div>
 </template>
 
+<!-- tarefa demorada (js/envio.js, tarefaLonga): a barra enquanto trabalha, o resultado no fim -->
+<template id="t-tarefa">
+  <div class="tarefa">
+    <div data-andando>
+      <p class="tarefatx" data-tx aria-live="polite">{{ texto }}</p>
+      <progress class="tarefabar" max="100" :aria-label="titulo" data-bar></progress>
+      <p class="sm muted tarefapct" data-pct></p>
+      <p class="sm muted m0">Espere terminar antes de sair desta tela ou fechar a página.</p>
+    </div>
+    <div data-fim hidden>
+      <p class="tarefafim" data-fimtx></p>
+      <ul class="sm muted tarefaerros" data-erros hidden></ul>
+      <div class="formft"><span class="esp"></span><button type="button" class="btn" data-ok>Ok</button></div>
+    </div>
+  </div>
+</template>
+
 <template id="t-item-elenco">
   <div style="display:flex;gap:1rem;flex-wrap:wrap">
     <img v-if="img" :src="img" :alt="nome ? 'Imagem de ' + nome : ''" data-proj tabindex="0" role="button" :style="'width:min(100%,' + largura + 'rem);align-self:flex-start;border:1px solid var(--line2);border-radius:3px;cursor:zoom-in'">

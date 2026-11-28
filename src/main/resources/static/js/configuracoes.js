@@ -10,7 +10,7 @@ function tituloGrupoAjuste(g){ return g==="campanha"?"Esta "+vmin("campanha"):(g
 function secoesAjustes(){
   var l=[];
   if(GM&&CID)l.push(["campanha",Vm("campanha"),"campanha"],["mesa","Mesa e convites","campanha"],["vocab","Vocabulário","campanha"],
-    ["ref",Vm("referencia"),"campanha"],["busca","Busca","campanha"]);
+    ["busca","Busca","campanha"]);
   l.push(["aparencia","Aparência","voce"],["privacidade","Privacidade e acessibilidade","voce"]);
   if(CID)l.push(["guias","Guias","voce"]);
   l.push(["conta","Conta","voce"],["suporte","Suporte","voce"]);
@@ -82,7 +82,6 @@ function hydrateAjustes(v){
   else if(k==="uso")ajusteUso(alvo);
   else if(k==="mesa")abrirMembros(null,mk);
   else if(k==="vocab")abrirVocabulario(null,mk);
-  else if(k==="ref")abrirReferencia(null,mk);
   else if(k==="busca")ajustesBusca(alvo);
   else if(k==="admin")abrirAdmin(null,mk);
   else if(k==="suporte")abrirSuporte(null,mk);
@@ -203,21 +202,24 @@ function abrirCampanha(back,mk){
   $("#caTema",ov).onchange=function(){ MESA.tema=this.value; salvarMesa(); trocarTema(temaAtivo());
     toast(this.value?"Tema sugerido: "+TEMAS[this.value].nome:"Sem tema sugerido"); };
 
-  var ex=$("#caExp",ov);
-  ex.href="/api/c/"+CID+"/pacote";
-  ex.setAttribute("download","");
+  /* o zip e montado enquanto desce: a tarefa mostra quanto ja veio contra a estimativa do servidor */
+  $("#caExp",ov).onclick=function(){
+    var h=tarefaLonga("Exportando o pacote","Montando o pacote no servidor…");
+    baixarComProgresso("/api/c/"+CID+"/pacote","campanha-"+CID+".zip",h)
+      .then(function(n){ h.fim("Pacote exportado ("+mb(n)+"). O navegador salvou o arquivo nos downloads.","ok"); })
+      .catch(function(e){ h.fim("A exportação falhou: "+mensagemDeErro(e),"erro"); }); };
 
   $("#caImp",ov).onclick=function(){
     escolherArquivos(false,".zip").then(function(fs){
       if(!fs.length)return;
       var fd=new FormData(); fd.append("arquivo",fs[0]);
       fd.append("substituir",$("#caSub",ov).checked?"true":"false");
-      toast("Enviando o pacote…");
-      upload("/api/c/"+CID+"/pacote",fd,null)
-        .then(function(r){ toast(resumoPacote(r));
+      var h=tarefaLonga("Importando o pacote",fs[0].name);
+      upload("/api/c/"+CID+"/pacote",fd,h.envio("Enviando "+fs[0].name,"Pacote enviado. O servidor está desempacotando e lendo os livros…"))
+        .then(function(r){ r=r||{};
           recarregaCatalogo(); recarregaIndice();
-          if(r.guia){ ov.close(); entrarNaCampanha(CID); } })
-        .catch(function(e){ toast(mensagemDeErro(e),"erro"); }); }); };
+          h.fim(resumoPacote(r)+".","ok",null,r.guia?function(){ ov.close(); entrarNaCampanha(CID); }:null); })
+        .catch(function(e){ h.fim("A importação falhou: "+mensagemDeErro(e),"erro"); }); }); };
 
   $("#caDel",ov).onclick=function(){
     confirmar("Guia, mesa, mídia, fichas e anotações somem do servidor. Isso não volta.",
@@ -238,29 +240,6 @@ function abrirVocabulario(back,mk){
     $$("[data-voc]",ov).forEach(function(i){ var t=(i.value||"").trim();
       if(t)v[i.dataset.voc]=t; });
     D.campanha.vocab=v; save(); salvarMesa(); ov.close(); render(); toast("Vocabulário salvo"); };
-}
-
-function abrirReferencia(back,mk){
-  if(!GM){ toast("Só o mestre"); return; }
-  var ref=JSON.parse(JSON.stringify(PUBD().referencia||[]));
-  function corpo(){ return htmlDe("t-referencia-grupos",{grupos:ref}); }
-  var ov=(mk||overlay)(Vm("referencia"),htmlDe("t-referencia",{corpo:corpo()}),{wide:true,back:back});
-  function colher(){
-    $$("[data-rt]",ov).forEach(function(i){ ref[+i.dataset.rt].t=i.value; });
-    $$("[data-ri]",ov).forEach(function(t){
-      ref[+t.dataset.ri].itens=(t.value||"").split("\n")
-        .map(function(x){return x.trim();}).filter(Boolean); });
-  }
-  function ligar(){
-    $("#rfAdd",ov).onclick=function(){ colher(); ref.push({t:"Novo grupo",itens:[]});
-      $("#rfBody",ov).innerHTML=corpo(); ligar(); };
-    $("#rfGo",ov).onclick=function(){ colher();
-      D.campanha.referencia=ref.filter(function(g){return (g.t||"").trim()||(g.itens||[]).length;});
-      save(); salvarMesa(); ov.close(); render(); toast("Consulta rápida salva"); };
-    $$("[data-rdel]",ov).forEach(function(b){ b.onclick=function(){ colher();
-      ref.splice(+b.dataset.rdel,1); $("#rfBody",ov).innerHTML=corpo(); ligar(); }; });
-  }
-  ligar();
 }
 
 /* Segredo ja salvo aparece como bolinhas. O valor de verdade nunca sai do servidor, entao o
@@ -380,7 +359,6 @@ function abrirAdmin(back,mk){
 /* Modelos de campanha na Administração: a lista, enviar pacote, salvar uma campanha como
    modelo, editar e apagar. Cada ação termina repintando a lista. */
 function falhouModelo(e){ toast(mensagemDeErro(e),"erro"); }
-function modeloPronto(m){ toast("Modelo “"+m.nome+"” pronto","ok"); }
 function editarModelo(m,depois){
   formulario("Editar · modelo",[{k:"nome",rot:"Nome",obrig:true},
       {k:"descricao",rot:"Descrição",tipo:"area",dica:"Aparece no cartão do modelo, ao criar uma "+vmin("campanha")+"."}],
@@ -410,18 +388,20 @@ function semCapaModelo(m,depois){
     .then(function(){ toast("Capa tirada","ok"); depois(); }).catch(falhouModelo);
 }
 /* envia os pacotes um depois do outro: cada um vira um modelo, e um que falha nao para os outros */
-function enviarModelos(fs,botao,depois){
-  var prontos=0, falhas=[];
+function enviarModelos(fs,depois){
+  var prontos=0, falhas=[], h=tarefaLonga("Enviando modelos");
   function proximo(i){
     if(i>=fs.length)return Promise.resolve();
-    var fd=new FormData(); fd.append("arquivo",fs[i]);
-    return upload("/api/admin/modelos",fd,function(fr){ botao.textContent="Enviando "+(i+1)+" de "+fs.length+"… "+Math.round(fr*100)+"%"; })
+    var fd=new FormData(), tx=(fs.length>1?"Pacote "+(i+1)+" de "+fs.length+": ":"")+fs[i].name;
+    fd.append("arquivo",fs[i]);
+    return upload("/api/admin/modelos",fd,function(fr){ if(fr>=1)h.passo(tx+" · conferindo no servidor…",null); else h.passo(tx,(i+fr)/fs.length); })
       .then(function(){ prontos++; },function(e){ falhas.push(fs[i].name+": "+mensagemDeErro(e)); })
       .then(function(){ return proximo(i+1); });
   }
   return proximo(0).then(function(){
-    if(prontos)toast(prontos===1?"1 modelo pronto":prontos+" modelos prontos","ok");
-    if(falhas.length)toast("Não entraram: "+falhas.join("; "),"erro");
+    var msg=prontos===1?"1 modelo pronto.":prontos+" modelos prontos.";
+    if(falhas.length)msg=(prontos?msg+" ":"")+"Não entraram:";
+    h.fim(msg,falhas.length?(prontos?"aviso":"erro"):"ok",falhas);
     depois(); });
 }
 function adminModelos(ov){
@@ -444,17 +424,13 @@ function adminModelos(ov){
   var env=$("#adModEnv",ov), sal=$("#adModSal",ov);
   env.onclick=function(){
     escolherArquivos(false,".zip").then(function(fs){
-      if(!fs.length)return null;
-      env.disabled=true;
-      return enviarModelos(fs,env,pinta);
-    }).catch(falhouModelo)
-      .then(function(){ env.disabled=false; env.textContent="Enviar pacotes (.zip)"; }); };
+      return fs.length?enviarModelos(fs,pinta):null;
+    }).catch(falhouModelo); };
   sal.onclick=function(){
-    sal.disabled=true; sal.textContent="Salvando…";
+    var h=tarefaLonga("Salvando como modelo","Empacotando a campanha no servidor…");
     api("/api/admin/modelos/campanha/"+encodeURIComponent($("#adModCa",ov).value),{method:"POST"})
-      .then(function(m){ modeloPronto(m); pinta(); })
-      .catch(falhouModelo)
-      .then(function(){ sal.disabled=false; sal.textContent="Salvar como modelo"; }); };
+      .then(function(m){ h.fim("Modelo “"+(m?.nome||"")+"” pronto. Ele já aparece em Como começar.","ok"); pinta(); })
+      .catch(function(e){ h.fim("Não consegui salvar o modelo: "+mensagemDeErro(e),"erro"); }); };
 }
 
 /* um cartao de tema; as etiquetas dizem de onde cada tema vem: sugerido pelo mestre,

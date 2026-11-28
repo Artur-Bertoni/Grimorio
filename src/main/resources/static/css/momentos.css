@@ -150,43 +150,57 @@ button.inichip:hover{border-color:var(--gold)}
 .fxlava img{width:100%;height:100%;object-fit:cover}
 
 /* topo da ficha aberta: icone, nome e os tokens dela nos mapas */
-.fxtopo{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,24rem);gap:var(--s-4);align-items:start;
+.fxtopo{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,24rem);gap:var(--s-4);align-items:start;
   margin:0 0 var(--s-4);padding:0 0 var(--s-4);border-bottom:1px solid var(--line)}
 .fxava{display:flex;flex-direction:column;align-items:center;gap:var(--s-2)}
 .fxavaimg{width:7rem;height:7rem;border-radius:var(--r-pill);overflow:hidden;display:grid;place-items:center;background:var(--bg3);
   border:1px solid var(--borda-bloco);font-family:var(--disp);font-size:var(--fs-7);color:var(--fg3)}
 .fxavaimg img{width:100%;height:100%;object-fit:cover}
 .fxid{min-width:0;display:flex;flex-direction:column;gap:var(--s-1)}
-.fxid.form{gap:var(--s-3)}
 .fxnome{margin:0;font-family:var(--disp);font-size:var(--fs-6);line-height:var(--lh-titulo);color:var(--fg)}
 .fxtok{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-3);background:var(--bg);border:1px solid var(--line2);border-radius:var(--rc)}
 .fxtok h4{font-family:var(--disp);font-size:var(--fs-4);letter-spacing:var(--tr-caixa);color:var(--gold);padding-bottom:var(--s-2);border-bottom:1px solid var(--line)}
-.fxtokimg{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;padding-bottom:var(--s-2);border-bottom:1px dashed var(--line)}
-.fxtokimg .cresce{flex:1 1 9rem;min-width:0;display:flex;flex-direction:column;line-height:var(--lh-ui)}
+.fxlapis{align-self:start}
+.fxbhd{display:flex;align-items:center;gap:var(--s-2);padding-bottom:var(--s-2);border-bottom:1px solid var(--line)}
+.fxbhd h4{flex:1;border:0;padding:0}
+.fxsub{margin:var(--s-1) 0 0;font-family:var(--ui);font-size:var(--fs-1);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg3)}
+.fxvars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1)}
+.fxvar{display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-m)}
+.fxvar .cresce{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.fxsechd h4{border:0;padding:0}
+.fxbase{margin-top:var(--s-2)}
+/* a lista de fichas: busca, e os personagens antes dos NPCs */
+.fxbusca{max-width:28rem}
+.fxbusca svg{width:1rem;height:1rem;flex:0 0 auto;color:var(--fg3)}
+.fxgrupo+.fxgrupo{margin-top:var(--s-5)}
+.fxgtit{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);font-family:var(--disp);font-size:var(--fs-5);color:var(--fg)}
 .fxtokava{width:2.75rem;height:2.75rem;flex:0 0 auto;border-radius:var(--r-pill);object-fit:cover;background:var(--bg3);border:1px solid var(--line2)}
 .fxtoks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1)}
 .fxtoks li{display:flex;align-items:center;gap:var(--s-2);min-height:var(--ctl-m)}
 .fxtoks .cresce{min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:900px){
-  .fxtopo{grid-template-columns:auto minmax(0,1fr)}
+  .fxtopo{grid-template-columns:auto minmax(0,1fr) auto}
   .fxtok{grid-column:1/-1}
 }
-@media (max-width:600px){ .fxtopo{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:600px){ .fxtopo{grid-template-columns:minmax(0,1fr) auto} .fxava{grid-column:1/-1} }
 
-/* modo edicao: cada valor, rotulo e secao e um campo no lugar */
+/* modo edicao: cada valor, rotulo e secao e um campo no lugar (.nl), no mesmo desenho do modo de jogo.
+   A alca e o menu do campo (tipo, remover) aparecem ao passar o mouse ou com o foco */
 .fxsechd{display:flex;align-items:center;gap:var(--s-1);padding-bottom:var(--s-2);border-bottom:1px solid var(--line)}
-.fxsecnome{font-family:var(--disp);color:var(--gold)}
-.fxeds{display:flex;flex-direction:column;gap:var(--s-2)}
-.fxed{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2);background:var(--bg2);border:1px dashed var(--line2);border-radius:var(--rb)}
-.fxedhd,.fxedbar{display:flex;align-items:center;gap:var(--s-1)}
-.fxedbar .inp{min-width:0}
-.fxsec.ed .fxnums{grid-template-columns:repeat(auto-fill,minmax(8rem,1fr))}
-.fxnum.fxnumed{gap:var(--s-1);padding:var(--s-1);border-style:dashed;cursor:default}
+.fxresto{display:flex;flex-direction:column;gap:var(--s-2)}
+.fxedl{display:flex;align-items:flex-start;gap:var(--s-1)}
+.fxedl>:first-child{flex:1 1 auto;min-width:0}
+.fxedl .fxtxt b{flex:1 1 auto;min-width:0}
+.fxedl .fxck .nl{flex:1 1 auto}
+.fxbar>.fxedv{grid-column:2/-1;display:flex;align-items:baseline;justify-content:center;gap:var(--s-1);min-width:0}
+.fxedac{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;opacity:0;transition:opacity var(--dur-1)}
+.fxedl:hover>.fxedac,.fxedl:focus-within>.fxedac,.fxnumed:hover>.fxedac,.fxnumed:focus-within>.fxedac{opacity:1}
+@media (hover:none){ .fxedac{opacity:1} }
+.fxnum.fxnumed{position:relative;cursor:default}
 .fxnum.fxnumed:hover{transform:none;box-shadow:none;border-color:var(--line2)}
-.fxnumed .inp{width:100%;min-width:0}
-.fxnumed .fxnumv{text-align:center;font-family:var(--disp);font-size:var(--fs-5)}
-.fxnumed .fxrot{text-align:center}
-.fxnumac{display:flex;justify-content:space-between;align-items:center;width:100%}
+.fxnumed>b,.fxnumed>span:not(.fxedac){width:100%;text-align:center}
+.fxnumed .fxedac{position:absolute;inset:1px 1px auto;justify-content:space-between}
+.fxnumed .fxedac :is(.alca,.tbtn.ico){width:var(--s-5);min-width:var(--s-5);min-height:var(--s-5)}
 .fxfim{display:flex;justify-content:space-between;align-items:center;gap:var(--s-3);flex-wrap:wrap}
 
 /* ---- painel de rolagens: solto na tela, abre e fecha, lembra lugar e tamanho ---- */
@@ -278,3 +292,7 @@ body.board .rodape,body:not(.fora) .rodape{display:none}
 .supit header{display:flex;gap:var(--s-2);align-items:baseline;flex-wrap:wrap}
 .supit header b{font-family:var(--disp);color:var(--fg)}
 .supit p{margin:var(--s-1) 0 0;color:var(--fg2);white-space:pre-wrap;font-size:var(--fs-3)}
+
+/* a barra sem medida de tarefaLonga (servidor trabalhando): a faixa corre; parada, continua visivel */
+.tarefabar:indeterminate{animation:tarefacorre 1.4s linear infinite}
+@keyframes tarefacorre{from{background-position:100% 0}to{background-position:-100% 0}}

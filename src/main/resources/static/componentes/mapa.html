@@ -40,3 +40,9 @@
   <div class="mpatalhos"><section v-for="g in grupos" class="mpatgrupo"><h3>{{ g.titulo }}</h3>
     <dl><div v-for="x in g.itens" class="mpatlin"><dt><kbd v-for="k in x.teclas">{{ k }}</kbd></dt><dd>{{ x.faz }}</dd></div></dl></section></div>
 </template>
+
+<!-- A faixa de variacoes de um token (desarmado, armado…), em cima dele quando so ele esta selecionado
+     (js/mapa-formas.js, mpPosicionaVariantes). vars: [{id, nome, img (ja passado por IMG), on}] -->
+<template id="t-mapa-variantes">
+  <div class="mpvars" role="group" :aria-label="'Variações de ' + nome"><button v-for="v in vars" type="button" :class="v.on ? 'mpvar on' : 'mpvar'" :data-mpvar="v.id" :aria-pressed="String(v.on)" :title="v.nome" :aria-label="v.nome"><img :src="v.img" alt="" draggable="false"></button></div>
+</template>

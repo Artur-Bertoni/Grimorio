@@ -1,6 +1,7 @@
 package br.com.grimorio.service;
 
 import br.com.grimorio.model.Mapa;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import tools.jackson.databind.node.ArrayNode;
@@ -49,7 +50,9 @@ final class MapaRegras {
     private static final int MAX_TRAJETO = 60;
     /** Da de baixo para a de cima: e a ordem em que a tela desenha. */
     static final List<String> CAMADAS = List.of("cenario", "objetos", "personagens", "npcs", "decoracao");
-    static final Set<String> FORMAS = Set.of("linha", "circulo", "retangulo", POLIGONO, MARCA);
+    /* desenho livre: o traco a mao, um caminho aberto de pontos (o "traco" e do pincel de nevoa, que tem largura) */
+    private static final String LIVRE = "livre";
+    static final Set<String> FORMAS = Set.of("linha", "circulo", "retangulo", POLIGONO, MARCA, LIVRE);
     /** Nomes de cor, nao cores: a tela traduz cada um para um token do tema (ouro, sangue, texto, ok, aviso). */
     static final Set<String> CORES = Set.of("ouro", "sangue", "neutro", "ok", AVISO);
     /** Nevoa do mapa: nenhuma, so as areas que o mestre revela, ou tambem a visao dos tokens dos jogadores. */
@@ -165,6 +168,7 @@ final class MapaRegras {
         alcance(d, x, K_VISAO_FICHA);
         vinculo(d, x, novo);
         marcadores(d, x);
+        variante(d, x);
         return d;
     }
 
@@ -190,8 +194,25 @@ final class MapaRegras {
         marcas(d, x);
     }
 
-    /** O que o dono do token muda sozinho: a vida atual (ate o maximo) e as marcas. */
+    /**
+     * Troca a variacao do token (desarmado, armado…): so entre as que a ficha deu a ele ({@code vars}, copia que o servidor
+     * grava), e a imagem sai dali, nunca do pedido. Variacao que o token nao tem e ignorada.
+     */
+    static void variante(ObjectNode d, Map<String, Object> x) {
+        if (x == null || !x.containsKey(MapaFichas.K_VARIANTE)) return;
+        String id = String.valueOf(x.get(MapaFichas.K_VARIANTE));
+        for (JsonNode v : d.path(MapaFichas.K_VARS)) {
+            if (id.equals(v.path("id").asString(""))) {
+                d.put(MapaFichas.K_VARIANTE, id);
+                d.put("img", v.path("img").asString(""));
+                return;
+            }
+        }
+    }
+
+    /** O que o dono do token muda sozinho: a vida atual (ate o maximo), as marcas e a variacao. */
     static void vidaEMarcas(ObjectNode d, Map<String, Object> x) {
+        variante(d, x);
         if (x.containsKey(K_VIDA) && d.has(K_VIDA_MAX)) d.put(K_VIDA, Math.round(num(x, K_VIDA, 0, 0, d.path(K_VIDA_MAX).asDouble(0))));
         marcas(d, x);
     }
@@ -278,7 +299,7 @@ final class MapaRegras {
         double w = Math.max(1, m.getLargura());
         double h = Math.max(1, m.getAltura());
         int minimo = switch (forma) { case POLIGONO -> 3; case MARCA, TRACO -> 1; default -> 2; };
-        int maximo = switch (forma) { case POLIGONO, PAREDE, TRACO -> MAX_PONTOS; case MARCA -> 1; default -> 2; };
+        int maximo = switch (forma) { case POLIGONO, PAREDE, TRACO, LIVRE -> MAX_PONTOS; case MARCA -> 1; default -> 2; };
         ArrayNode out = d.arrayNode();
         if (v instanceof Collection<?> c) {
             for (Object o : c) {

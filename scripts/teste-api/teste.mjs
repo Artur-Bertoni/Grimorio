@@ -338,7 +338,11 @@ console.log("\n=== mapa (tabletop) ===");
   const ids = (r.d?.elementos || []).map(e => e.id);
   ok(r.s === 200 && ids.includes(tJog) && ids.includes(tGuarda) && !ids.includes(tOculto), "token oculto nao sai para o jogador", ids);
   const meu = r.d.elementos.find(e => e.id === tJog);
-  ok(meu.meu === true && meu.podeMover === true && !("fichaId" in meu.dados) && !("ordem" in meu), "o jogador ve o proprio token, sem o vinculo com a ficha", meu);
+  /* o dono recebe de que ficha o token e (e por ela que abre a ficha no mapa), mas nao o resto do vinculo */
+  ok(meu.meu === true && meu.podeMover === true && typeof meu.dados.fichaId === "number" && !("vinculo" in meu.dados) && !("ordem" in meu),
+    "o jogador ve o proprio token com o id da ficha, sem o resto do vinculo", meu);
+  const alheio = r.d.elementos.find(e => e.id === tGuarda);
+  ok(!("fichaId" in (alheio?.dados || {})), "token que nao e dele nao diz de que ficha e", alheio?.dados);
   ok(r.d.elementos.find(e => e.id === tGuarda).podeMover === false, "e o do mestre vem marcado como fixo para ele");
   const seq = r.d.seq;
   r = await jogador.get(`/api/c/${cid}/mapas/${mid}?desde=${seq}`);
@@ -799,6 +803,38 @@ console.log("\n=== mapa: organizacao (camadas, desenho, grupo, trava, vida e mar
   ok(r.s === 400, "imagem SVG nao entra pela ficha", r.s);
   ok((await jogador.post(`${F}/${fM2}/imagem`, null, { form: forma("arquivo", PNG, "eu.png", "image/png") })).s === 404, "nem pela ficha de outra pessoa");
 
+  /* variacoes de token: a ficha da duas imagens ao token ligado; a troca no mapa so aceita as que a ficha deu */
+  const jsonVars = b => JSON.stringify({ campos: [], tokens: [{ id: "a", nome: "Desarmado", img: "img/va.png" }, { id: "b", nome: "Armado", img: b }] });
+  await jogador.put(`${F}/${fT}`, { nome: "Com token", json: jsonVars("img/vb.png") });
+  let tv = (await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tM).dados;
+  ok(tv.vars?.length === 2 && tv.variante === "a" && tv.img === "img/va.png", "as variacoes da ficha vao para o token ligado, na padrao", tv);
+  r = await jogador.put(`${M}/${mid}/elementos/${tM}`, { dados: { variante: "b" } });
+  ok(r.s === 200 && r.d.dados.img === "img/vb.png" && r.d.dados.variante === "b", "o dono troca a variacao no mapa e a imagem vem da ficha", r.d?.dados);
+  r = await jogador.put(`${M}/${mid}/elementos/${tM}`, { dados: { variante: "inventada", img: "img/outra.png" } });
+  ok(r.d?.dados?.img === "img/vb.png" && r.d.dados.variante === "b", "variacao que o token nao tem, e imagem mandada pelo navegador, nao entram", r.d?.dados);
+  await jogador.put(`${F}/${fT}`, { nome: "Com token", json: jsonVars("img/vb2.png") });
+  tv = (await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tM).dados;
+  ok(tv.variante === "b" && tv.img === "img/vb2.png", "trocar a imagem de uma variacao na ficha troca a do token que esta nela", tv);
+  r = await mestre.put(`${M}/${mid}/elementos/${tM}`, { dados: { variante: "a" } });
+  ok(r.d?.dados?.img === "img/va.png", "o mestre tambem troca a variacao", r.d?.dados);
+
+  /* o mestre entrega a ficha a uma pessoa da mesa: ela passa a ver a ficha e a controlar os tokens dela */
+  r = await mestre.put(`${F}/${fM2}/dono`, { usuario: jid });
+  ok(r.s === 200 && r.d.jogador === true && r.d.donoId === jid, "o mestre vincula a jogadora a ficha (vira ficha de personagem)", r.d);
+  ok((await jogador.get(F)).d.some(f => f.id === fM2), "a jogadora passa a ver a ficha que recebeu");
+  ok((await jogador.put(`${F}/${fM2}/dono`, { usuario: 0 })).s === 403, "so o mestre troca o dono da ficha");
+  r = await mestre.post(`${F}/${fM2}/tokens`, { mapa: mid });
+  const tD = r.d.id;
+  r = await mestre.put(`${F}/${fM2}/dono`, { usuario: 0 });
+  ok(r.s === 200 && r.d.jogador === false && !(await jogador.get(F)).d.some(f => f.id === fM2), "sem ninguem, a ficha volta ao mestre (ficha de NPC)", r.d);
+  ok((await mestre.get(`${M}/${mid}`)).d.elementos.find(e => e.id === tD).dono !== jid, "o token ligado volta junto com a ficha");
+  ok((await mestre.put(`${F}/${fM2}/dono`, { usuario: 999999 })).s === 400, "nao entrega a ficha a quem nao esta na campanha");
+
+  /* desenho livre: um caminho aberto de pontos */
+  r = await mestre.post(`${M}/${mid}/elementos`, { tipo: "DESENHO", dados: { forma: "livre", pts: [[10, 10], [20, 14], [30, 30], [44, 41]] } });
+  ok(r.s === 200 && r.d.dados.forma === "livre" && r.d.dados.pts.length === 4, "o desenho livre entra com todos os pontos", r.d);
+  ok((await mestre.post(`${M}/${mid}/elementos`, { tipo: "DESENHO", dados: { forma: "livre", pts: [[10, 10]] } })).s === 400, "desenho livre precisa de dois pontos");
+
   await mestre.post(`${M}/${mid}/ativo`, { ativo: false });
   r = await mestre.del(`${M}/${mid}`);
   ok(r.s === 204, "apagar o mapa leva tudo junto", r.s);
@@ -1073,6 +1109,8 @@ console.log("\n=== pacote: exportar e importar ===");
   r = await mestre.get(`/api/c/${cid}/pacote`);
   ok(r.s === 200 && r.bruto.length > 100 && r.bruto.slice(0, 2).toString() === "PK", "exporta zip", { s: r.s, n: r.bruto.length });
   const zip = r.bruto;
+  const estimado = Number(r.h.get("x-tamanho-estimado") || 0);
+  ok(estimado > 0 && Math.abs(estimado - zip.length) < Math.max(zip.length, 70000), "a exportacao manda o tamanho estimado para a barra de progresso", { estimado, real: zip.length });
   const nomes = entradasZip(zip);
   ok(nomes.includes("pdf/LV.pdf") && nomes.includes("audio/clima/chuva-fina.mp3"), "o zip leva o PDF e a faixa", nomes);
   r = await mestre.get(`/api/c/${cid}/pacote?arquivos=false`);

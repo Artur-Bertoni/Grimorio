@@ -112,6 +112,28 @@ public class PacoteService {
         }
     }
 
+    /**
+     * Quanto o pacote deve ter, para a tela mostrar o progresso do download: o zip sai em fluxo,
+     * sem Content-Length. Imagem, PDF e audio quase nao comprimem, entao a soma dos arquivos chega perto.
+     */
+    public long tamanhoEstimado(Long campanhaId, boolean comArquivos) throws IOException {
+        Path raiz = midia.raiz(campanhaId);
+        long t = 64L * 1024 + tamanhoDaPasta(indice.pastaIndice(campanhaId), p -> p.toString().endsWith(".json"));
+        if (!comArquivos) return t;
+        t += tamanhoDaPasta(raiz.resolve("img"), p -> !p.getFileName().toString().endsWith(".parcial"));
+        for (Midia m : arquivosDoCatalogo(campanhaId, raiz)) t += Files.size(raiz.resolve(m.getArquivo()));
+        return t;
+    }
+
+    private static long tamanhoDaPasta(Path dir, java.util.function.Predicate<Path> aceita) throws IOException {
+        if (!Files.isDirectory(dir)) return 0;
+        long t = 0;
+        try (var st = Files.list(dir)) {
+            for (Path p : st.filter(Files::isRegularFile).filter(aceita).toList()) t += Files.size(p);
+        }
+        return t;
+    }
+
     /* PDF e faixa saem pelo catalogo, que sabe nome e categoria; so vai o que esta no disco */
     private List<Midia> arquivosDoCatalogo(Long campanhaId, Path raiz) {
         return catalogo.findByCampanhaId(campanhaId).stream()

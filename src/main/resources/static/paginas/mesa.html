@@ -10,13 +10,15 @@
   <div id="mbody" class="mesabody" v-html="corpo"></div>
 </template>
 
-<!-- resumos: [{i, n, titulo, data, tem, linhas}] na ordem de exibicao; aberto: o indice do que nasce aberto -->
+<!-- resumos: [{i, k, ed, n, titulo, data, texto, tem, linhas, lapis, fim}] na ordem de exibicao; aberto: o indice do que nasce aberto.
+     ed: o resumo esta aberto no lugar (js/nolugar.js): numero, titulo, data e texto viram campos onde estao -->
 <template id="t-mesa-resumos">
   <div v-if="mestre" class="addrow mb-3"><button type="button" class="btn sec" id="mAddRes">+ resumo de {{ vmin('sessao') }}</button></div>
   <div v-if="resumos.length" class="reslist">
-    <details v-for="r in resumos" class="resitem" :data-res="r.i" v-attr:open="aberto === r.i"><summary><span class="rnum">{{ Vm('sessao') }} {{ r.n || '?' }}</span><b>{{ r.titulo || 'Sem título' }}</b><span v-if="r.data" class="rsdata">{{ r.data }}</span></summary>
-      <div class="resbody"><div class="restxt"><span v-if="r.tem" data-solta><span v-for="(l, k) in r.linhas" data-solta><br v-if="k">{{ l }}</span></span><span v-else class="muted">Sem texto.</span></div>
-        <div v-if="mestre" class="resacts"><button type="button" class="tbtn ico" :data-mres="r.i" :title="'Editar o resumo: ' + (r.titulo || 'sem título')" :aria-label="'Editar o resumo: ' + (r.titulo || 'sem título')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button><button type="button" class="tbtn d" :data-mresd="r.i">Remover</button></div></div></details>
+    <details v-for="r in resumos" class="resitem" :data-res="r.i" v-attr:open="aberto === r.i || r.ed" v-attr:data-nlb="r.ed ? r.k : null"><summary><span class="rnum">{{ Vm('sessao') }} <input v-if="r.ed" class="nl curto" data-nl="n" data-nlt="num" v-attr:value="r.n" inputmode="numeric" :aria-label="'Número da ' + vmin('sessao')" autocomplete="off"><span v-else data-solta>{{ r.n || '?' }}</span></span><b><input v-if="r.ed" class="nl" data-nl="titulo" data-nl-foco v-attr:value="r.titulo || ''" placeholder="Título" aria-label="Título" autocomplete="off"><span v-else data-solta>{{ r.titulo || 'Sem título' }}</span></b><span v-if="r.ed" class="rsdata"><input class="nl curto" data-nl="data" v-attr:value="r.data || ''" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" aria-label="Data, dd/mm/aaaa" autocomplete="off"></span><span v-else-if="r.data" class="rsdata">{{ r.data }}</span></summary>
+      <div class="resbody"><div class="restxt"><textarea v-if="r.ed" class="nl" data-nl="texto" rows="2" placeholder="O que aconteceu" aria-label="O que aconteceu">{{ r.texto || '' }}</textarea><span v-else-if="r.tem" data-solta><span v-for="(l, k) in r.linhas" data-solta><br v-if="k">{{ l }}</span></span><span v-else class="muted">Sem texto.</span></div>
+        <span v-if="r.ed" data-solta v-html="r.fim"></span>
+        <div v-else-if="mestre" class="resacts"><span data-solta v-html="r.lapis"></span><button type="button" class="tbtn d" :data-mresd="r.i">Remover</button></div></div></details>
   </div>
   <p v-else class="empty">Nenhum resumo publicado ainda.</p>
 </template>
@@ -41,10 +43,18 @@
   <p v-else class="empty">Nenhum lugar registrado ainda.</p>
 </template>
 
+<!-- grupos: [{t, itens}]; ed: o mestre esta editando no lugar (js/nolugar.js), e os grupos sao os do guia;
+     lapis e fim: o lapis e o rodape, ja preenchidos -->
 <template id="t-mesa-regras">
-  <p v-if="!grupos.length" class="empty">Nada aqui ainda.<span v-if="mestre" data-solta> Use <b>{{ Vm('referencia') }}</b> em Configurações para escrever o resumo de regras da sua {{ vmin('mesa') }}.</span></p>
-  <span v-else data-solta><p class="lead">Resumo das mecânicas para não travar a {{ vmin('mesa') }}. Em caso de dúvida, o livro manda.<span v-if="mestre" data-solta> <button type="button" class="tbtn ico" id="refEd" :title="'Editar ' + vmin('referencia')" :aria-label="'Editar ' + vmin('referencia')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.6a1.6 1.6 0 0 1 2.3 0l.1.1a1.6 1.6 0 0 1 0 2.3L5.8 12.6 2.6 13.4l.8-3.2Z"/><path d="M9.7 3.9l2.4 2.4"/></svg></button></span></p>
-    <div class="reggrid"><section v-for="g in grupos" class="regblk"><h2 class="regtit">{{ g.t }}</h2><ul class="fl"><li v-for="x in (g.itens || [])">{{ x }}</li></ul></section></div></span>
+  <div v-attr:data-nlb="ed ? 'ref' : null">
+  <p v-if="grupos.length || mestre" class="lead">Resumo das mecânicas para não travar a {{ vmin('mesa') }}. Em caso de dúvida, o livro manda.<span v-if="mestre" data-solta> <span data-solta v-html="lapis"></span></span></p>
+  <p v-if="!grupos.length && !ed" class="empty">Nada aqui ainda.<span v-if="mestre" data-solta> Use o lápis para escrever o resumo de regras da sua {{ vmin('mesa') }}.</span></p>
+  <div v-if="ed" class="reggrid"><section v-for="(g, i) in grupos" class="regblk nlit"><h2 class="regtit"><input class="nl" :data-nl="'referencia.' + i + '.t'" v-attr:value="g.t || ''" placeholder="Título do grupo" :aria-label="'Título do grupo ' + (i + 1)" autocomplete="off"></h2>
+      <ul class="fl"><li v-for="(x, j) in g.itens"><span class="nlrow"><textarea class="nl" :data-nl="'referencia.' + i + '.itens.' + j" data-nl-li rows="1" :aria-label="'Item ' + (j + 1)">{{ x }}</textarea><button type="button" class="nlx" :data-nl-del="'referencia.' + i + '.itens.' + j" :aria-label="'Tirar o item ' + (j + 1)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></span></li></ul>
+      <button type="button" class="nladd" :data-nl-add="'referencia.' + i + '.itens'">+ item</button>
+      <button type="button" class="nlx" :data-nl-del="'referencia.' + i" data-nl-desfaz :aria-label="'Tirar o grupo ' + (g.t || i + 1)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></section></div>
+  <div v-else-if="grupos.length" class="reggrid"><section v-for="g in grupos" class="regblk"><h2 class="regtit">{{ g.t }}</h2><ul class="fl"><li v-for="x in (g.itens || [])">{{ x }}</li></ul></section></div>
+  <span v-if="ed" data-solta v-html="fim"></span></div>
 </template>
 
 <template id="t-mesa-notas">
@@ -65,14 +75,6 @@
   <article v-for="p in posts" class="post"><header><b>{{ p.autor }}</b><span class="muted sm">{{ p.quando }}</span><button v-if="p.meu" type="button" class="tbtn d" :data-mdel="p.id">Apagar</button></header>
     <p><span v-for="(l, k) in p.linhas" data-solta><br v-if="k">{{ l }}</span></p></article>
   <p v-if="!posts.length" class="empty">Nenhum recado ainda. Começa você.</p>
-</template>
-
-<template id="t-resumo-form">
-  <div class="form"><label>{{ Vm('sessao') }}<input id="rN" type="number" min="1" inputmode="numeric" v-attr:value="n"></label>
-    <label>Título<input id="rT" v-attr:value="titulo"></label>
-    <label>Data<input id="rD" inputmode="numeric" placeholder="dd/mm/aaaa" aria-describedby="rDdica" v-attr:value="data"><span class="dica" id="rDdica">Só os números: 12012026 vira 12/01/2026.</span></label>
-    <label>O que aconteceu<textarea id="rX" rows="10"></textarea></label>
-    <div class="addrow"><button type="button" class="btn" id="rOk">Publicar para a {{ vmin('mesa') }}</button></div></div>
 </template>
 
 <!-- grupos: [{tipo, nome, itens:[{id, nome, on, daSessao}]}] -->

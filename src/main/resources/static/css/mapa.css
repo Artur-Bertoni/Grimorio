@@ -122,3 +122,11 @@ fieldset.mpregmodo{border:0;margin:0;min-width:0;padding:0}
 .mmtx span{font-size:var(--fs-2);color:var(--fg3);line-height:var(--lh-ui)}
 .mmpasso{display:flex;flex-direction:column;gap:var(--s-3)}
 .mmgrande{display:block;width:100%;height:auto;max-height:55vh;object-fit:contain;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
+
+/* a faixa de variacoes do token selecionado: presa ao topo dele, acima do canvas e abaixo das ferramentas */
+.mpvarsbox{position:absolute;z-index:var(--z-elevado);transform:translate(-50%,calc(-100% - var(--s-2)));pointer-events:auto}
+.mpvars{display:flex;gap:var(--s-1);padding:var(--s-1);background:var(--bg2);border:1px solid var(--line2);border-radius:var(--rb);box-shadow:var(--e2)}
+.mpvar{width:2.5rem;height:2.5rem;padding:0;border:2px solid transparent;border-radius:var(--r-pill);overflow:hidden;background:var(--bg3);cursor:pointer}
+.mpvar img{width:100%;height:100%;object-fit:cover;display:block}
+.mpvar:hover{border-color:var(--fg3)}
+.mpvar.on{border-color:var(--gold)}

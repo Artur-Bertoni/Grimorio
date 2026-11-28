@@ -29,7 +29,8 @@
 @keyframes gira{to{rotate:1turn}}
 
 /* ---- tamanhos ---- */
-.btn{min-height:var(--ctl-g);padding:0 var(--s-4);font-size:var(--fs-3);border-radius:var(--rb)}
+/* primario preenchido (a cor vem aqui junto do tamanho): ganha a comparacao com qualquer vizinho. Um por regiao da tela. */
+.btn{min-height:var(--ctl-g);padding:0 var(--s-4);font-size:var(--fs-3);border-radius:var(--rb);border:1px solid var(--gold);color:var(--sobre-gold);background:var(--gold)}
 .btn.m{min-height:var(--ctl-m);padding:0 var(--s-3)}
 .ibtn,.x,.cvtools button{min-height:var(--ctl-m);min-width:var(--ctl-m);padding:0 var(--s-2);font-size:var(--fs-3);border-radius:var(--rb)}
 .edb,.tbtn,.addbtn,.backb,.delx,.selmini{position:relative;min-height:var(--ctl-p);padding:0 var(--s-2);font-size:var(--fs-2);border-radius:var(--r-xs)}
@@ -44,8 +45,6 @@
 .btn.ico svg,.ibtn svg{width:1rem;height:1rem;flex:0 0 auto}
 
 /* ---- variantes ---- */
-/* primario preenchido: ganha a comparacao com qualquer vizinho. Um por regiao da tela. */
-.btn{border:1px solid var(--gold);color:var(--sobre-gold);background:var(--gold)}
 .btn:not(.sec):not(.fant):not(.dang){box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 25%,transparent)}
 .btn:not(.sec):not(.fant):not(.dang):hover{box-shadow:var(--brilho)}
 .btn:hover{background:var(--gold2);border-color:var(--gold2);color:var(--sobre-gold);transform:translateY(-1px);
@@ -115,45 +114,170 @@ summary.sm{line-height:var(--ctl-p)}
 /* filtro ligado tambem ganha o visto, para nao depender so da cor */
 .fchip[aria-pressed="true"]::before{content:"✓ "}
 
-/* ---- campos ---- */
-.inp,.form input,.form textarea,.form select,.sfield{background:var(--bg);color:var(--fg);border:1px solid var(--campo-borda);
-  border-radius:var(--r);font-family:var(--body);font-size:var(--fs-4);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;
+/* ---- campos ----
+   Um tamanho so (32px, letra de 14px) em janela, pagina de Configuracoes e ficha: o campo e do tamanho do que guarda,
+   e nao a maior coisa da tela. A caixa de marcar e o interruptor ficam fora deste seletor (tem o desenho proprio). */
+.inp,.form :is(input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,select),.sfield{background:var(--bg);color:var(--fg);border:1px solid var(--campo-borda);
+  border-radius:var(--r);font-family:var(--body);font-size:var(--fs-3);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;
   transition:border-color var(--dur-2),box-shadow var(--dur-2),background-color var(--dur-2)}
-.inp,.form input,.form textarea,.form select{padding:var(--s-2) var(--s-3);min-height:var(--ctl-g)}
+.inp,.form :is(input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,select){padding:var(--s-1) var(--s-3);min-height:var(--ctl-m);width:100%}
 .inp{flex:1;min-width:7.5rem}
-/* campo medio (32px): o que mora dentro de um bloco cheio de outros, como a ficha em edicao */
-.inp.m{min-height:var(--ctl-m);padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
-textarea.inp{resize:vertical;line-height:var(--lh-texto)}
-.form textarea{resize:vertical;line-height:var(--lh-texto)}
+/* campo medio: o que mora dentro de um bloco cheio de outros, como a ficha em edicao */
+.inp.m{padding:var(--s-1) var(--s-2)}
+textarea.inp,.form textarea{resize:vertical;line-height:var(--lh-texto);padding-top:var(--s-2);padding-bottom:var(--s-2)}
 .inp::placeholder,.form input::placeholder,.form textarea::placeholder,.sfield input::placeholder{color:var(--fg3);opacity:1}
-.inp:hover,.form input:hover,.form textarea:hover,.form select:hover,.sfield:hover{border-color:var(--fg3)}
-.inp:focus,.form input:focus,.form textarea:focus,.form select:focus,.sfield:focus-within{outline:none;border-color:var(--gold);
+.inp:hover,.form :is(input,textarea,select):hover,.sfield:hover{border-color:var(--fg3)}
+.inp:focus,.form :is(input,textarea,select):focus,.sfield:focus-within{outline:none;border-color:var(--gold);
   box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 22%,transparent)}
 .inp[aria-invalid="true"],.form [aria-invalid="true"]{border-color:var(--blood2);box-shadow:0 0 0 1px var(--blood2)}
 .inp[readonly],.form input[readonly]{background:var(--bg2);color:var(--fg2)}
-.sfield{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3)}
-.sfield input{flex:1;background:none;border:none;outline:none;font-size:var(--fs-4);min-width:0;color:inherit}
+/* numero sem as setinhas do navegador: o teclado (setas) continua subindo e descendo */
+input[type=number]{appearance:textfield;-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.sfield{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-1) var(--s-3);min-height:var(--ctl-m)}
+.sfield input{flex:1;background:none;border:none;outline:none;font-size:var(--fs-3);min-width:0;color:inherit}
 .sfield input:focus{box-shadow:none}
+/* ---- edicao no lugar (js/nolugar.js) ----
+   O campo veste a letra, a cor e o tamanho do texto que ele substitui: o bloco nao muda de desenho ao abrir.
+   So um fundo leve (e um traco embaixo) diz que ali se digita; a margem negativa devolve ao texto o recuo
+   que o padding tirou, para nada pular de lugar. */
+.nl{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:inherit;font-style:inherit;
+  display:inline-block;width:calc(100% + var(--s-2));min-width:2ch;max-width:none;margin:0 calc(var(--s-1) * -1);padding:0 var(--s-1);
+  background:color-mix(in srgb,var(--fg) 6%,transparent);border:0;border-radius:var(--r-xs);
+  box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--fg) 18%,transparent);resize:none;overflow:hidden;field-sizing:content;
+  transition:background-color var(--dur-1),box-shadow var(--dur-1)}
+textarea.nl{display:block;line-height:inherit;min-height:0}
+select.nl{width:auto;cursor:pointer}
+.nl:hover{background:color-mix(in srgb,var(--fg) 9%,transparent)}
+.nl:focus{outline:none;background:color-mix(in srgb,var(--fg) 11%,transparent);box-shadow:inset 0 -2px 0 var(--gold)}
+.nl::placeholder{color:var(--fg3);opacity:1;font-style:normal}
+select.nl option{background:var(--bg2);color:var(--fg);text-transform:none}
+/* campo que cabe no texto (a pericia do teste, o "quando tocar") e nao estica ate o fim da linha */
+.nl.curto{width:auto;min-width:6ch}
+/* item de lista aberto: o campo e o X na mesma linha; o X aparece ao passar o mouse ou com o foco */
+.nlrow{display:flex;align-items:flex-start;gap:var(--s-1);min-width:0}
+.nlrow>.nl{flex:1 1 auto;width:auto}
+.nlx{flex:0 0 auto;position:relative;display:inline-grid;place-items:center;width:var(--ctl-p);height:var(--ctl-p);padding:0;border:0;
+  border-radius:var(--r-xs);background:none;color:var(--fg3);cursor:pointer;opacity:0;transition:opacity var(--dur-1),color var(--dur-1)}
+.nlx::after{content:"";position:absolute;inset:-4px}
+.nlx svg{width:.75rem;height:.75rem}
+.nlx:hover,.nlx:focus-visible{color:var(--blood2);background:var(--bg4)}
+:is(.nlrow,.nlit):hover>.nlx,:is(.nlrow,.nlit):focus-within>.nlx,.nlx:focus-visible{opacity:1}
+@media (hover:none){ .nlx{opacity:1} }
+.nladd{border:0;background:none;padding:0;color:var(--fg3);font-family:var(--ui);font-size:var(--fs-1);cursor:pointer;align-self:flex-start}
+.nladd:hover,.nladd:focus-visible{color:var(--gold)}
+/* imagem trocavel: o mesmo quadro da imagem, com "+" quando ainda nao tem */
+.nlimg{position:relative;display:inline-grid;place-items:center;padding:0;border:1px dashed var(--line2);border-radius:var(--r-xs);background:var(--bg3);
+  color:var(--fg3);font-size:var(--fs-5);cursor:pointer;overflow:hidden;flex:0 0 auto}
+.nlimg img{width:100%;height:100%;object-fit:cover;display:block}
+.nlimg:hover,.nlimg:focus-visible{border-color:var(--gold);color:var(--gold)}
+.nlfim{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;margin-top:var(--s-2);padding-top:var(--s-2);border-top:1px dashed var(--line)}
+/* item que e um cartao (o de uma secao, o livro do indice, o grupo da consulta, a pessoa, o teste): o X no canto */
+.nlit{position:relative}
+:is(.met .c,.idx .doc,.regblk,.dlg).nlit>.nlx{position:absolute;top:var(--s-1);right:var(--s-1)}
+:is(.met .c,.idx .doc,.regblk,.dlg).nlit{padding-right:var(--s-7)}
+.nlrow>select.nl{flex:0 0 auto}
+.dlg.nlit>b .nl{width:auto}
+.nlfala{font-style:italic}
+select.nl.mini{border:1px solid var(--cor,var(--line));border-radius:var(--r-pill);padding:0 var(--s-1);margin:0}
+.quem.nlit{display:flex;gap:var(--s-2);align-items:flex-start}
+.quem.nlit>.itbody{flex:1 1 auto;min-width:0}
+.teste.nlit>.nlx{align-self:start}
+.tplay.nlit{cursor:default}
+.nlava{width:3.25rem;height:3.25rem}
+.nlthumb{width:4.5rem;height:4.5rem}
+.nlthumb>img{width:100%;height:100%;object-fit:cover;border:1px solid var(--line2);border-radius:var(--r-xs);display:block}
+.nlit.nlthumb>.nlx{position:absolute;top:2px;right:2px;background:var(--bg2)}
+.nlpg{cursor:auto;border-bottom:0;display:inline-flex;align-items:baseline;gap:1px;flex:0 0 auto}
+.nlpg::after{display:none}
+.nlpg .nl{min-width:3ch}
+.nlsigla{font-family:var(--ui);font-size:var(--fs-2);color:var(--fg3)}
+button.nlalt{cursor:pointer;background:none}
+button.nlalt:not(.f){border-style:dashed}
+.scnfim{padding:0 var(--s-4)}
+.scnfim>.nlfim{margin:0;padding:var(--s-2) 0;border-top:0;border-bottom:1px dashed var(--line)}
+.cmhd>.nlfim{flex-basis:100%;margin:0;padding-top:var(--s-1);border-top:0}
+.edb.ico[aria-pressed="true"]{background:var(--bg4);color:var(--fg);border-color:var(--fg3)}
 
-/* rotulo de campo: curto, em caixa alta, com contraste de texto */
+/* ---- interruptor e caixa de marcar ----
+   Liga/desliga e interruptor (role=switch); a caixa fica para marcar varios itens de uma lista. Os dois com o desenho
+   do site, nao o do navegador. Ligado nao e dourado (o dourado e do primario): o trilho clareia e a bolinha anda. */
+input[type=checkbox][role=switch]{appearance:none;-webkit-appearance:none;position:relative;flex:0 0 auto;width:2.25rem;height:1.25rem;
+  margin:0;padding:0;border:1px solid var(--campo-borda);border-radius:var(--r-pill);background:var(--bg3);cursor:pointer;
+  transition:background-color var(--dur-2) var(--ease),border-color var(--dur-2)}
+input[type=checkbox][role=switch]::before{content:"";position:absolute;top:50%;left:.1875rem;width:.75rem;height:.75rem;border-radius:50%;
+  background:var(--fg3);translate:0 -50%;transition:translate var(--dur-2) var(--ease),background-color var(--dur-2)}
+input[type=checkbox][role=switch]:checked{background:var(--fg2);border-color:var(--fg2)}
+input[type=checkbox][role=switch]:checked::before{translate:1rem -50%;background:var(--bg)}
+input[type=checkbox]:not([role=switch]){appearance:none;-webkit-appearance:none;position:relative;flex:0 0 auto;display:inline-grid;place-items:center;
+  width:1.125rem;height:1.125rem;margin:0;padding:0;border:1px solid var(--campo-borda);border-radius:var(--r-xs);background:var(--bg);cursor:pointer;
+  transition:background-color var(--dur-2),border-color var(--dur-2)}
+input[type=checkbox]:not([role=switch])::before{content:"";width:.3rem;height:.6rem;border:solid var(--bg);border-width:0 2px 2px 0;
+  rotate:45deg;translate:0 -1px;opacity:0}
+input[type=checkbox]:not([role=switch]):checked{background:var(--fg2);border-color:var(--fg2)}
+input[type=checkbox]:not([role=switch]):checked::before{opacity:1}
+input[type=checkbox]:hover{border-color:var(--fg3)}
+input[type=checkbox]:focus-visible{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 22%,transparent)}
+input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
+/* o rotulo do interruptor e texto corrido (nao rotulo em caixa alta); a explicacao, quando ha, vai embaixo dele */
+label.sw,.form label.sw{display:inline-flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-2);cursor:pointer;
+  font-family:var(--body);font-size:var(--fs-3);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;color:var(--fg);min-height:var(--ctl-m)}
+label.sw>.dica{flex-basis:100%;padding-left:calc(2.25rem + var(--s-2))}
+
+/* ---- formulario ---- */
 .form{display:flex;flex-direction:column;gap:var(--s-4)}
-.form label,.rotulo{display:flex;flex-direction:column;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-2);font-weight:var(--fw-enfase);
+.form label,.rotulo{display:flex;flex-direction:column;gap:var(--s-1);font-family:var(--ui);font-size:var(--fs-1);font-weight:var(--fw-enfase);
   letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2)}
 .form label>input,.form label>textarea,.form label>select{margin-top:2px}
-.frot,.form legend{font-family:var(--ui);font-size:var(--fs-2);font-weight:var(--fw-enfase);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
+.frotx,.form legend{font-family:var(--ui);font-size:var(--fs-1);font-weight:var(--fw-enfase);letter-spacing:var(--tr-caixa);text-transform:uppercase;color:var(--fg2);padding:0}
 .form fieldset{border:0;margin:0;padding:0;min-width:0}
-/* campos curtos lado a lado (formulario(): "linha" igual em campos seguidos) */
-.form .fgrade{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:var(--s-4)}
-.form .dica,.dica{font-family:var(--body);font-size:var(--fs-3);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
+.form .dica,.dica{font-family:var(--body);font-size:var(--fs-2);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;color:var(--fg3);line-height:var(--lh-ui)}
 .dica.erro{color:var(--blood2);font-weight:var(--fw-enfase)}
 .dica.erro::before{content:"! ";font-weight:var(--fw-titulo)}
 /* obrigatorio aparece no rotulo, antes de salvar, e nao so no aviso depois */
 .obrig{color:var(--blood2);margin-left:.25em;letter-spacing:0}
-.form label.ck{flex-direction:row;align-items:center;gap:var(--s-2);font-family:var(--body);font-size:var(--fs-4);font-weight:var(--fw-texto);
-  letter-spacing:0;text-transform:none;color:var(--fg2);min-height:var(--ctl-m)}
-.form label.ck input{width:1.125rem;height:1.125rem;min-height:0;accent-color:var(--gold);padding:0;flex:0 0 auto;margin:0}
-.form label.ck input:focus{box-shadow:none}
 .form select{appearance:auto}
+/* formulario(): grade de 12 colunas; cada campo ocupa o que o valor dele precisa (fc-p um quarto, fc-m metade,
+   fc-mg tres quartos, fc-g a linha toda). No celular, curto vira metade e o resto a linha toda. */
+.fgrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--s-3) var(--s-4);align-items:start}
+.fc{grid-column:span 6;display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.fc-p{grid-column:span 3}
+.fc-mg{grid-column:span 9}
+.fc-g{grid-column:1/-1}
+/* o interruptor nao tem rotulo em cima: desce para a linha dos campos ao lado */
+.fc.fsw{align-self:end}
+/* campo escondido pelo JS (o provedor de e-mail que nao e o escolhido) some de verdade: .fc e flex */
+.fc[hidden],.fgrid[hidden]{display:none}
+/* grade dentro de grade (um grupo de campos que aparece e some junto) nao soma folga */
+.fgrid.fc:not([hidden]){display:grid;gap:var(--s-3) var(--s-4)}
+.swlinha{display:flex;align-items:center;gap:var(--s-1);min-height:var(--ctl-m)}
+.frot{display:flex;align-items:center;gap:var(--s-1);min-height:1rem}
+.form .frot label{display:inline;font-size:var(--fs-1)}
+.fsec{grid-column:1/-1;margin:var(--s-2) 0 0;padding-bottom:var(--s-1);border-bottom:1px solid var(--line);
+  font-family:var(--ui);font-size:var(--fs-3);font-weight:var(--fw-titulo);letter-spacing:0;text-transform:none;color:var(--fg)}
+.fgrid>.fsec:first-child{margin-top:0}
+.favanc{border-top:1px solid var(--line);padding-top:var(--s-2)}
+.favanc>summary{cursor:pointer;width:max-content;min-height:var(--ctl-p);display:flex;align-items:center;gap:var(--s-1);
+  font-family:var(--ui);font-size:var(--fs-2);font-weight:var(--fw-enfase);color:var(--fg2);list-style:none}
+.favanc>summary::-webkit-details-marker{display:none}
+.favanc>summary::before{content:"›";display:inline-block;transition:rotate var(--dur-2) var(--ease)}
+.favanc[open]>summary::before{rotate:90deg}
+.favanc>summary:hover{color:var(--fg)}
+.favanc>.fgrid{margin-top:var(--s-3)}
+/* a dica do campo mora num (i) ao lado do rotulo e abre ao passar o mouse ou com o foco (no toque, o toque da o foco) */
+.dicab{position:relative;display:inline-flex}
+.dicai{position:relative;display:inline-grid;place-items:center;width:1rem;height:1rem;padding:0;border:0;background:none;color:var(--fg3);cursor:help}
+.dicai::after{content:"";position:absolute;inset:-6px}
+.dicai svg{width:.875rem;height:.875rem}
+.dicai:hover,.dicai:focus-visible{color:var(--gold);outline:none}
+.dicatip{display:none;position:absolute;z-index:var(--z-menu);top:calc(100% + var(--s-1));left:calc(-1 * var(--s-2));width:max-content;max-width:min(20rem,70vw);
+  padding:var(--s-2) var(--s-3);background:var(--bg4);color:var(--fg);border:1px solid var(--line2);border-radius:var(--rb);box-shadow:var(--e2);
+  font-family:var(--body);font-size:var(--fs-2);font-weight:var(--fw-texto);letter-spacing:0;text-transform:none;line-height:var(--lh-ui);white-space:normal}
+.dicai:hover+.dicatip,.dicai:focus+.dicatip{display:block}
+@media (max-width:600px){
+  .fc-p{grid-column:span 6}
+  .fc-m,.fc-mg{grid-column:1/-1}
+}
 
 /* ---- avisos (toast): pilha no canto, com tipo, sem caixa alta ---- */
 .toasts{position:fixed;z-index:var(--z-toast);left:50%;translate:-50% 0;bottom:calc(var(--barra-h) + var(--s-5) + env(safe-area-inset-bottom,0px));
@@ -206,7 +330,7 @@ textarea.inp{resize:vertical;line-height:var(--lh-texto)}
 /* ---- toque: nenhum alvo abaixo de 24px de desenho, e area invisivel ate ~44px nos pequenos ---- */
 @media (pointer:coarse){
   :where(button,[role=button],select,summary,input[type=checkbox],input[type=radio]){min-height:1.5rem;min-width:1.5rem}
-  input[type=checkbox],input[type=radio]{width:1.5rem;height:1.5rem}
+  input[type=checkbox]:not([role=switch]),input[type=radio]{width:1.5rem;height:1.5rem}
   .fchip,.chip.btn{min-height:2rem;display:inline-flex;align-items:center}
   .fchip::after,.chip.btn::after{content:"";position:absolute;inset:-6px -2px}
   .ckbox::after{inset:-14px}
@@ -216,7 +340,7 @@ textarea.inp{resize:vertical;line-height:var(--lh-texto)}
 
 /* chip de acao (filtro, rolagem pronta, escolha) e texto: caixa normal. A caixa alta fica no chip
    de estado, que e curto ("encerrada", "você mestra") */
-.fchip{text-transform:none;letter-spacing:0;font-size:var(--fs-2)}
+.chip.fchip,.fchip:not(.chip){text-transform:none;letter-spacing:0;font-size:var(--fs-2)}
 
 /* ---- controles especiais, no mesmo sistema: player, trilha tocando, faixa da cena, liberar, menu ---- */
 .pbtn,.nbb,.tplay,.libdot,.mi{cursor:pointer;transition:background-color var(--dur-2),color var(--dur-2),border-color var(--dur-2),
@@ -235,10 +359,6 @@ textarea.inp{resize:vertical;line-height:var(--lh-texto)}
 /* convite: os campos lado a lado, alinhados pela base, e nao uma coluna encostada a direita */
 .form.cvform{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr));gap:var(--s-3);align-items:end}
 .form.cvform>.btn{justify-self:start}
-/* caixa de marcar: o texto ao lado da caixa e a explicacao embaixo dele, ocupando a linha toda */
-.form label.ck{flex-wrap:wrap;align-items:flex-start;row-gap:var(--s-1)}
-.form label.ck>input{margin-top:.15em}
-.form label.ck>.dica{flex-basis:100%;padding-left:calc(1.125rem + var(--s-2))}
 /* cada grupo de uma secao de Configuracoes respira em relacao ao anterior */
 .ajbody .fld+.fld,.ajbody .fld+.addrow,.ajbody .form+.fld{margin-top:var(--s-6)}
 .ajbody .fld>.linha:last-child,.ajbody .fld>.addrow:last-child{margin-top:var(--s-2)}
@@ -248,12 +368,3 @@ textarea.inp{resize:vertical;line-height:var(--lh-texto)}
 /* o dialogo recebe o foco ao abrir (para o leitor de tela anunciar o titulo); o contorno fica
    para os controles dentro dele, e nao em volta da janela inteira */
 :is([role=dialog],[role=alertdialog],[role=menu]):focus{outline:none}
-
-/* formulario compacto (opcao compacto de formulario()): campos de 32px, espaco menor, colunas de 8rem */
-.form.compacto{gap:var(--s-2)}
-.form.compacto label,.form.compacto legend{font-size:var(--fs-1)}
-.form.compacto input,.form.compacto select{min-height:var(--ctl-m);padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
-.form.compacto textarea{padding:var(--s-1) var(--s-2);font-size:var(--fs-3)}
-.form.compacto .fgrade{grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:var(--s-2)}
-.form.compacto .dica{font-size:var(--fs-1)}
-.form.compacto label.ck{font-size:var(--fs-3)}

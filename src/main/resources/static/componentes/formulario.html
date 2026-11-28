@@ -6,40 +6,55 @@
 </template>
 
 <template id="t-formulario-corpo">
-  <div class="form"><div v-if="intro" class="aviso" v-html="intro"></div><p v-if="temObrig" class="sm muted legobrig"><span class="obrig" aria-hidden="true">*</span> campo obrigatório</p><span data-solta v-html="campos"></span>
-    <div class="formft"><button type="button" class="btn" data-ok>{{ rotSalvar }}</button><button type="button" class="btn sec" data-no>Cancelar</button><span class="esp"></span><button v-if="rotRemover" type="button" class="btn dang" data-del>{{ rotRemover }}</button></div></div>
+  <div class="form"><div v-if="intro" class="aviso" v-html="intro"></div><span data-solta v-html="campos"></span>
+    <div class="formft"><button type="button" class="btn" data-ok>{{ rotSalvar }}</button><button type="button" class="btn sec" data-no>Cancelar</button><button v-if="rotAcao" type="button" class="btn fant" data-acao>{{ rotAcao }}</button><span class="esp"></span><button v-if="rotRemover" type="button" class="btn dang" data-del>{{ rotRemover }}</button></div></div>
   <datalist id="dlFaixas"><option v-for="f in faixas" v-attr:value="f"></option></datalist>
 </template>
 
-<!-- c: a definicao do campo; p: o caminho dele na copia; v: o valor atual; fid: o prefixo de id deste formulario.
+<!-- Os campos numa grade de 12 colunas (cada campo ocupa a largura do que guarda: fc-p, fc-m, fc-mg, fc-g); o que se
+     usa pouco (av: true na definicao) vai para "Avancado", fechado ate a pessoa abrir. normal e av: HTML ja preenchido. -->
+<template id="t-formulario-campos">
+  <div class="fgrid" v-html="normal"></div>
+  <details v-if="av" class="favanc" data-favanc v-attr:open="avAberto ? '' : null"><summary>Avançado</summary><div class="fgrid" v-html="av"></div></details>
+</template>
+
+<!-- titulo de uma parte do formulario ({tipo: "secao", rot}): separa os campos em grupos com nome -->
+<template id="t-campo-secao">
+  <h3 class="fsec">{{ rot }}</h3>
+</template>
+
+<!-- c: a definicao do campo; p: o caminho dele na copia; v: o valor atual; fid: o prefixo de id deste formulario;
+     larg: p (curto), m (metade), mg (tres quartos) ou g (linha toda); dica: o texto do (i), que tambem descreve o campo
+     para o leitor de tela (aria-describedby aponta para ele, mesmo escondido).
      No grupo, linhas traz o HTML dos campos de cada linha, montado pelo JS (o grupo se repete por dentro).
      Cada campo que pode dar erro tem o seu espaco (data-erro), preenchido ao salvar e ligado por aria-describedby. -->
 <template id="t-campo">
-  <label v-if="c.tipo === 'area'"><span class="frotx">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></span><textarea :data-f="p" :rows="c.linhas || 5" v-attr:placeholder="c.ph || null" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">{{ v || '' }}</textarea><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span><span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span></label>
+  <div :class="'fc fc-' + larg + (c.tipo === 'check' ? ' fsw' : '')">
+    <div v-if="c.tipo !== 'check'" class="frot"><label v-if="liga" :for="fid + p">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></label><span v-else class="frotx" :id="fid + p + '-r'">{{ c.rot }}</span><span v-if="dica" class="dicab"><button type="button" class="dicai" :aria-label="'Ajuda: ' + c.rot" :aria-describedby="fid + p + '-d'"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.9"/><circle cx="8" cy="4.9" r=".55" fill="currentColor" stroke="none"/></svg></button><span class="dicatip" role="tooltip" :id="fid + p + '-d'">{{ dica }}</span></span></div>
 
-  <label v-else-if="c.tipo === 'linhas'"><span class="frotx">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></span><textarea :data-f="p" data-t="linhas" :rows="c.linhas || 5" v-attr:placeholder="c.ph || null" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">{{ (Array.isArray(v) ? v : []).join('\n') }}</textarea><span class="dica" :id="fid + p + '-d'">{{ c.dica || 'Um item por linha.' }}</span><span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span></label>
+    <textarea v-if="c.tipo === 'area'" :id="fid + p" :data-f="p" :rows="c.linhas || 4" v-attr:placeholder="c.ph || null" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">{{ v || '' }}</textarea>
 
-  <label v-else-if="c.tipo === 'num'"><span class="frotx">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></span><input :data-f="p" data-t="num" type="number" step="1" inputmode="numeric" v-attr:value="v == null ? '' : String(v)" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'"><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span><span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span></label>
+    <textarea v-else-if="c.tipo === 'linhas'" :id="fid + p" :data-f="p" data-t="linhas" :rows="c.linhas || 4" v-attr:placeholder="c.ph || null" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">{{ (Array.isArray(v) ? v : []).join('\n') }}</textarea>
 
-  <label v-else-if="c.tipo === 'sel'">{{ c.rot }}<select :data-f="p" :aria-describedby="fid + p + '-d'"><option v-for="op in c.ops" v-attr:value="String(op[0])" v-attr:selected="String(op[0]) === String(v == null ? '' : v)">{{ op[1] }}</option></select><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span></label>
+    <input v-else-if="c.tipo === 'num'" :id="fid + p" :data-f="p" data-t="num" type="number" step="any" inputmode="decimal" v-attr:value="v == null ? '' : String(v)" v-attr:placeholder="c.ph || null" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">
 
-  <label v-else-if="c.tipo === 'check'" class="ck"><input type="checkbox" :data-f="p" data-t="check" v-attr:checked="!!v" v-attr:aria-describedby="c.dica ? fid + p + '-d' : null">{{ c.rot }}<span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span></label>
+    <select v-else-if="c.tipo === 'sel'" :id="fid + p" :data-f="p" :aria-describedby="fid + p + '-d'"><option v-for="op in c.ops" v-attr:value="String(op[0])" v-attr:selected="String(op[0]) === String(v == null ? '' : v)">{{ op[1] }}</option></select>
 
-  <label v-else-if="c.tipo === 'faixa'">{{ c.rot }}<input :data-f="p" list="dlFaixas" v-attr:value="v || ''" v-attr:placeholder="c.ph || null" :aria-describedby="fid + p + '-d'"><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span></label>
+    <span v-else-if="c.tipo === 'check'" class="swlinha"><label class="sw"><input type="checkbox" role="switch" :id="fid + p" :data-f="p" data-t="check" v-attr:checked="!!v" v-attr:aria-describedby="dica ? fid + p + '-d' : null"><span>{{ c.rot }}</span></label><span v-if="dica" class="dicab"><button type="button" class="dicai" :aria-label="'Ajuda: ' + c.rot" :aria-describedby="fid + p + '-d'"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.9"/><circle cx="8" cy="4.9" r=".55" fill="currentColor" stroke="none"/></svg></button><span class="dicatip" role="tooltip" :id="fid + p + '-d'">{{ dica }}</span></span></span>
 
-  <label v-else-if="c.tipo === 'senha'"><span class="frotx">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></span><input :data-f="p" type="password" autocomplete="new-password" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'"><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span><span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span></label>
+    <input v-else-if="c.tipo === 'faixa'" :id="fid + p" :data-f="p" list="dlFaixas" v-attr:value="v || ''" v-attr:placeholder="c.ph || null" :aria-describedby="fid + p + '-d'">
 
-  <fieldset v-else-if="c.tipo === 'img'" class="fgrp"><legend>{{ c.rot }}</legend>
-    <div class="pick"><img v-if="v" :src="IMG(v)" :alt="'Atual: ' + c.rot"><span v-else class="semimg">sem imagem</span><button type="button" class="btn sec m" :data-pk="p">{{ v ? 'Trocar' : 'Escolher imagem' }}</button><button v-if="v" type="button" class="tbtn d" :data-pkx="p">Tirar</button></div>
-    <span v-if="c.dica" class="dica">{{ c.dica }}</span></fieldset>
+    <input v-else-if="c.tipo === 'senha'" :id="fid + p" :data-f="p" type="password" autocomplete="new-password" v-attr:aria-required="c.obrig ? 'true' : null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">
 
-  <fieldset v-else-if="c.tipo === 'imgs'" class="fgrp"><legend>{{ c.rot }}</legend>
-    <div class="pick" data-ordena="form" data-eixo="x" :data-p="p"><span v-for="(x, i) in (Array.isArray(v) ? v : [])" class="pkit" :data-item="i" data-alca><img :src="IMG(x)" :alt="c.rot + ' ' + (i + 1)" draggable="false"><span class="addrow pkacoes"><button type="button" class="alca" title="Arraste para mudar a ordem" aria-label="Mover a imagem (arraste, use as setas ou clique para escolher a posição)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn d ico" :data-rmr="p + ':' + i" :title="'Tirar a imagem ' + (i + 1)" :aria-label="'Tirar a imagem ' + (i + 1)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></span></span><button type="button" class="btn sec m" :data-pka="p">+ imagem</button></div>
-    <span v-if="c.dica" class="dica">{{ c.dica }}</span></fieldset>
+    <div v-else-if="c.tipo === 'img'" class="pick" role="group" :aria-labelledby="fid + p + '-r'"><img v-if="v" :src="IMG(v, 'mini')" :alt="'Atual: ' + c.rot"><span v-else class="semimg" aria-hidden="true"></span><button type="button" class="btn sec m" :data-pk="p">{{ v ? 'Trocar' : 'Escolher' }}</button><button v-if="v" type="button" class="tbtn d encerra" :data-pkx="p">Tirar</button></div>
 
-  <fieldset v-else-if="c.tipo === 'grupo'" class="fgrp" data-ordena="form" :data-p="p"><legend>{{ c.rot }}</legend><span v-if="c.dica" class="dica">{{ c.dica }}</span>
-    <div v-for="(l, i) in linhas" class="rowed" :data-item="i"><div class="rowhd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover ' + (c.um || 'item') + ' ' + (i + 1) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><span>{{ c.um || 'item' }} {{ i + 1 }}</span><button type="button" class="tbtn d" :data-rmr="p + ':' + i">Remover</button></div><span data-solta v-html="l"></span></div>
-    <div v-if="!c.fixo" class="addrow"><button type="button" class="addbtn" :data-addr="p">+ {{ c.um || 'item' }}</button></div></fieldset>
+    <div v-else-if="c.tipo === 'imgs'" class="pick" role="group" :aria-labelledby="fid + p + '-r'" data-ordena="form" data-eixo="x" :data-p="p"><span v-for="(x, i) in (Array.isArray(v) ? v : [])" class="pkit" :data-item="i" data-alca><img :src="IMG(x, 'mini')" :alt="c.rot + ' ' + (i + 1)" draggable="false"><span class="addrow pkacoes"><button type="button" class="alca" title="Arraste para mudar a ordem" aria-label="Mover a imagem (arraste, use as setas ou clique para escolher a posição)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><button type="button" class="tbtn d ico" :data-rmr="p + ':' + i" :title="'Tirar a imagem ' + (i + 1)" :aria-label="'Tirar a imagem ' + (i + 1)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></span></span><button type="button" class="addbtn" :data-pka="p">+ Imagem</button></div>
 
-  <label v-else><span class="frotx">{{ c.rot }}<span v-if="c.obrig" class="obrig" aria-hidden="true">*</span></span><input :data-f="p" v-attr:value="v == null ? '' : String(v)" v-attr:placeholder="c.ph || null" v-attr:readonly="!!c.ro" v-attr:tabindex="c.ro ? '-1' : null" v-attr:aria-required="c.obrig ? 'true' : null" v-attr:autocomplete="c.auto || null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'"><span v-if="c.dica" class="dica" :id="fid + p + '-d'">{{ c.dica }}</span><span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span></label>
+    <div v-else-if="c.tipo === 'grupo'" class="fgrp" role="group" :aria-labelledby="fid + p + '-r'" data-ordena="form" :data-p="p">
+      <div v-for="(l, i) in linhas" class="rowed" :data-item="i"><div class="rowhd" data-alca><button type="button" class="alca" title="Arraste para mudar a ordem" :aria-label="'Mover ' + (c.um || 'item') + ' ' + (i + 1) + ' (arraste, use as setas ou clique para escolher a posição)'"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="1.7" rx=".85"/><rect x="2.5" y="7.15" width="11" height="1.7" rx=".85"/><rect x="2.5" y="10.8" width="11" height="1.7" rx=".85"/></svg></button><span>{{ c.um || 'item' }} {{ i + 1 }}</span><button type="button" class="tbtn d ico" :data-rmr="p + ':' + i" :title="'Remover ' + (c.um || 'item') + ' ' + (i + 1)" :aria-label="'Remover ' + (c.um || 'item') + ' ' + (i + 1)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div><div class="fgrid" v-html="l"></div></div>
+      <button v-if="!c.fixo" type="button" class="addbtn" :data-addr="p">+ {{ c.um || 'item' }}</button></div>
+
+    <input v-else :id="fid + p" :data-f="p" v-attr:value="v == null ? '' : String(v)" v-attr:placeholder="c.ph || null" v-attr:readonly="!!c.ro" v-attr:tabindex="c.ro ? '-1' : null" v-attr:aria-required="c.obrig ? 'true' : null" v-attr:autocomplete="c.auto || null" :aria-describedby="fid + p + '-d ' + fid + p + '-e'">
+    <span class="dica erro" :id="fid + p + '-e'" data-erro hidden></span>
+  </div>
 </template>
