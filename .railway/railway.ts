@@ -1,4 +1,4 @@
-import { defineRailway, github, postgres, preserve, project, service, volume } from "railway/iac";
+import { bucket, defineRailway, github, postgres, preserve, project, ref, service, volume } from "railway/iac";
 
 // Aplicado pela CLI, nao pelo push (ver README, "Deploy no Railway"):
 //   railway config plan     mostra o que vai mudar, sem mudar
@@ -31,6 +31,10 @@ export default defineRailway(() => {
     alerts: { usage: { "80": {}, "95": {}, "100": {} } },
   });
 
+  // Bucket S3 do Railway: para onde os arquivos vao, para nao depender do tamanho de um volume.
+  // A regiao nao muda depois de criado (iad = leste dos EUA, perto do us-east4 do resto).
+  const arquivos = bucket("midia", { region: "iad" });
+
   // A api (Spring Boot, pasta api/). O nome "Grimório" e o do servico que ja existia: renomear pela
   // IaC apagaria e recriaria o servico, e o volume junto. Sem dominio publico: so o web fala com ela,
   // pela rede privada (grimorio.railway.internal).
@@ -54,6 +58,11 @@ export default defineRailway(() => {
       PORT: "8080",
       // link de redefinir senha: o endereco publico e o do web
       URL_PUBLICA: `https://${DOMINIO}`,
+      // credenciais do bucket: referencias, o Railway preenche (nenhuma senha no repositorio)
+      S3_ENDPOINT: ref(arquivos, "ENDPOINT"),
+      S3_BUCKET: ref(arquivos, "BUCKET"),
+      S3_KEY: ref(arquivos, "ACCESS_KEY_ID"),
+      S3_SECRET: ref(arquivos, "SECRET_ACCESS_KEY"),
     },
   });
 
@@ -78,6 +87,6 @@ export default defineRailway(() => {
 
   return project("Grimório", {
     environments: ["production"],
-    resources: [banco, midia, api, web],
+    resources: [banco, midia, arquivos, api, web],
   });
 });
